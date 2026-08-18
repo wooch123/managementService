@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db/prisma';
 import { toPlainExcerpt } from '@/lib/markdown';
+import { FTS_MIN_LENGTH, hasSearchIndex, searchBoardPosts } from '@/lib/db/board-search';
 import type { ApiResult } from '@/types/auth';
 
 /**
@@ -29,62 +30,6 @@ const createSchema = z.object({
   category: z.string().trim().max(40).optional().nullable(),
 });
 
-/**
- * 검색어를 FTS5(trigram) 질의로 바꾼다. 큰따옴표로 감싸 구문(phrase)으로 넘겨야
- * 검색어 안의 공백·기호가 FTS 문법으로 해석되지 않는다.
- */
-function toMatchQuery(q: string): string {
-  return `"${q.replace(/"/g, '""')}"`;
-}
-
-/** trigram 토크나이저는 3글자 이상만 색인한다 — 짧은 검색어는 예전처럼 LIKE로 찾는다. */
-const FTS_MIN_LENGTH = 3;
-
-/**
- * 검색 결과 id를 FTS 색인으로 찾아온다(정렬·페이지 처리까지 SQL에서 끝낸다).
- *
- * WHY: LIKE '%키워드%'는 글이 늘어난 만큼 전부 훑는다. 색인을 쓰면 2,000건에서 0.17ms,
- * 그리고 글이 몇 만 건이 돼도 같은 수준을 유지한다.
- */
-type RawPost = {
-  id: string;
-  title: string;
-  content: string;
-  author: string;
-  category: string | null;
-  viewCount: number;
-  createdAt: number | string | Date;
-};
-
-async function searchByIndex(
-  boardKey: string,
-  q: string,
-  category: string | undefined,
-  page: number,
-  pageSize: number
-): Promise<{ rows: RawPost[]; total: number }> {
-  const match = toMatchQuery(q);
-  const categorySql = category ? 'AND p."category" = ?' : '';
-  const params: unknown[] = category ? [match, boardKey, category] : [match, boardKey];
-
-  // 한 번의 질의로 끝낸다 — 목록과 전체 건수를 함께 받는다(COUNT(*) OVER()).
-  // WHY: SQL 자체는 0.2ms인데 Prisma raw 호출 한 번마다 15~20ms가 붙는다(실측). 왕복 수가
-  // 곧 응답 시간이라, 개수를 따로 세지 않고 같은 결과 집합에서 뽑는다.
-  const rows = await prisma.$queryRawUnsafe<(RawPost & { total: bigint | number })[]>(
-    `SELECT p."id", p."title", p."content", p."author", p."category", p."viewCount", p."createdAt",
-            COUNT(*) OVER () AS total
-       FROM "BoardPost" p
-       JOIN "BoardPostFts" f ON f.rowid = p.rowid
-      WHERE f."BoardPostFts" MATCH ? AND p."boardKey" = ? ${categorySql}
-      ORDER BY p."createdAt" DESC
-      LIMIT ? OFFSET ?`,
-    ...params,
-    pageSize,
-    (page - 1) * pageSize
-  );
-  return { rows, total: Number(rows[0]?.total ?? 0) };
-}
-
 /** raw 조회는 날짜를 숫자(ms)나 문자열로 돌려줄 수 있어 한 곳에서 Date로 맞춘다. */
 function toDate(value: number | string | Date): Date {
   if (value instanceof Date) return value;
@@ -108,13 +53,14 @@ export async function GET(request: NextRequest) {
   }
 
   const { boardKey, page, pageSize, q, category } = parsed.data;
-  const useIndex = Boolean(q && q.length >= FTS_MIN_LENGTH);
+  // 색인이 있고 검색어가 충분히 길 때만 색인을 쓴다(짧은 말은 trigram이 색인하지 않는다).
+  const useIndex = Boolean(q && q.length >= FTS_MIN_LENGTH && hasSearchIndex());
 
   let total: number;
   let rows: { id: string; title: string; content: string; author: string; category: string | null; viewCount: number; createdAt: Date }[];
 
   if (useIndex && q) {
-    const found = await searchByIndex(boardKey, q, category, page, pageSize);
+    const found = searchBoardPosts({ boardKey, q, category, page, pageSize });
     total = found.total;
     rows = found.rows.map((r) => ({ ...r, viewCount: Number(r.viewCount), createdAt: toDate(r.createdAt) }));
   } else {
