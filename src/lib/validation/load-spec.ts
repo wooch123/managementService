@@ -21,6 +21,7 @@ export async function loadDraftSpec(): Promise<DraftSpec> {
       order: p.order,
       isVisible: p.isVisible,
       isHome: p.isHome,
+      asideVisible: p.asideVisible,
       layoutCols: p.layoutCols,
       rowHeight: p.rowHeight,
       gap: p.gap,

@@ -33,6 +33,7 @@ export function makePage(overrides: Partial<DraftPage> = {}): DraftPage {
     order: 0,
     isVisible: true,
     isHome: false,
+    asideVisible: true,
     layoutCols: 12,
     rowHeight: 8,
     gap: 16,

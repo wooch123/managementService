@@ -20,6 +20,7 @@ export type DraftPage = {
   order: number;
   isVisible: boolean;
   isHome: boolean;
+  asideVisible: boolean;
   layoutCols: number;
   rowHeight: number;
   gap: number;

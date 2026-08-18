@@ -45,6 +45,8 @@ export const pageSpecSchema = z.object({
   order: z.number().int(),
   isVisible: z.boolean(),
   isHome: z.boolean(),
+  // 이 필드가 없는 과거 리비전도 그대로 파싱되도록 기본값을 둔다(= 패널 표시).
+  asideVisible: z.boolean().default(true),
   layout: z.object({ cols: z.literal(12), rowHeight: z.number().int(), gap: z.number().int() }),
   nodes: z.array(componentNodeSpecSchema),
 });

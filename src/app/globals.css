@@ -127,4 +127,31 @@
   html {
     @apply font-sans;
   }
+
+  /* Tailwind v4부터 버튼의 기본 커서가 pointer가 아니라 default다(preflight 변경). shadcn/ui
+     생성물을 60개 넘게 일일이 고치는 대신(CLAUDE.md §3 "ui/ 직접 수정 최소화"), 클릭 가능한
+     역할을 가진 요소에 한 번에 적용한다. 유틸리티 클래스(cursor-grab 등)는 레이어 우선순위상
+     이 규칙을 항상 이긴다 — 캔버스 드래그 핸들 같은 예외는 그대로 유지된다. */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='menuitem'],
+  [role='menuitemcheckbox'],
+  [role='menuitemradio'],
+  [role='option'],
+  [role='tab'],
+  [role='radio'],
+  [role='switch'],
+  [role='checkbox'],
+  a[href],
+  label[for],
+  summary,
+  select:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [aria-disabled='true'],
+  [data-disabled] {
+    cursor: not-allowed;
+  }
 }

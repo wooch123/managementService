@@ -7,6 +7,7 @@ function node(partial: Partial<PageTreeNode> & Pick<PageTreeNode, 'id' | 'slug' 
     icon: null,
     isVisible: true,
     isHome: false,
+  asideVisible: true,
     rowHeight: 8,
     gap: 16,
     children: [],

@@ -19,6 +19,7 @@ export function buildPublishedPageTree(spec: PublishedSpec, { visibleOnly = fals
         icon: p.icon,
         isVisible: p.isVisible,
         isHome: p.isHome,
+      asideVisible: p.asideVisible,
         rowHeight: p.layout.rowHeight,
         gap: p.layout.gap,
         children: [],

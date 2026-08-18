@@ -28,6 +28,9 @@ model Page {
   order      Int
   isVisible  Boolean         @default(true)
   isHome     Boolean         @default(false)
+  /// 운영 화면(/home)에서 우측 플로팅 패널(region="aside")을 표시할지 — 관리자가 페이지 속성에서 끈다.
+  /// 끄면 패널에 컴포넌트가 있어도 렌더하지 않고 본문이 그 폭까지 넓게 쓴다.
+  asideVisible Boolean       @default(true)
   layoutCols Int             @default(12)
   rowHeight  Int             @default(8)
   gap        Int             @default(16)

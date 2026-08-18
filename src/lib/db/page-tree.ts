@@ -9,6 +9,7 @@ export type PageTreeNode = {
   icon: string | null;
   isVisible: boolean;
   isHome: boolean;
+  asideVisible: boolean;
   rowHeight: number;
   gap: number;
   children: PageTreeNode[];
@@ -27,6 +28,7 @@ export const getPageTree = cache(async (): Promise<PageTreeNode[]> => {
         icon: p.icon,
         isVisible: p.isVisible,
         isHome: p.isHome,
+        asideVisible: p.asideVisible,
         rowHeight: p.rowHeight,
         gap: p.gap,
         children: [],

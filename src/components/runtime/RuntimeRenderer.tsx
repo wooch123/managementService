@@ -25,6 +25,7 @@ export function RuntimeRenderer({
   cols,
   rowHeight,
   gap,
+  asideVisible = true,
 }: {
   /** 본문(main)과 우측 패널(aside) 컴포넌트가 모두 들어온다 — 영역 분리는 이 안에서 한다. */
   nodes: ComponentNodeSpec[];
@@ -32,6 +33,8 @@ export function RuntimeRenderer({
   cols: number;
   rowHeight: number;
   gap: number;
+  /** 페이지 속성 — 관리자가 우측 지표 패널을 끄면 컴포넌트가 있어도 렌더하지 않는다. */
+  asideVisible?: boolean;
 }) {
   // 두 영역을 한 컴포넌트 안에서 렌더해야 입력값 상태(componentValues)를 공유한다 —
   // 우측 패널의 입력이 본문 액션의 값 소스가 되는 구성도 그대로 동작해야 하기 때문이다.
@@ -39,7 +42,7 @@ export function RuntimeRenderer({
   const isAside = (n: ComponentNodeSpec) => n.region === 'aside';
   const mainNodes = nodes.filter((n) => !isAside(n));
   const asideNodes = nodes.filter(isAside);
-  const hasAside = asideRootIds.size > 0;
+  const hasAside = asideVisible && asideRootIds.size > 0;
   const router = useRouter();
   const [componentValues, setComponentValues] = useState<Record<string, unknown>>({});
 

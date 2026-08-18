@@ -20,11 +20,14 @@ export function PreviewRuntime({
   initialNodes,
   rowHeight,
   gap,
+  asideVisible = true,
 }: {
   pageId: string;
   initialNodes: NodeDto[];
   rowHeight: number;
   gap: number;
+  /** 페이지 속성 — 관리자가 우측 지표 패널을 끄면 컴포넌트가 있어도 렌더하지 않는다. */
+  asideVisible?: boolean;
 }) {
   const router = useRouter();
   const [nodes, setNodes] = useState(initialNodes);
@@ -93,7 +96,7 @@ export function PreviewRuntime({
           {renderNodeTree(mainNodes, null, hooks)}
         </div>
       </div>
-      {asideNodes.some((n) => !n.parentNodeId) && (
+      {asideVisible && asideNodes.some((n) => !n.parentNodeId) && (
         <aside className="hidden w-[300px] shrink-0 lg:block">
           <div className="sticky top-0 rounded-xl border bg-card/80 p-3 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-card/60">
             <div

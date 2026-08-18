@@ -28,6 +28,7 @@ export function buildPublishedSpec(draft: DraftSpec, revisionNo: number): Publis
       order: p.order,
       isVisible: p.isVisible,
       isHome: p.isHome,
+      asideVisible: p.asideVisible,
       layout: { cols: 12 as const, rowHeight: p.rowHeight, gap: p.gap },
       nodes: draft.nodes
         .filter((n) => n.pageId === p.id)

@@ -26,6 +26,7 @@ type PageDetail = {
   parentId: string | null;
   isVisible: boolean;
   isHome: boolean;
+  asideVisible: boolean;
   rowHeight: number;
   gap: number;
 };
@@ -45,6 +46,7 @@ function findPage(tree: PageTreeNode[], id: string): PageDetail | null {
         parentId: null,
         isVisible: root.isVisible,
         isHome: root.isHome,
+        asideVisible: root.asideVisible,
         rowHeight: root.rowHeight,
         gap: root.gap,
       };
@@ -59,6 +61,7 @@ function findPage(tree: PageTreeNode[], id: string): PageDetail | null {
           parentId: root.id,
           isVisible: child.isVisible,
           isHome: child.isHome,
+          asideVisible: child.asideVisible,
           rowHeight: child.rowHeight,
           gap: child.gap,
         };
@@ -221,6 +224,18 @@ function PropertiesForm({
           id="page-visible"
           checked={page.isVisible}
           onCheckedChange={(v) => updateField({ isVisible: v })}
+        />
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col">
+          <Label htmlFor="page-aside">우측 지표 패널</Label>
+          <span className="text-xs text-muted-foreground">끄면 운영 화면에서 패널이 사라지고 본문이 넓어집니다</span>
+        </div>
+        <Switch
+          id="page-aside"
+          checked={page.asideVisible}
+          onCheckedChange={(v) => updateField({ asideVisible: v })}
         />
       </div>
 

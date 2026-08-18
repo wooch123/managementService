@@ -648,3 +648,16 @@ SPEC.md 전체 8개 Phase 구현과 실제 운영 배포가 이것으로 종료�
   전체 구조 실측 **1.76**(목표 1.78)
 - **관리자 우측 속성 패널 접기**: 캔버스 툴바에 토글 추가. 접으면 캔버스 폭이 471px → 792px로
   넓어진다(1600px 화면 기준 실측)
+
+
+### P9 후속 7 — 운영 우측 패널 표시 제어 + 클릭 커서 (같은 날)
+
+- **`Page.asideVisible`** 신설(마이그레이션 `add_page_aside_visible`, 기본 true). 관리자 페이지
+  속성 패널의 스위치로 페이지마다 운영 화면 우측 지표 패널을 끌 수 있다 — 끄면 패널에 컴포넌트가
+  남아 있어도 렌더하지 않고 본문이 그 폭까지 넓게 쓴다. 발행 스펙(`pageSpecSchema`)에는 기본값을
+  둬서 이 필드가 없는 과거 리비전도 그대로 파싱된다. 실측: 끄면 미리보기 aside 0개, 켜면 1개
+- **클릭 가능한 요소의 커서**: Tailwind v4부터 버튼 기본 커서가 pointer가 아니다. shadcn 생성물
+  60여 개를 각각 고치는 대신(CLAUDE.md §3) `globals.css`의 `@layer base`에서 역할 기반으로 한 번에
+  지정했다(button/[role=button·menuitem·option·tab·radio·switch·checkbox]/a[href]/label[for]/summary/select).
+  비활성 요소는 `not-allowed`. 유틸리티 클래스가 우선하므로 캔버스 드래그 핸들의 `cursor-grab`,
+  로고의 `cursor-default` 같은 의도적 예외는 그대로 유지된다(실측 확인)

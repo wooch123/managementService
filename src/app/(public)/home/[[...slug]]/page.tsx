@@ -85,6 +85,7 @@ export default async function HomePage({
         <RuntimeRenderer
           nodes={activePage.nodes}
           bindingData={bindingData}
+          asideVisible={activePage.asideVisible}
           cols={activePage.layout.cols}
           rowHeight={activePage.layout.rowHeight}
           gap={activePage.layout.gap}

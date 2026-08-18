@@ -23,7 +23,7 @@ export default async function AdminPagePreview({
           <span className="text-lg font-medium">{page.title}</span>
           <span className="text-xs text-muted-foreground">미리보기 — 편집 UI 없이 렌더링됩니다</span>
         </div>
-        <PreviewRuntime pageId={pageId} initialNodes={nodes} rowHeight={page.rowHeight} gap={page.gap} />
+        <PreviewRuntime pageId={pageId} initialNodes={nodes} rowHeight={page.rowHeight} gap={page.gap} asideVisible={page.asideVisible} />
       </div>
     </div>
   );

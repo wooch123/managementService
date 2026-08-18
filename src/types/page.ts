@@ -20,6 +20,8 @@ export const pageUpdateSchema = z.object({
   parentId: z.string().nullable().optional(),
   isVisible: z.boolean().optional(),
   isHome: z.boolean().optional(),
+  /** 운영 화면에서 우측 지표 패널을 표시할지 */
+  asideVisible: z.boolean().optional(),
   rowHeight: z.number().int().min(1).max(64).optional(),
   gap: z.number().int().min(0).max(64).optional(),
 });
