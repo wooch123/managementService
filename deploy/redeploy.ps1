@@ -26,10 +26,9 @@ function Invoke-Pm2 {
 
 Set-Location $Root
 
-# 현재 서비스 중인 폴더를 ecosystem에서 읽고, 반대편을 이번 빌드 대상으로 삼는다.
-$eco = Get-Content $Ecosystem -Raw | ConvertFrom-Json
-$app = $eco.apps | Where-Object { $_.name -eq 'webapp-v1' }
-$current = if ($app.env.NEXT_DIST_DIR) { $app.env.NEXT_DIST_DIR } else { '.next' }
+# 현재 서비스 중인 폴더를 읽는다. JSON 손질은 Node가 한다 — PowerShell 5.1로 읽고 쓰면
+# UTF-8을 ANSI로 해석해 한글 주석이 깨지고 BOM이 붙는다(실제로 한 번 깨뜨렸다).
+$current = & node scripts/dist-dir.mjs get
 $target  = if ($current -eq '.next-a') { '.next-b' } else { '.next-a' }
 
 Write-Host "현재 서비스 폴더: $current → 이번 빌드: $target"
@@ -42,8 +41,7 @@ Write-Host '빌드 시작(서비스는 계속 동작 중)...'
 if ($LASTEXITCODE -ne 0) { throw "빌드 실패 — 배포를 중단한다(서비스는 $current 그대로 동작 중)." }
 
 # 2) 정의 파일을 새 폴더로 갱신하고 프로세스만 옮긴다
-$app.env | Add-Member -NotePropertyName NEXT_DIST_DIR -NotePropertyValue $target -Force
-($eco | ConvertTo-Json -Depth 10) | Set-Content -Path $Ecosystem -Encoding utf8
+& node scripts/dist-dir.mjs set $target | Out-Null
 Write-Host '프로세스 전환(재시작)...'
 Invoke-Pm2 start $Ecosystem --only webapp-v1 --update-env | Out-Null
 
@@ -59,8 +57,7 @@ for ($i = 0; $i -lt 20; $i++) {
 
 if (-not $ok) {
   Write-Warning "새 빌드가 응답하지 않는다 — $current 로 되돌린다."
-  $app.env.NEXT_DIST_DIR = $current
-  ($eco | ConvertTo-Json -Depth 10) | Set-Content -Path $Ecosystem -Encoding utf8
+  & node scripts/dist-dir.mjs set $current | Out-Null
   Invoke-Pm2 start $Ecosystem --only webapp-v1 --update-env | Out-Null
   throw '배포 실패 — 이전 빌드로 롤백했다.'
 }

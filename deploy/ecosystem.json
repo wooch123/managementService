@@ -1,39 +1,43 @@
-﻿{
-    "//":  "pm2 ?꾨줈?몄뒪 ?뺤쓽 ???먮룞 湲곕룞(deploy/start-hosting.ps1)怨??섎룞 ?ш린?숈씠 媛숈? ?뺤쓽瑜??대떎.",
-    "//1":  "CLI濡?\u0027pm2 start \u003cscript\u003e ... -- start\u0027 ?뺥깭瑜??곕㈃ node濡?pm2瑜?吏곸젒 ?ㅽ뻾????留덉?留??몄옄媛",
-    "//2":  "?ㅽ겕由쏀듃濡??ы빐?앸뤌 next媛 ?몄옄 ?놁씠(=dev 紐⑤뱶) ?⑤뒗 ?ш퀬媛 ?덉뿀??2026-08-18). ?뺤쓽 ?뚯씪濡?怨좎젙?쒕떎.",
-    "apps":  [
-                 {
-                     "name":  "webapp-v1",
-                     "cwd":  "F:/Claude/WebApp_V1",
-                     "script":  "node_modules/next/dist/bin/next",
-                     "args":  [
-                                  "start"
-                              ],
-                     "interpreter":  "node",
-                     "env":  {
-                                 "NODE_ENV":  "production",
-                                 "NEXT_DIST_DIR":  ".next-b"
-                             },
-                     "autorestart":  true,
-                     "max_restarts":  20,
-                     "restart_delay":  3000,
-                     "time":  true
-                 },
-                 {
-                     "name":  "cloudflared-tunnel",
-                     "script":  "C:/Program Files (x86)/cloudflared/cloudflared.exe",
-                     "args":  [
-                                  "tunnel",
-                                  "--config",
-                                  "C:/Users/wooch/.cloudflared/config-dove-web-service.yml",
-                                  "run"
-                              ],
-                     "interpreter":  "none",
-                     "autorestart":  true,
-                     "max_restarts":  20,
-                     "restart_delay":  5000,
-                     "time":  true
-                 }
-             ]
+{
+  "//": "pm2 프로세스 정의 — 자동 기동(deploy/start-hosting.ps1)과 수동 재기동이 같은 정의를 쓴다.",
+  "//1": "CLI로 'pm2 start <script> ... -- start' 형태를 쓰면 node로 pm2를 직접 실행할 때 마지막 인자가",
+  "//2": "스크립트로 재해석돼 next가 인자 없이(=dev 모드) 뜨는 사고가 있었다(2026-08-18). 정의 파일로 고정한다.",
+  "apps": [
+    {
+      "name": "webapp-v1",
+      "cwd": "F:/Claude/WebApp_V1",
+      "script": "node_modules/next/dist/bin/next",
+      "args": [
+        "start"
+      ],
+      "interpreter": "node",
+      "env": {
+        "NODE_ENV": "production",
+        "NEXT_DIST_DIR": ".next-a"
+      },
+      "autorestart": true,
+      "max_restarts": 20,
+      "restart_delay": 3000,
+      "time": true,
+      "exec_mode": "cluster",
+      "instances": 4,
+      "//cluster": "24코어 장비에서 워커 4개로 띄운다. 여러 프로세스가 같은 SQLite 파일을 쓰므로 WAL+busy_timeout을 켜두고, 채팅 전파는 DB 폴링 브리지로 워커 간에 잇는다(2026-08-19).",
+      "//dist": "무중단 배포(deploy/redeploy.ps1)가 이 값을 .next-a/.next-b로 번갈아 바꾼다."
+    },
+    {
+      "name": "cloudflared-tunnel",
+      "script": "C:/Program Files (x86)/cloudflared/cloudflared.exe",
+      "args": [
+        "tunnel",
+        "--config",
+        "C:/Users/wooch/.cloudflared/config-dove-web-service.yml",
+        "run"
+      ],
+      "interpreter": "none",
+      "autorestart": true,
+      "max_restarts": 20,
+      "restart_delay": 5000,
+      "time": true
+    }
+  ]
 }

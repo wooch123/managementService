@@ -8,6 +8,9 @@ export function getAppDb(): Database.Database {
   if (instance) return instance;
   instance = new Database(appDbPath());
   instance.pragma('journal_mode = WAL');
+  // 여러 워커 프로세스가 동시에 쓰면 순간적으로 잠금이 겹친다. 바로 실패시키지 않고 기다린다
+  // (cluster 모드로 띄우면서 필요해졌다 — 단일 프로세스일 때는 없어도 문제가 없었다).
+  instance.pragma('busy_timeout = 5000');
   instance.pragma('foreign_keys = ON');
   return instance;
 }
