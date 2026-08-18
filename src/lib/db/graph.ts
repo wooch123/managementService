@@ -224,7 +224,15 @@ export async function getGraphData() {
     });
   }
 
-  return { nodes, edges };
+  // 페이지별 보기에서 정렬해 둔 좌표(§8.4 "보기 범위" 기억). 전체 구조 보기는 GraphNode를
+  // 그대로 쓰고, 여기 값이 있는 노드만 해당 페이지 보기에서 덮어쓴다.
+  const viewRows = await prisma.graphViewPosition.findMany();
+  const viewPositions: Record<string, Record<string, { x: number; y: number }>> = {};
+  for (const row of viewRows) {
+    (viewPositions[row.viewKey] ??= {})[row.refId] = { x: row.x, y: row.y };
+  }
+
+  return { nodes, edges, viewPositions };
 }
 
 /** Relation 테이블은 FK 무결성이 없다(설계상 fromId/toId가 4종 모델을 느슨하게 참조).
@@ -243,4 +251,21 @@ export async function deletePagesGraphArtifacts(pageIds: string[]): Promise<void
   const components = await prisma.componentNode.findMany({ where: { pageId: { in: pageIds } }, select: { id: true } });
   for (const pageId of pageIds) await deleteGraphArtifactsFor('PAGE', pageId);
   for (const c of components) await deleteGraphArtifactsFor('COMPONENT', c.id);
+}
+
+/** 보기 범위(페이지)별 노드 좌표 저장 — 같은 노드라도 보기마다 다른 위치를 기억한다. */
+export async function saveViewPositions(
+  viewKey: string,
+  items: { refType: RefType; refId: string; x: number; y: number }[]
+): Promise<void> {
+  if (items.length === 0) return;
+  await prisma.$transaction(
+    items.map((item) =>
+      prisma.graphViewPosition.upsert({
+        where: { viewKey_refType_refId: { viewKey, refType: item.refType, refId: item.refId } },
+        create: { viewKey, refType: item.refType, refId: item.refId, x: item.x, y: item.y },
+        update: { x: item.x, y: item.y },
+      })
+    )
+  );
 }

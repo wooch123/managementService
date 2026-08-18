@@ -56,24 +56,31 @@ import { TYPE_LABEL, TYPE_COLOR } from '@/components/graph/types';
 const nodeTypes = { page: PageNode, component: ComponentNode, entity: EntityNode, action: ActionNode };
 const edgeTypes = { relation: RelationEdge };
 
-async function savePositions(nodes: RFNode[]): Promise<void> {
+/** viewKey가 있으면 그 페이지 보기 전용 좌표로, 없으면 전체 구조 보기 좌표로 저장한다. */
+async function savePositions(nodes: RFNode[], viewKey?: string | null): Promise<void> {
   if (nodes.length === 0) return;
   await apiCall('/api/admin/graph/nodes', {
     method: 'PATCH',
     body: JSON.stringify({
       items: nodes.map((n) => ({ refType: n.data.refType, refId: n.data.refId, x: Math.round(n.position.x), y: Math.round(n.position.y) })),
+      ...(viewKey ? { viewKey } : {}),
     }),
   });
 }
 
+type ViewPositions = Record<string, Record<string, { x: number; y: number }>>;
+
 function GraphCanvas({
   initialNodes,
   initialEdges,
+  initialViewPositions,
   initialSelectedNodeId,
   initialSelectedEdgeId,
 }: {
   initialNodes: RFNode[];
   initialEdges: RFEdge[];
+  /** 페이지별 보기에서 기억해 둔 좌표 (viewKey → nodeId → {x,y}) */
+  initialViewPositions: ViewPositions;
   initialSelectedNodeId?: string | null;
   initialSelectedEdgeId?: string | null;
 }) {
@@ -91,6 +98,8 @@ function GraphCanvas({
   const [pendingTrigger, setPendingTrigger] = useState<{ source: RFNode; target: RFNode } | null>(null);
   /** null = 전체 구조 보기, 그 외 = 해당 페이지 범위만 보기 */
   const [activePageId, setActivePageId] = useState<string | null>(null);
+  /** 페이지별 보기에서 기억한 좌표 — 저장된 노드만 그 보기에서 위치를 덮어쓴다(없으면 전체 좌표). */
+  const [viewPositions, setViewPositions] = useState<ViewPositions>(initialViewPositions);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -164,14 +173,20 @@ function GraphCanvas({
     [activePageId, nodes, edges]
   );
 
-  const visibleNodes = useMemo(
-    () =>
-      nodes
-        .filter((n) => visibleTypes.has(n.data.refType))
-        .filter((n) => !pageScopeIds || pageScopeIds.has(n.id))
-        .map((n) => (orphanIds.has(n.id) ? { ...n, style: { ...n.style, outline: '2px solid #ef4444', outlineOffset: 2 } } : n)),
-    [nodes, visibleTypes, orphanIds, pageScopeIds]
-  );
+  const visibleNodes = useMemo(() => {
+    const saved = activePageId ? viewPositions[activePageId] : undefined;
+    return nodes
+      .filter((n) => visibleTypes.has(n.data.refType))
+      .filter((n) => !pageScopeIds || pageScopeIds.has(n.id))
+      .map((n) => {
+        // 이 보기에서 따로 정렬해 둔 위치가 있으면 그 좌표로 그린다(전체 구조 보기는 원본 그대로).
+        const pos = saved?.[n.id];
+        const withPos = pos ? { ...n, position: pos } : n;
+        return orphanIds.has(n.id)
+          ? { ...withPos, style: { ...withPos.style, outline: '2px solid #ef4444', outlineOffset: 2 } }
+          : withPos;
+      });
+  }, [nodes, visibleTypes, orphanIds, pageScopeIds, activePageId, viewPositions]);
   const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((n) => n.id)), [visibleNodes]);
 
   // 보기 범위(전체 ↔ 페이지)를 바꾸면 그 범위가 한눈에 들어오도록 화면을 맞춘다.
@@ -239,9 +254,25 @@ function GraphCanvas({
     ]);
   }
 
-  const onNodeDragStop = useCallback((_event: unknown, _node: RFNode, draggedNodes: RFNode[]) => {
-    void savePositions(draggedNodes.length > 0 ? draggedNodes : [_node]);
-  }, []);
+  const onNodeDragStop = useCallback(
+    (_event: unknown, _node: RFNode, draggedNodes: RFNode[]) => {
+      const moved = draggedNodes.length > 0 ? draggedNodes : [_node];
+      if (activePageId) {
+        // 페이지 보기에서 옮긴 위치는 그 페이지에만 기억한다.
+        setViewPositions((prev) => ({
+          ...prev,
+          [activePageId]: {
+            ...(prev[activePageId] ?? {}),
+            ...Object.fromEntries(moved.map((n) => [n.id, { x: Math.round(n.position.x), y: Math.round(n.position.y) }])),
+          },
+        }));
+      } else {
+        setNodes((nds) => nds.map((n) => moved.find((m) => m.id === n.id) ?? n));
+      }
+      void savePositions(moved, activePageId);
+    },
+    [activePageId, setNodes]
+  );
 
   const onSelectionChange: OnSelectionChangeFunc = useCallback(({ nodes: sel }) => {
     setSelectedIds(new Set(sel.map((n) => n.id)));
@@ -285,14 +316,60 @@ function GraphCanvas({
   }
   /** 자동 배치는 **지금 보이는 범위**만 대상으로 한다 — 페이지를 골라 놓았으면 그 페이지의
    * 노드만 재배치하고 나머지 좌표는 건드리지 않는다(전체 보기에서는 지금까지처럼 전부). */
-  function handleAutoLayout(direction: 'TB' | 'LR', density: LayoutDensity) {
-    const scopeIds = new Set(visibleNodes.map((n) => n.id));
-    const scopedNodes = nodes.filter((n) => scopeIds.has(n.id));
+  /** 같은 규칙을 한 번에 적용한다 — **전체 구조는 전체 노드 기준으로**, 각 페이지는 그 페이지
+   * 범위 기준으로 따로 배치해 각각의 보기에 기억시킨다. */
+  async function autoLayoutAllPages(direction: 'TB' | 'LR', density: LayoutDensity) {
+    // 1) 전체 구조 보기 — 모든 노드를 한 배열로 재배치한다.
+    const allScoped = nodes.filter((n) => visibleTypes.has(n.data.refType));
+    if (allScoped.length > 0) {
+      const allLaidOut = applyTypeBandLayout(allScoped, direction, density);
+      const byId = new Map(allLaidOut.map((n) => [n.id, n]));
+      setNodes(nodes.map((n) => byId.get(n.id) ?? n));
+      await savePositions(allLaidOut);
+    }
+
+    // 2) 페이지별 보기 — 각 페이지 범위만 따로 배치한다.
+    const nextViews: ViewPositions = { ...viewPositions };
+    let touched = 0;
+    for (const page of pageItems) {
+      const scopeIds = collectPageScope(nodes, edges, page.id);
+      const scoped = nodes.filter((n) => scopeIds.has(n.id) && visibleTypes.has(n.data.refType));
+      if (scoped.length === 0) continue;
+      const laidOut = applyTypeBandLayout(scoped, direction, density);
+      nextViews[page.id] = {
+        ...(nextViews[page.id] ?? {}),
+        ...Object.fromEntries(laidOut.map((n) => [n.id, { x: n.position.x, y: n.position.y }])),
+      };
+      await savePositions(laidOut, page.id);
+      touched += 1;
+    }
+    setViewPositions(nextViews);
+    setTimeout(() => void fitView({ padding: 0.15, duration: 400 }), 50);
+    toast.success(`전체 구조와 ${touched}개 페이지에 자동 배치를 일괄 적용했습니다.`);
+  }
+
+  function handleAutoLayout(direction: 'TB' | 'LR', density: LayoutDensity, scope: 'current' | 'all-pages' = 'current') {
+    if (scope === 'all-pages') {
+      void autoLayoutAllPages(direction, density);
+      return;
+    }
+    const scopedNodes = visibleNodes;
     const laidOut = applyTypeBandLayout(scopedNodes, direction, density);
-    const byId = new Map(laidOut.map((n) => [n.id, n]));
-    const next = nodes.map((n) => byId.get(n.id) ?? n);
-    setNodes(next);
-    void savePositions(laidOut);
+
+    if (activePageId) {
+      // 페이지별 배치는 그 페이지 보기에만 기억한다 — 전체 구조 보기와 다른 페이지 배치는 그대로 둔다.
+      setViewPositions((prev) => ({
+        ...prev,
+        [activePageId]: {
+          ...(prev[activePageId] ?? {}),
+          ...Object.fromEntries(laidOut.map((n) => [n.id, { x: n.position.x, y: n.position.y }])),
+        },
+      }));
+    } else {
+      const byId = new Map(laidOut.map((n) => [n.id, n]));
+      setNodes(nodes.map((n) => byId.get(n.id) ?? n));
+    }
+    void savePositions(laidOut, activePageId);
     // 재배치 후에는 화면도 새 배열에 맞춰준다 — 그러지 않으면 노드가 화면 밖으로 나가 "빈 캔버스"처럼 보인다.
     setTimeout(() => void fitView({ padding: 0.15, duration: 400 }), 50);
     if (activePageId) toast.success(`이 페이지 범위의 노드 ${laidOut.length}개만 재배치했습니다.`);
@@ -453,7 +530,7 @@ export function GraphShell({
   initialSelectedNodeId,
   initialSelectedEdgeId,
 }: {
-  initialData: { nodes: (GraphNodeDto & { data: unknown })[]; edges: GraphEdgeDto[] };
+  initialData: { nodes: (GraphNodeDto & { data: unknown })[]; edges: GraphEdgeDto[]; viewPositions?: ViewPositions };
   initialSelectedNodeId?: string | null;
   initialSelectedEdgeId?: string | null;
 }) {
@@ -465,6 +542,7 @@ export function GraphShell({
       <GraphCanvas
         initialNodes={initialNodes}
         initialEdges={initialEdges}
+        initialViewPositions={initialData.viewPositions ?? {}}
         initialSelectedNodeId={initialSelectedNodeId}
         initialSelectedEdgeId={initialSelectedEdgeId}
       />

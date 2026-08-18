@@ -14,6 +14,8 @@ import {
   ExternalLink,
   LayoutGrid,
   PanelRight,
+  PanelRightClose,
+  PanelRightOpen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Toggle } from '@/components/ui/toggle';
@@ -85,11 +87,16 @@ export function Canvas({
   pageId,
   rowHeight = 8,
   gap = 16,
+  propertyPanelOpen = true,
+  onTogglePropertyPanel,
 }: {
   pageId: string;
   /** 페이지 속성(§4.4) — 운영 화면과 같은 값을 써야 캔버스가 실제 결과와 같은 비율로 보인다. */
   rowHeight?: number;
   gap?: number;
+  /** 우측 속성 패널 표시 여부(BuilderShell이 소유) */
+  propertyPanelOpen?: boolean;
+  onTogglePropertyPanel?: () => void;
 }) {
   const nodes = useCanvasStore((s) => s.nodes);
   const selectedId = useCanvasStore((s) => s.selectedId);
@@ -375,6 +382,17 @@ export function Canvas({
             미리보기
           </Link>
         </Button>
+        {onTogglePropertyPanel && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onTogglePropertyPanel}
+            aria-label={propertyPanelOpen ? '속성 패널 숨기기' : '속성 패널 보기'}
+            title={propertyPanelOpen ? '속성 패널 숨기기' : '속성 패널 보기'}
+          >
+            {propertyPanelOpen ? <PanelRightClose className="size-4" /> : <PanelRightOpen className="size-4" />}
+          </Button>
+        )}
       </div>
 
       <div

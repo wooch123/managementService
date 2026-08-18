@@ -60,6 +60,8 @@ export function BuilderShell({
   const [tree, setTree] = useState(initialTree);
   const [selectedPageId, setSelectedPageId] = useState<string | null>(initialSelectedId);
   const [activeComponentKey, setActiveComponentKey] = useState<string | null>(null);
+  /** 우측 속성 패널 접기 — 캔버스를 넓게 쓰고 싶을 때(넓은 페이지 배치 작업 등) 숨긴다. */
+  const [propertyPanelOpen, setPropertyPanelOpen] = useState(true);
   const loadPage = useCanvasStore((s) => s.loadPage);
   const select = useCanvasStore((s) => s.select);
   const canvasSelectedId = useCanvasStore((s) => s.selectedId);
@@ -128,21 +130,31 @@ export function BuilderShell({
         <ResizablePanel minSize={400}>
           {selectedPageId ? (
             // 캔버스가 운영 화면과 같은 비율로 보이도록 페이지의 행 높이/간격을 그대로 넘긴다.
-            <Canvas pageId={selectedPageId} rowHeight={selectedPage?.rowHeight} gap={selectedPage?.gap} />
+            <Canvas
+              pageId={selectedPageId}
+              rowHeight={selectedPage?.rowHeight}
+              gap={selectedPage?.gap}
+              propertyPanelOpen={propertyPanelOpen}
+              onTogglePropertyPanel={() => setPropertyPanelOpen((v) => !v)}
+            />
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
               왼쪽에서 페이지를 선택하세요
             </div>
           )}
         </ResizablePanel>
-        <ResizableHandle />
-        <ResizablePanel defaultSize={320} minSize={280}>
-          {canvasSelectedId ? (
-            <NodePropertyPanel />
-          ) : (
-            <PagePropertiesPanel tree={tree} selectedId={selectedPageId} onChanged={refetchTree} />
-          )}
-        </ResizablePanel>
+        {propertyPanelOpen && (
+          <>
+            <ResizableHandle />
+            <ResizablePanel defaultSize={320} minSize={280}>
+              {canvasSelectedId ? (
+                <NodePropertyPanel />
+              ) : (
+                <PagePropertiesPanel tree={tree} selectedId={selectedPageId} onChanged={refetchTree} />
+              )}
+            </ResizablePanel>
+          </>
+        )}
       </ResizablePanelGroup>
 
       <DragOverlay modifiers={[snapTopLeftToCursor]} dropAnimation={null}>

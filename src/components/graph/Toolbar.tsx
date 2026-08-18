@@ -61,12 +61,13 @@ export function Toolbar({
   onAlign: (dir: 'left' | 'right' | 'top' | 'bottom') => void;
   onDistribute: (dir: 'horizontal' | 'vertical') => void;
   onSnapAll: () => void;
-  onAutoLayout: (direction: 'TB' | 'LR', density: LayoutDensity) => void;
+  onAutoLayout: (direction: 'TB' | 'LR', density: LayoutDensity, scope: 'current' | 'all-pages') => void;
   onOpenSearch: () => void;
 }) {
   const [layoutConfirmOpen, setLayoutConfirmOpen] = useState(false);
   const [layoutDirection, setLayoutDirection] = useState<'TB' | 'LR'>('TB');
   const [layoutDensity, setLayoutDensity] = useState<LayoutDensity>('comfortable');
+  const [layoutScope, setLayoutScope] = useState<'current' | 'all-pages'>('current');
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-b bg-background p-2">
@@ -160,13 +161,23 @@ export function Toolbar({
               전체 배열이 각각 16:9 · 9:16에 가장 가까워지도록 칸 수를 자동으로 정합니다. 밀집 배치는 같은 규칙에서 간격만 좁힙니다.
             </p>
           </div>
+          <div className="space-y-1.5">
+            <span className="text-xs text-muted-foreground">적용 범위</span>
+            <ToggleGroup type="single" value={layoutScope} onValueChange={(v) => v && setLayoutScope(v as 'current' | 'all-pages')} size="sm">
+              <ToggleGroupItem value="current">지금 보이는 범위</ToggleGroupItem>
+              <ToggleGroupItem value="all-pages">모든 페이지 일괄</ToggleGroupItem>
+            </ToggleGroup>
+            <p className="text-xs text-muted-foreground">
+              일괄 적용은 전체 구조를 전체 노드 기준으로 배치하고, 각 페이지는 그 페이지 범위 기준으로 따로 배치해 보기마다 각각 기억시킵니다.
+            </p>
+          </div>
           <AlertDialogFooter>
             <Button variant="outline" onClick={() => setLayoutConfirmOpen(false)}>
               취소
             </Button>
             <Button
               onClick={() => {
-                onAutoLayout(layoutDirection, layoutDensity);
+                onAutoLayout(layoutDirection, layoutDensity, layoutScope);
                 setLayoutConfirmOpen(false);
               }}
             >

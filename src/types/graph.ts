@@ -21,6 +21,8 @@ export const graphNodePositionSchema = z.object({
 
 export const graphNodesSaveSchema = z.object({
   items: z.array(graphNodePositionSchema).min(1),
+  /** 페이지별 보기에서 저장할 때만 그 페이지 id를 넣는다(없으면 전체 구조 보기 좌표를 갱신). */
+  viewKey: z.string().optional(),
 });
 export type GraphNodesSaveInput = z.infer<typeof graphNodesSaveSchema>;
 

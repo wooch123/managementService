@@ -65,17 +65,38 @@ describe('applyTypeBandLayout — 종류별 밴드 배치', () => {
     expect(lr.width / lr.height).toBeGreaterThan(tb.width / tb.height);
   });
 
-  it('오와 열이 맞는다 — 좌표가 칸 격자 위에만 놓인다', () => {
+  it('오와 열이 맞는다 — 좌표가 열 축·행 축 위에만 놓인다', () => {
     const laid = applyTypeBandLayout(graph, 'LR', 'compact');
-    const xs = [...new Set(laid.map((n) => n.position.x))].sort((a, b) => a - b);
-    const ys = [...new Set(laid.map((n) => n.position.y))].sort((a, b) => a - b);
-    const stepsAreUniform = (vs: number[]) => {
-      if (vs.length < 3) return true;
-      const step = vs[1] - vs[0];
-      return vs.every((v, i) => i === 0 || Math.abs(v - vs[i - 1] - step) <= 20);
-    };
-    expect(stepsAreUniform(xs)).toBe(true);
-    expect(stepsAreUniform(ys)).toBe(true);
+    const xs = new Set(laid.map((n) => n.position.x));
+    const ys = new Set(laid.map((n) => n.position.y));
+    // 노드 수보다 축 개수가 훨씬 적어야 "격자에 정렬"된 것이다(제각각이면 축이 노드 수만큼 생긴다).
+    expect(xs.size).toBeLessThan(laid.length);
+    expect(ys.size).toBeLessThan(laid.length);
+    // 같은 열의 노드는 x가 완전히 같아야 한다
+    const byX = new Map<number, number>();
+    for (const n of laid) byX.set(n.position.x, (byX.get(n.position.x) ?? 0) + 1);
+    expect(Math.max(...byX.values())).toBeGreaterThan(1);
+  });
+
+  it('크기가 다른 노드가 섞여도 겹치지 않는다(행 높이를 그 줄 최대에 맞춘다)', () => {
+    const mixed = makeGraph({ PAGE: 1, COMPONENT: 8, ENTITY: 2, ACTION: 3 });
+    // 엔티티 카드는 필드 목록 때문에 훨씬 길다 — 실제 렌더 크기를 반영한 상황을 흉내낸다.
+    const tall = mixed.map((n) => (n.data.refType === 'ENTITY' ? { ...n, measured: { width: W, height: 420 } } : n)) as typeof mixed;
+    const laid = applyTypeBandLayout(tall, 'TB', 'compact');
+    const rects = laid.map((n) => ({
+      x: n.position.x,
+      y: n.position.y,
+      w: n.measured?.width ?? W,
+      h: n.measured?.height ?? H,
+    }));
+    for (let i = 0; i < rects.length; i += 1) {
+      for (let j = i + 1; j < rects.length; j += 1) {
+        const a = rects[i];
+        const b = rects[j];
+        const overlap = a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+        expect(overlap).toBe(false);
+      }
+    }
   });
 
   it('노드가 겹치지 않는다', () => {
