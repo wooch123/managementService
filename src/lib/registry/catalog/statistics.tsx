@@ -22,6 +22,7 @@ import {
   ZAxis,
 } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
+import { categoricalXAxisProps } from '@/lib/chart-axis';
 import { defineComponent } from '@/lib/registry/types';
 import {
   boxStats,
@@ -176,6 +177,11 @@ function StatShell({
 
 const axisProps = { tickLine: false, axisLine: false, tickMargin: 6, fontSize: 11 } as const;
 
+/** 카테고리 축 — 레이블이 빽빽하면 기울여서 하나도 빠짐없이 보이게 한다(src/lib/chart-axis.ts). */
+function catAxis<T, K extends keyof T>(rows: readonly T[], key: K) {
+  return categoricalXAxisProps(rows.map((r) => String(r[key] ?? '')));
+}
+
 // ── 1. 히스토그램 ────────────────────────────────────────────────────────────
 const histogram = defineComponent({
   key: 'stat-histogram',
@@ -196,7 +202,7 @@ const histogram = defineComponent({
       <StatShell title={props.title} isEmpty={bins.length === 0} note={values.length > 0 ? `n=${values.length} · 평균 ${format(mean(values))}` : undefined}>
         <ComposedChart data={bins}>
           <CartesianGrid vertical={false} />
-          <XAxis dataKey="label" {...axisProps} />
+          <XAxis dataKey="label" {...axisProps} {...catAxis(bins, 'label')} />
           <YAxis {...axisProps} allowDecimals={false} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Bar dataKey="count" name="빈도" fill="var(--chart-1)" radius={2} />
@@ -237,7 +243,7 @@ const boxplot = defineComponent({
       <StatShell title={props.title} isEmpty={rows.length === 0}>
         <ComposedChart data={rows}>
           <CartesianGrid vertical={false} />
-          <XAxis dataKey="label" {...axisProps} />
+          <XAxis dataKey="label" {...axisProps} {...catAxis(rows, 'label')} />
           <YAxis domain={['auto', 'auto']} {...axisProps} />
           <ChartTooltip content={<ChartTooltipContent />} />
           {/* 아래쪽 q1까지는 투명 막대로 띄우고, 그 위에 IQR 상자를 그린다 */}
@@ -366,7 +372,7 @@ const paretoChart = defineComponent({
       <StatShell title={props.title} isEmpty={rows.length === 0}>
         <ComposedChart data={rows}>
           <CartesianGrid vertical={false} />
-          <XAxis dataKey="label" {...axisProps} />
+          <XAxis dataKey="label" {...axisProps} {...catAxis(rows, 'label')} />
           <YAxis yAxisId="left" {...axisProps} />
           <YAxis yAxisId="right" orientation="right" domain={[0, 100]} unit="%" {...axisProps} />
           <ChartTooltip content={<ChartTooltipContent />} />
@@ -391,7 +397,7 @@ function ControlChart({ title, values, k, unit }: { title?: string; values: numb
     >
       <ComposedChart data={rows}>
         <CartesianGrid vertical={false} />
-        <XAxis dataKey="label" {...axisProps} />
+        <XAxis dataKey="label" {...axisProps} {...catAxis(rows, 'label')} />
         <YAxis domain={['auto', 'auto']} {...axisProps} />
         <ChartTooltip content={<ChartTooltipContent />} />
         <ReferenceLine y={ucl} stroke="var(--chart-5)" strokeDasharray="4 4" />
@@ -459,7 +465,7 @@ const controlImr = defineComponent({
       >
         <ComposedChart data={rows}>
           <CartesianGrid vertical={false} />
-          <XAxis dataKey="label" {...axisProps} />
+          <XAxis dataKey="label" {...axisProps} {...catAxis(rows, 'label')} />
           <YAxis domain={['auto', 'auto']} {...axisProps} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <ReferenceLine y={limits.ucl} stroke="var(--chart-5)" strokeDasharray="4 4" />
@@ -518,7 +524,7 @@ const capabilityChart = defineComponent({
       <StatShell title={props.title} isEmpty={bins.length === 0} note={note}>
         <ComposedChart data={bins}>
           <CartesianGrid vertical={false} />
-          <XAxis dataKey="center" tickFormatter={(v: number) => format(v)} {...axisProps} />
+          <XAxis dataKey="center" {...axisProps} {...catAxis(bins.map((b) => ({ center: format(b.center) })), 'center')} tickFormatter={(v: number) => format(v)} />
           <YAxis {...axisProps} allowDecimals={false} />
           <ChartTooltip content={<ChartTooltipContent />} />
           {props.lsl != null && <ReferenceLine x={props.lsl} stroke="var(--chart-5)" strokeDasharray="4 4" />}
@@ -550,7 +556,7 @@ const runChart = defineComponent({
       <StatShell title={props.title} isEmpty={rows.length === 0} note={rows.length > 0 ? `중앙값 ${format(median)}` : undefined}>
         <ComposedChart data={rows}>
           <CartesianGrid vertical={false} />
-          <XAxis dataKey="label" {...axisProps} />
+          <XAxis dataKey="label" {...axisProps} {...catAxis(rows, 'label')} />
           <YAxis domain={['auto', 'auto']} {...axisProps} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <ReferenceLine y={median} stroke="var(--chart-3)" strokeDasharray="4 4" />
@@ -582,7 +588,7 @@ const movingAverageChart = defineComponent({
       <StatShell title={props.title} isEmpty={rows.length === 0} note={`이동평균 구간 ${props.window}`}>
         <ComposedChart data={rows}>
           <CartesianGrid vertical={false} />
-          <XAxis dataKey="label" {...axisProps} />
+          <XAxis dataKey="label" {...axisProps} {...catAxis(rows, 'label')} />
           <YAxis domain={['auto', 'auto']} {...axisProps} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Line dataKey="value" name="실측" stroke="var(--chart-2)" strokeWidth={1.5} dot={false} />
@@ -613,7 +619,7 @@ const cdfChart = defineComponent({
       <StatShell title={props.title} isEmpty={rows.length === 0} note={rows.length > 0 ? `중앙값 ${format(quantile(values, 0.5))} · P90 ${format(quantile(values, 0.9))}` : undefined}>
         <ComposedChart data={rows}>
           <CartesianGrid vertical={false} />
-          <XAxis dataKey="value" tickFormatter={(v: number) => format(v)} {...axisProps} />
+          <XAxis dataKey="value" {...axisProps} {...catAxis(rows, 'value')} tickFormatter={(v: number) => format(v)} />
           <YAxis domain={[0, 100]} unit="%" {...axisProps} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Area dataKey="cum" name="누적%" stroke="var(--chart-1)" fill="var(--chart-1)" fillOpacity={0.2} />
@@ -781,7 +787,7 @@ const waterfallChart = defineComponent({
       <StatShell title={props.title} isEmpty={rows.length === 0} note={rows.length > 0 ? `최종 누계 ${format(rows[rows.length - 1].total)}` : undefined}>
         <ComposedChart data={rows}>
           <CartesianGrid vertical={false} />
-          <XAxis dataKey="label" {...axisProps} />
+          <XAxis dataKey="label" {...axisProps} {...catAxis(rows, 'label')} />
           <YAxis domain={['auto', 'auto']} {...axisProps} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Bar dataKey="base" stackId="w" fill="transparent" isAnimationActive={false} />

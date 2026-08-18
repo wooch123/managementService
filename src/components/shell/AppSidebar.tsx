@@ -4,8 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { ChevronRight, ChevronsUpDown, EyeOff, LayoutGrid, LogOut, Moon, Pencil, Sun } from 'lucide-react';
-import { useTheme } from 'next-themes';
+import { ChevronRight, ChevronsUpDown, EyeOff, LayoutGrid, LogOut, Pencil } from 'lucide-react';
 
 import {
   Sidebar,
@@ -30,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { DynamicIcon } from '@/components/shell/DynamicIcon';
+import { ThemePicker } from '@/components/shell/ThemePicker';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -117,6 +117,9 @@ export function AppSidebar({
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
+
+      {/* 테마 버튼은 푸터(사용자 메뉴) 바로 위에 둔다 — 요청 사항. 접힌 사이드바에서는 아이콘만 남는다. */}
+      <ThemePicker />
 
       <SidebarFooter>
         <UserMenu username={username} mode={mode} />
@@ -206,7 +209,6 @@ function PageMenuItem({
 }
 
 function UserMenu({ username, mode }: { username?: string; mode: 'admin' | 'public' }) {
-  const { theme, setTheme } = useTheme();
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
   const displayName = username ?? '방문자';
@@ -237,12 +239,6 @@ function UserMenu({ username, mode }: { username?: string; mode: 'admin' | 'publ
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" side="top" className="w-56">
-            {mode === 'public' && (
-              <DropdownMenuItem onSelect={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
-                {theme === 'dark' ? <Sun /> : <Moon />}
-                {theme === 'dark' ? '라이트 모드' : '다크 모드'}
-              </DropdownMenuItem>
-            )}
             {mode === 'admin' && (
               <DropdownMenuItem
                 variant="destructive"

@@ -127,6 +127,9 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* 메탈릭 계열 테마만 값을 채운다(그 외에는 none) — 스크롤해도 결이 따라 움직이지 않게 고정한다. */
+    background-image: var(--app-sheen, none);
+    background-attachment: fixed;
   }
   html {
     @apply font-sans;

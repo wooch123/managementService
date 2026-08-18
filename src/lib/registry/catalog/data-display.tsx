@@ -40,6 +40,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/
 import { Skeleton } from '@/components/ui/skeleton';
 import { Inbox } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
+import { categoricalXAxisProps } from '@/lib/chart-axis';
 import { defineComponent, type ComponentDef } from '@/lib/registry/types';
 
 const chartConfig = { value: { label: '값', color: 'var(--primary)' } } satisfies ChartConfig;
@@ -299,7 +300,7 @@ export const dataDisplayComponents = [
             <ChartContainer config={chartConfig} className="aspect-auto h-full min-h-0 w-full flex-1">
               <BarChart data={sampleChartData}>
                 <CartesianGrid vertical={false} />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                <XAxis dataKey="label" {...categoricalXAxisProps(sampleChartData.map((d) => d.label))} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Bar dataKey="value" fill="var(--color-value)" radius={4} />
               </BarChart>
@@ -345,14 +346,14 @@ export const dataDisplayComponents = [
             {props.chartType === 'line' ? (
               <LineChart data={series}>
                 <CartesianGrid vertical={false} />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
+                <XAxis dataKey="label" {...categoricalXAxisProps(series.map((s) => s.label))} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Line dataKey="value" stroke="var(--color-value)" strokeWidth={2} dot={false} />
               </LineChart>
             ) : (
               <BarChart data={series}>
                 <CartesianGrid vertical={false} />
-                <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
+                <XAxis dataKey="label" {...categoricalXAxisProps(series.map((s) => s.label))} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Bar dataKey="value" fill="var(--color-value)" radius={4} />
               </BarChart>

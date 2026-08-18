@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/shell/ThemeProvider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { THEME_CSS, THEME_INIT_SCRIPT } from "@/lib/theme/palettes";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,6 +35,12 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable}`}
       suppressHydrationWarning
     >
+      <head>
+        {/* 팔레트 20종의 CSS 변수. globals.css 뒤에 오도록 head에서 직접 넣는다. */}
+        <style dangerouslySetInnerHTML={{ __html: THEME_CSS }} />
+        {/* 첫 페인트 전에 저장된 테마를 붙여 색이 한 번 튀는 것을 막는다. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="antialiased">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <TooltipProvider>
