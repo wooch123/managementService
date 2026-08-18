@@ -46,34 +46,54 @@ const FTS_MIN_LENGTH = 3;
  * WHY: LIKE '%키워드%'는 글이 늘어난 만큼 전부 훑는다. 색인을 쓰면 2,000건에서 0.17ms,
  * 그리고 글이 몇 만 건이 돼도 같은 수준을 유지한다.
  */
+type RawPost = {
+  id: string;
+  title: string;
+  content: string;
+  author: string;
+  category: string | null;
+  viewCount: number;
+  createdAt: number | string | Date;
+};
+
 async function searchByIndex(
   boardKey: string,
   q: string,
   category: string | undefined,
   page: number,
   pageSize: number
-): Promise<{ ids: string[]; total: number }> {
+): Promise<{ rows: RawPost[]; total: number }> {
   const match = toMatchQuery(q);
   const categorySql = category ? 'AND p."category" = ?' : '';
   const params: unknown[] = category ? [match, boardKey, category] : [match, boardKey];
 
-  const totalRows = await prisma.$queryRawUnsafe<{ c: bigint | number }[]>(
-    `SELECT COUNT(*) AS c FROM "BoardPost" p
-       JOIN "BoardPostFts" f ON f.rowid = p.rowid
-      WHERE f."BoardPostFts" MATCH ? AND p."boardKey" = ? ${categorySql}`,
-    ...params
-  );
-  const idRows = await prisma.$queryRawUnsafe<{ id: string }[]>(
-    `SELECT p."id" AS id FROM "BoardPost" p
-       JOIN "BoardPostFts" f ON f.rowid = p.rowid
-      WHERE f."BoardPostFts" MATCH ? AND p."boardKey" = ? ${categorySql}
-      ORDER BY p."createdAt" DESC
-      LIMIT ? OFFSET ?`,
-    ...params,
-    pageSize,
-    (page - 1) * pageSize
-  );
-  return { ids: idRows.map((r) => r.id), total: Number(totalRows[0]?.c ?? 0) };
+  // 왕복을 두 번(개수 + 목록)으로 끝낸다. 예전에는 id만 받아 다시 조회하느라 세 번이었다.
+  const [totalRows, rows] = await Promise.all([
+    prisma.$queryRawUnsafe<{ c: bigint | number }[]>(
+      `SELECT COUNT(*) AS c FROM "BoardPost" p
+         JOIN "BoardPostFts" f ON f.rowid = p.rowid
+        WHERE f."BoardPostFts" MATCH ? AND p."boardKey" = ? ${categorySql}`,
+      ...params
+    ),
+    prisma.$queryRawUnsafe<RawPost[]>(
+      `SELECT p."id", p."title", p."content", p."author", p."category", p."viewCount", p."createdAt"
+         FROM "BoardPost" p
+         JOIN "BoardPostFts" f ON f.rowid = p.rowid
+        WHERE f."BoardPostFts" MATCH ? AND p."boardKey" = ? ${categorySql}
+        ORDER BY p."createdAt" DESC
+        LIMIT ? OFFSET ?`,
+      ...params,
+      pageSize,
+      (page - 1) * pageSize
+    ),
+  ]);
+  return { rows, total: Number(totalRows[0]?.c ?? 0) };
+}
+
+/** raw 조회는 날짜를 숫자(ms)나 문자열로 돌려줄 수 있어 한 곳에서 Date로 맞춘다. */
+function toDate(value: number | string | Date): Date {
+  if (value instanceof Date) return value;
+  return new Date(typeof value === 'number' ? value : String(value));
 }
 
 export async function GET(request: NextRequest) {
@@ -96,15 +116,12 @@ export async function GET(request: NextRequest) {
   const useIndex = Boolean(q && q.length >= FTS_MIN_LENGTH);
 
   let total: number;
-  let rows: Awaited<ReturnType<typeof prisma.boardPost.findMany>>;
+  let rows: { id: string; title: string; content: string; author: string; category: string | null; viewCount: number; createdAt: Date }[];
 
   if (useIndex && q) {
     const found = await searchByIndex(boardKey, q, category, page, pageSize);
     total = found.total;
-    const unordered = await prisma.boardPost.findMany({ where: { id: { in: found.ids } } });
-    // 정렬은 SQL에서 이미 끝났으므로 그 순서를 그대로 되살린다.
-    const byId = new Map(unordered.map((p) => [p.id, p]));
-    rows = found.ids.map((id) => byId.get(id)).filter((p): p is (typeof unordered)[number] => Boolean(p));
+    rows = found.rows.map((r) => ({ ...r, viewCount: Number(r.viewCount), createdAt: toDate(r.createdAt) }));
   } else {
     const where = {
       boardKey,
