@@ -507,7 +507,8 @@ export const nodeMeta: Record<string, NodeMeta> = {
     },
     "bindingModes": [
       "list",
-      "aggregate"
+      "aggregate",
+      "group"
     ],
     "events": []
   },

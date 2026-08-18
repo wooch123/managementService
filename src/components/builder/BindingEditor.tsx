@@ -46,6 +46,15 @@ export function useEntityFields(entityId: string | null) {
   return fields;
 }
 
+/** 모드 이름을 사람이 읽는 말로 — 예전에는 'list'/'aggregate'가 그대로 보였다. */
+const MODE_LABEL: Record<string, string> = {
+  list: '목록 (행 그대로)',
+  single: '단건',
+  field: '필드 값',
+  aggregate: '집계 값 (숫자 하나)',
+  group: '항목별 집계 (차트용)',
+};
+
 export function BindingEditor() {
   const selectedId = useCanvasStore((s) => s.selectedId);
   const node = useCanvasStore((s) => s.nodes.find((n) => n.id === s.selectedId));
@@ -83,6 +92,7 @@ export function BindingEditor() {
             else if (mode === 'single') setBinding({ mode: 'single', entityId: '', select: [], keySource: 'fixed' });
             else if (mode === 'field') setBinding({ mode: 'field', entityId: '', fieldId: '' });
             else if (mode === 'aggregate') setBinding({ mode: 'aggregate', entityId: '', fn: 'count', filters: [] });
+            else if (mode === 'group') setBinding({ mode: 'group', entityId: '', groupFieldId: '', fn: 'count', filters: [], orderBy: 'value', limit: 20 });
           }}
         >
           <SelectTrigger className="w-full">
@@ -92,7 +102,7 @@ export function BindingEditor() {
             <SelectItem value="none">바인딩 없음</SelectItem>
             {supportedModes.map((m) => (
               <SelectItem key={m} value={m}>
-                {m}
+                {MODE_LABEL[m] ?? m}
               </SelectItem>
             ))}
           </SelectContent>
@@ -103,6 +113,7 @@ export function BindingEditor() {
       {binding?.mode === 'single' && <SingleBindingForm binding={binding} entities={entities} onChange={setBinding} />}
       {binding?.mode === 'field' && <FieldBindingForm binding={binding} entities={entities} onChange={setBinding} />}
       {binding?.mode === 'aggregate' && <AggregateBindingForm binding={binding} entities={entities} onChange={setBinding} />}
+      {binding?.mode === 'group' && <GroupBindingForm binding={binding} entities={entities} onChange={setBinding} />}
     </div>
   );
 }
@@ -486,6 +497,110 @@ function AggregateBindingForm({
               </Select>
             </div>
           )}
+          <FilterBuilder fields={fields} filters={binding.filters} onChange={(v) => onChange({ ...binding, filters: v })} />
+        </>
+      )}
+    </div>
+  );
+}
+
+
+/**
+ * 항목별 집계 폼 — 차트가 "분류별 개수/합계"를 DB에서 직접 받아오게 한다.
+ * 원시 행을 표본으로 가져와 화면에서 세던 방식은 데이터가 쌓이면 수치가 틀린다(모드 설명 참고).
+ */
+function GroupBindingForm({
+  binding,
+  entities,
+  onChange,
+}: {
+  binding: Extract<BindingSpec, { mode: 'group' }>;
+  entities: EntityListItem[];
+  onChange: (b: BindingSpec) => void;
+}) {
+  const fields = useEntityFields(binding.entityId || null);
+  const numericFields = fields.filter((f) => f.dataType === 'INTEGER' || f.dataType === 'REAL');
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-medium text-muted-foreground">엔티티</label>
+        <EntitySelect
+          value={binding.entityId}
+          entities={entities}
+          onChange={(id) => onChange({ ...binding, entityId: id, groupFieldId: '', valueFieldId: undefined })}
+        />
+      </div>
+      {binding.entityId && (
+        <>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted-foreground">분류 기준 (가로축)</label>
+            <Select value={binding.groupFieldId || undefined} onValueChange={(v) => onChange({ ...binding, groupFieldId: v })}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="필드 선택" />
+              </SelectTrigger>
+              <SelectContent>
+                {fields.map((f) => (
+                  <SelectItem key={f.id} value={f.id}>
+                    {f.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted-foreground">집계 함수</label>
+            <Select value={binding.fn} onValueChange={(v) => onChange({ ...binding, fn: v as typeof binding.fn })}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="count">개수</SelectItem>
+                <SelectItem value="sum">합계</SelectItem>
+                <SelectItem value="avg">평균</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {binding.fn !== 'count' && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-muted-foreground">값 필드 (숫자)</label>
+              <Select value={binding.valueFieldId || undefined} onValueChange={(v) => onChange({ ...binding, valueFieldId: v })}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="숫자 필드 선택" />
+                </SelectTrigger>
+                <SelectContent>
+                  {numericFields.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>
+                      {f.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-muted-foreground">정렬</label>
+              <Select value={binding.orderBy} onValueChange={(v) => onChange({ ...binding, orderBy: v as typeof binding.orderBy })}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="value">값이 큰 순서</SelectItem>
+                  <SelectItem value="label">분류 이름 순서</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-muted-foreground">최대 항목 수</label>
+              <Input
+                type="number"
+                min={1}
+                max={100}
+                value={binding.limit}
+                onChange={(e) => onChange({ ...binding, limit: Math.min(100, Math.max(1, Number(e.target.value) || 1)) })}
+              />
+            </div>
+          </div>
           <FilterBuilder fields={fields} filters={binding.filters} onChange={(v) => onChange({ ...binding, filters: v })} />
         </>
       )}

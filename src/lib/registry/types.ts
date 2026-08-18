@@ -14,7 +14,7 @@ export const COMPONENT_GROUPS = [
 ] as const;
 export type ComponentGroup = (typeof COMPONENT_GROUPS)[number];
 
-export type BindingMode = 'static' | 'list' | 'single' | 'field' | 'aggregate';
+export type BindingMode = 'static' | 'list' | 'single' | 'field' | 'aggregate' | 'group';
 
 export type EventDef = {
   name: string;

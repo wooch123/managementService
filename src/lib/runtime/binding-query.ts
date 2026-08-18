@@ -1,5 +1,5 @@
 import 'server-only';
-import { runListQuery, runAggregateQuery, runSingleQuery, type ResolvedEntity } from '@/lib/data-engine/query';
+import { runListQuery, runAggregateQuery, runGroupQuery, runSingleQuery, type ResolvedEntity } from '@/lib/data-engine/query';
 import type { BindingSpec } from '@/types/binding';
 import type { ComponentNodeSpec, PublishedSpec } from '@/types/spec';
 
@@ -33,6 +33,11 @@ export async function resolveBindingData(spec: PublishedSpec, binding: BindingSp
     if (binding.mode === 'list') {
       const entity = findPublishedEntity(spec, binding.entityId);
       return await runListQuery(binding, page, entity);
+    }
+    if (binding.mode === 'group') {
+      // 항목별 집계는 DB가 전부 세어 결과만 돌려준다(원시 행을 표본으로 가져오지 않는다).
+      const entity = findPublishedEntity(spec, binding.entityId);
+      return await runGroupQuery(binding, entity);
     }
     if (binding.mode === 'aggregate') {
       const entity = findPublishedEntity(spec, binding.entityId);

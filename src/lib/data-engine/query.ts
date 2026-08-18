@@ -141,6 +141,48 @@ export async function runAggregateQuery(binding: Extract<BindingSpec, { mode: 'a
   return row.v ?? 0;
 }
 
+/**
+ * 항목별 집계(GROUP BY) — 차트가 쓰는 조회.
+ *
+ * 결과를 list 조회와 같은 봉투({ rows, columns, total })로 돌려준다. 차트 컴포넌트들이 이미
+ * "첫 텍스트 컬럼 = 라벨, 첫 숫자 컬럼 = 값"으로 해석하므로, 컴포넌트를 고치지 않고도 그대로 그려진다.
+ */
+export async function runGroupQuery(
+  binding: Extract<BindingSpec, { mode: 'group' }>,
+  entityOverride?: ResolvedEntity
+) {
+  const entity = entityOverride ?? (await resolveEntity(binding.entityId));
+  const groupField = resolveField(entity, binding.groupFieldId);
+  const { sql: whereSql, params } = buildWhereClause(entity, binding.filters);
+  const db = getAppDb();
+  const table = quoteIdent(entity.tableName);
+  const groupCol = quoteIdent(groupField.columnName);
+
+  let valueExpr = 'COUNT(*)';
+  if (binding.fn !== 'count') {
+    if (!binding.valueFieldId) throw new Error(`${binding.fn} 집계는 값 필드가 필요합니다`);
+    const valueField = resolveField(entity, binding.valueFieldId);
+    valueExpr = `${binding.fn.toUpperCase()}(${quoteIdent(valueField.columnName)})`;
+  }
+  // 정렬 기준은 열거형이라 값이 고정돼 있다(사용자 입력이 SQL에 직접 들어가지 않는다).
+  const orderSql = binding.orderBy === 'label' ? `ORDER BY ${groupCol} ASC` : 'ORDER BY "value" DESC';
+
+  const rows = db
+    .prepare(
+      `SELECT ${groupCol} AS "label", ${valueExpr} AS "value" FROM ${table} ${whereSql} GROUP BY ${groupCol} ${orderSql} LIMIT ?`
+    )
+    .all(...params, binding.limit) as { label: unknown; value: number }[];
+
+  return {
+    rows: rows.map((r) => ({ label: r.label ?? '(없음)', value: r.value })),
+    total: rows.length,
+    columns: [
+      { columnName: 'label', fieldId: binding.groupFieldId, dataType: 'TEXT' as DataType },
+      { columnName: 'value', fieldId: binding.valueFieldId ?? null, dataType: 'REAL' as DataType },
+    ],
+  };
+}
+
 export async function runSingleQuery(binding: Extract<BindingSpec, { mode: 'single' }>, keyValue: string, entityOverride?: ResolvedEntity) {
   const entity = entityOverride ?? (await resolveEntity(binding.entityId));
   const cols = resolveSelectColumns(entity, binding.select);

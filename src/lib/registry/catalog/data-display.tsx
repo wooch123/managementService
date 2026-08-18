@@ -279,7 +279,7 @@ export const dataDisplayComponents = [
     icon: 'chart-column',
     description: '막대/선 차트(list 바인딩) 또는 집계 KPI 숫자(aggregate 바인딩)',
     isContainer: false,
-    bindingModes: ['list', 'aggregate'],
+    bindingModes: ['list', 'aggregate', 'group'],
     events: [],
     propsSchema: z.object({
       title: z.string().default(''),
