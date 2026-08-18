@@ -630,6 +630,38 @@ export const nodeMeta: Record<string, NodeMeta> = {
     "bindingModes": [],
     "events": []
   },
+  "gantt-chart": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 26
+    },
+    "defaultProps": {
+      "title": "일정(간트)",
+      "showToday": true
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "kanban-board": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 26
+    },
+    "defaultProps": {
+      "title": "진행 보드(칸반)",
+      "maxPerColumn": 8
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
   "breadcrumb": {
     "isContainer": false,
     "allowedChildren": null,
@@ -1037,6 +1069,21 @@ export const nodeMeta: Record<string, NodeMeta> = {
     },
     "defaultProps": {
       "direction": "ltr"
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "live-chat": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 30
+    },
+    "defaultProps": {
+      "title": "실시간 채팅",
+      "room": "default",
+      "placeholder": "메시지를 입력하고 Enter"
     },
     "bindingModes": [],
     "events": []

@@ -88,6 +88,84 @@ function toChartSeries(data: unknown): { label: string; value: number }[] {
   }));
 }
 
+type ResultColumn = { columnName: string; fieldId: string | null; dataType: string };
+
+/** list 바인딩 결과를 안전하게 꺼낸다(바인딩이 없거나 모양이 다르면 null). */
+function asListResult(data: unknown): { rows: Record<string, unknown>[]; columns: ResultColumn[] } | null {
+  if (!data || typeof data !== 'object') return null;
+  const { rows, columns } = data as { rows?: Record<string, unknown>[]; columns?: ResultColumn[] };
+  if (!Array.isArray(rows) || !Array.isArray(columns)) return null;
+  return { rows, columns };
+}
+
+const DATE_TYPES = new Set(['DATE', 'DATETIME']);
+const NUMERIC_TYPES = new Set(['INTEGER', 'REAL']);
+const DAY_MS = 86_400_000;
+
+const toDate = (v: unknown): Date | null => {
+  if (v == null || v === '') return null;
+  const d = new Date(String(v));
+  return Number.isNaN(d.getTime()) ? null : d;
+};
+const fmtDate = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** 간트 막대 — select 순서에서 첫 텍스트 컬럼을 항목명, 첫 두 날짜 컬럼을 시작/종료로 해석한다. */
+function toGanttBars(data: unknown): { label: string; start: Date; end: Date }[] {
+  const r = asListResult(data);
+  if (!r) return [];
+  const selected = r.columns.filter((c) => c.fieldId !== null);
+  const dateCols = selected.filter((c) => DATE_TYPES.has(c.dataType));
+  const labelCol = selected.find((c) => !DATE_TYPES.has(c.dataType) && !NUMERIC_TYPES.has(c.dataType)) ?? selected[0];
+  if (!labelCol || dateCols.length === 0) return [];
+  const [startCol, endCol] = dateCols;
+
+  const bars: { label: string; start: Date; end: Date }[] = [];
+  for (const row of r.rows) {
+    const start = toDate(row[startCol.columnName]);
+    if (!start) continue;
+    const rawEnd = endCol ? toDate(row[endCol.columnName]) : null;
+    // 종료일이 없거나 시작보다 이르면 하루짜리 막대(마일스톤)로 그린다.
+    const end = rawEnd && rawEnd.getTime() > start.getTime() ? rawEnd : new Date(start.getTime() + DAY_MS);
+    bars.push({ label: String(row[labelCol.columnName] ?? '-'), start, end });
+  }
+  return bars.sort((a, b) => a.start.getTime() - b.start.getTime());
+}
+
+/** 칸반 — 첫 ENUM(없으면 첫 비숫자) 컬럼으로 열을 나누고, 그 다음 텍스트 컬럼을 카드 제목으로 쓴다. */
+function toKanbanBoard(data: unknown): { column: string; cards: { title: string; meta: string[] }[] }[] {
+  const r = asListResult(data);
+  if (!r) return [];
+  const selected = r.columns.filter((c) => c.fieldId !== null);
+  const groupCol = selected.find((c) => c.dataType === 'ENUM') ?? selected.find((c) => !NUMERIC_TYPES.has(c.dataType));
+  if (!groupCol) return [];
+  const titleCol = selected.find((c) => c !== groupCol && !NUMERIC_TYPES.has(c.dataType)) ?? selected.find((c) => c !== groupCol);
+  const metaCols = selected.filter((c) => c !== groupCol && c !== titleCol).slice(0, 2);
+
+  const map = new Map<string, { title: string; meta: string[] }[]>();
+  for (const row of r.rows) {
+    const key = String(row[groupCol.columnName] ?? '미분류');
+    const card = {
+      title: titleCol ? String(row[titleCol.columnName] ?? '-') : '-',
+      meta: metaCols.map((c) => String(row[c.columnName] ?? '')).filter(Boolean),
+    };
+    map.set(key, [...(map.get(key) ?? []), card]);
+  }
+  return [...map].map(([column, cards]) => ({ column, cards }));
+}
+
+const SAMPLE_GANTT = [
+  { label: '접수', start: new Date('2026-08-01'), end: new Date('2026-08-05') },
+  { label: '초도 분석', start: new Date('2026-08-04'), end: new Date('2026-08-12') },
+  { label: 'Reball', start: new Date('2026-08-10'), end: new Date('2026-08-18') },
+  { label: '상세 분석', start: new Date('2026-08-14'), end: new Date('2026-08-26') },
+];
+const SAMPLE_KANBAN = [
+  { column: '접수', cards: [{ title: 'FAR-26-1001', meta: ['김도현'] }, { title: 'FAR-26-1007', meta: ['이서연'] }] },
+  { column: '진행중', cards: [{ title: 'FAR-26-1012', meta: ['박준혁'] }] },
+  { column: '완료', cards: [{ title: 'FAR-26-1003', meta: ['최민지'] }, { title: 'FAR-26-1009', meta: ['정우성'] }] },
+];
+
 type SampleRow = { col1: string; col2: string };
 const sampleColumns: ColumnDef<SampleRow>[] = [
   { accessorKey: 'col1', header: '컬럼 1' },
@@ -463,5 +541,132 @@ export const dataDisplayComponents = [
     defaultProps: { height: 20 },
     defaultGrid: { span: 4, rowSpan: 4 },
     render: ({ props }) => <Skeleton style={{ height: props.height }} className="w-full" />,
+  }),
+  defineComponent({
+    key: 'gantt-chart',
+    label: '간트 차트',
+    group: '데이터 표시',
+    icon: 'chart-gantt',
+    description: '일정 막대 차트 — 항목명 + 시작/종료 날짜 컬럼을 순서대로 사용',
+    isContainer: false,
+    bindingModes: ['list'],
+    events: [],
+    propsSchema: z.object({ title: z.string().default('일정(간트)'), showToday: z.boolean().default(true) }),
+    defaultProps: { title: '일정(간트)', showToday: true },
+    defaultGrid: { span: 12, rowSpan: 26 },
+    render: ({ props, data }) => {
+      const bars = data === undefined ? SAMPLE_GANTT : toGanttBars(data);
+      if (bars.length === 0) {
+        return (
+          <div className="flex h-full min-h-[140px] flex-col gap-2">
+            {props.title && <h3 className="text-sm font-medium">{props.title}</h3>}
+            <div className="flex flex-1 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground">
+              표시할 일정이 없습니다 (항목명과 날짜 컬럼을 함께 선택하세요)
+            </div>
+          </div>
+        );
+      }
+      const min = Math.min(...bars.map((b) => b.start.getTime()));
+      const max = Math.max(...bars.map((b) => b.end.getTime()));
+      const span = Math.max(1, max - min);
+      const pct = (t: number) => ((t - min) / span) * 100;
+      const today = Date.now();
+      const showToday = props.showToday && today >= min && today <= max;
+
+      return (
+        <div className="flex h-full min-h-[140px] flex-col gap-2">
+          {props.title && <h3 className="text-sm font-medium">{props.title}</h3>}
+          <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
+            {bars.map((b, i) => (
+              <div key={`${b.label}-${i}`} className="flex items-center gap-2 text-xs">
+                <span className="w-32 shrink-0 truncate text-muted-foreground" title={b.label}>
+                  {b.label}
+                </span>
+                <span className="relative h-4 flex-1 rounded bg-muted">
+                  <span
+                    className="absolute top-0 h-4 rounded bg-primary"
+                    style={{
+                      left: `${pct(b.start.getTime())}%`,
+                      width: `${Math.max(1.5, pct(b.end.getTime()) - pct(b.start.getTime()))}%`,
+                    }}
+                    title={`${fmtDate(b.start)} ~ ${fmtDate(b.end)}`}
+                  />
+                  {showToday && (
+                    <span className="absolute top-0 h-4 w-px bg-destructive" style={{ left: `${pct(today)}%` }} />
+                  )}
+                </span>
+                <span className="w-40 shrink-0 tabular-nums text-muted-foreground">
+                  {fmtDate(b.start)} ~ {fmtDate(b.end)}
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="flex shrink-0 justify-between border-t pt-1 text-[11px] tabular-nums text-muted-foreground">
+            <span>{fmtDate(new Date(min))}</span>
+            <span>{fmtDate(new Date((min + max) / 2))}</span>
+            <span>{fmtDate(new Date(max))}</span>
+          </div>
+        </div>
+      );
+    },
+  }),
+  defineComponent({
+    key: 'kanban-board',
+    label: '칸반 보드',
+    group: '데이터 표시',
+    icon: 'columns-3',
+    description: '상태별 카드 보드 — 첫 ENUM 컬럼으로 열을 나누고 텍스트 컬럼을 카드 제목으로 사용',
+    isContainer: false,
+    bindingModes: ['list'],
+    events: [],
+    propsSchema: z.object({
+      title: z.string().default('진행 보드(칸반)'),
+      maxPerColumn: z.number().min(1).max(50).default(8),
+    }),
+    defaultProps: { title: '진행 보드(칸반)', maxPerColumn: 8 },
+    defaultGrid: { span: 12, rowSpan: 26 },
+    render: ({ props, data }) => {
+      const board = data === undefined ? SAMPLE_KANBAN : toKanbanBoard(data);
+      if (board.length === 0) {
+        return (
+          <div className="flex h-full min-h-[140px] flex-col gap-2">
+            {props.title && <h3 className="text-sm font-medium">{props.title}</h3>}
+            <div className="flex flex-1 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground">
+              표시할 카드가 없습니다 (상태 컬럼과 제목 컬럼을 함께 선택하세요)
+            </div>
+          </div>
+        );
+      }
+      return (
+        <div className="flex h-full min-h-[140px] flex-col gap-2">
+          {props.title && <h3 className="text-sm font-medium">{props.title}</h3>}
+          <div className="flex min-h-0 flex-1 gap-2 overflow-x-auto pb-1">
+            {board.map((col) => (
+              <div key={col.column} className="flex min-w-40 flex-1 flex-col gap-1.5 rounded-md bg-muted/50 p-2">
+                <div className="flex shrink-0 items-center justify-between text-xs font-medium">
+                  <span className="truncate">{col.column}</span>
+                  <Badge variant="secondary">{col.cards.length}</Badge>
+                </div>
+                <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto">
+                  {col.cards.slice(0, props.maxPerColumn).map((card, i) => (
+                    <div key={`${card.title}-${i}`} className="rounded-md border bg-background p-2 text-xs shadow-sm">
+                      <p className="truncate font-medium" title={card.title}>
+                        {card.title}
+                      </p>
+                      {card.meta.length > 0 && (
+                        <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{card.meta.join(' · ')}</p>
+                      )}
+                    </div>
+                  ))}
+                  {col.cards.length > props.maxPerColumn && (
+                    <p className="px-1 text-[11px] text-muted-foreground">+{col.cards.length - props.maxPerColumn}건 더</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    },
   }),
 ] satisfies ComponentDef[];

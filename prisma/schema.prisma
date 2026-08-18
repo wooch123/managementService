@@ -179,6 +179,19 @@ model Deployment {
   updatedAt        DateTime @updatedAt
 }
 
+/// 운영 사이트 방문자 간 실시간 채팅 메시지. 관리자가 설계하는 데이터(app.db)가 아니라
+/// 플랫폼이 제공하는 기능의 저장소라 메타 DB에 둔다(스키마는 마이그레이션으로만 바뀐다).
+model ChatMessage {
+  id        String   @id @default(cuid())
+  /// 채팅방 키 — 컴포넌트 속성으로 지정한다(한 사이트에서 여러 방 운영 가능)
+  room      String
+  author    String
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([room, createdAt])
+}
+
 // ── 검증 결과 캐시 ──
 model ValidationRun {
   id         String    @id @default(cuid())

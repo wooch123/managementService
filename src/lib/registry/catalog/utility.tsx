@@ -12,6 +12,7 @@ import { Message, MessageAvatar, MessageContent } from '@/components/ui/message'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { FileIcon, CircleDot } from 'lucide-react';
+import { LiveChat, LiveChatPreview } from '@/components/runtime/LiveChat';
 import { defineComponent, type ComponentDef } from '@/lib/registry/types';
 
 export const utilityComponents = [
@@ -180,5 +181,30 @@ export const utilityComponents = [
         {children}
       </div>
     ),
+  }),
+  defineComponent({
+    key: 'live-chat',
+    label: '실시간 채팅',
+    group: '유틸리티',
+    icon: 'messages-square',
+    description: '운영 사이트 방문자 간 실시간 채팅 (SSE 기반, 방 단위 분리)',
+    isContainer: false,
+    bindingModes: [],
+    events: [],
+    propsSchema: z.object({
+      title: z.string().default('실시간 채팅'),
+      room: z.string().default('default'),
+      placeholder: z.string().default('메시지를 입력하고 Enter'),
+    }),
+    defaultProps: { title: '실시간 채팅', room: 'default', placeholder: '메시지를 입력하고 Enter' },
+    defaultGrid: { span: 6, rowSpan: 30 },
+    // 운영/미리보기(런타임 훅이 붙는 경우)에서만 실제 SSE에 연결한다. 빌더 캔버스·팔레트는
+    // 정적 미리보기를 그려서, 편집 중에 연결이 무더기로 열리는 일을 막는다.
+    render: ({ props, onValueChange }) =>
+      typeof onValueChange === 'function' ? (
+        <LiveChat room={props.room} title={props.title} placeholder={props.placeholder} />
+      ) : (
+        <LiveChatPreview title={props.title} />
+      ),
   }),
 ] satisfies ComponentDef[];
