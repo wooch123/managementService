@@ -1,0 +1,852 @@
+import { z } from 'zod';
+import {
+  Area,
+  Bar,
+  CartesianGrid,
+  Cell,
+  ComposedChart,
+  ErrorBar,
+  Funnel,
+  FunnelChart,
+  LabelList,
+  Line,
+  PolarAngleAxis,
+  PolarGrid,
+  Radar,
+  RadarChart,
+  ReferenceLine,
+  Scatter,
+  ScatterChart,
+  XAxis,
+  YAxis,
+  ZAxis,
+} from 'recharts';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
+import { defineComponent } from '@/lib/registry/types';
+import {
+  boxStats,
+  capability,
+  controlLimits,
+  format,
+  histogramBins,
+  linearRegression,
+  mean,
+  movingAverage,
+  movingRanges,
+  normalQuantile,
+  paretoSeries,
+  quantile,
+  waterfallSeries,
+} from '@/lib/stats';
+
+/**
+ * §8.3 '통계 차트' 그룹 — 품질/공정 데이터 분석에 쓰는 20종.
+ *
+ * 데이터 계약은 기존 '차트' 컴포넌트와 같다: list 바인딩 결과 `{ rows, columns }`에서
+ * **첫 번째 비숫자 컬럼 = 라벨(범주/시점)**, **숫자 컬럼 = 값**으로 해석한다. 두 개 이상의
+ * 숫자 컬럼이 필요한 차트(산점도·회귀·버블)는 select 순서대로 x, y, (크기)를 가져간다.
+ * 통계량(사분위·관리한계·회귀계수 등)은 서버가 아니라 이 렌더 단계에서 lib/stats.ts로 계산한다.
+ *
+ * 색은 전부 테마 토큰(--chart-1..5)만 쓰고, 컨테이너/제목/빈 상태 처리도 '차트'와 동일한
+ * 모양을 공유해 UI 일관성을 유지한다.
+ */
+
+const chartConfig = {
+  value: { label: '값', color: 'var(--chart-1)' },
+  secondary: { label: '보조', color: 'var(--chart-3)' },
+  limit: { label: '한계선', color: 'var(--chart-5)' },
+} satisfies ChartConfig;
+
+type ResultColumn = { columnName: string; fieldId: string | null; dataType: string };
+type ResultRow = Record<string, unknown>;
+type ListResult = { rows: ResultRow[]; columns: ResultColumn[] };
+
+const NUMERIC = new Set(['INTEGER', 'REAL']);
+
+function asList(data: unknown): ListResult | null {
+  if (!data || typeof data !== 'object') return null;
+  const { rows, columns } = data as Partial<ListResult>;
+  if (!Array.isArray(rows) || !Array.isArray(columns)) return null;
+  return { rows, columns };
+}
+
+const selected = (r: ListResult) => r.columns.filter((c) => c.fieldId !== null);
+const labelColumn = (r: ListResult) => selected(r).find((c) => !NUMERIC.has(c.dataType));
+const numericColumns = (r: ListResult) => selected(r).filter((c) => NUMERIC.has(c.dataType));
+
+/** 첫 번째 숫자 컬럼의 값들 */
+function numbers(data: unknown): number[] {
+  const r = asList(data);
+  if (!r) return [];
+  const col = numericColumns(r)[0];
+  if (!col) return [];
+  return r.rows.map((row) => Number(row[col.columnName])).filter((v) => Number.isFinite(v));
+}
+
+/** 라벨 + 첫 숫자 컬럼. 숫자 컬럼이 없으면 라벨별 건수를 센다. */
+function series(data: unknown): { label: string; value: number }[] {
+  const r = asList(data);
+  if (!r) return [];
+  const label = labelColumn(r);
+  const num = numericColumns(r)[0];
+  if (!label) return [];
+  if (!num) {
+    const counts = new Map<string, number>();
+    for (const row of r.rows) {
+      const key = String(row[label.columnName] ?? '-');
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return [...counts].map(([l, v]) => ({ label: l, value: v }));
+  }
+  return r.rows.map((row) => ({
+    label: String(row[label.columnName] ?? '-'),
+    value: Number(row[num.columnName] ?? 0),
+  }));
+}
+
+/** 숫자 컬럼 2~3개 → 산점/버블용 좌표 */
+function points(data: unknown): { x: number; y: number; z: number; label: string }[] {
+  const r = asList(data);
+  if (!r) return [];
+  const nums = numericColumns(r);
+  if (nums.length < 2) return [];
+  const label = labelColumn(r);
+  return r.rows
+    .map((row) => ({
+      x: Number(row[nums[0].columnName]),
+      y: Number(row[nums[1].columnName]),
+      z: nums[2] ? Number(row[nums[2].columnName]) : 1,
+      label: label ? String(row[label.columnName] ?? '') : '',
+    }))
+    .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+}
+
+/** 라벨별로 값들을 묶는다(박스플롯·그룹 비교용) */
+function groups(data: unknown): { label: string; values: number[] }[] {
+  const r = asList(data);
+  if (!r) return [];
+  const label = labelColumn(r);
+  const num = numericColumns(r)[0];
+  if (!label || !num) return [];
+  const map = new Map<string, number[]>();
+  for (const row of r.rows) {
+    const key = String(row[label.columnName] ?? '-');
+    const v = Number(row[num.columnName]);
+    if (!Number.isFinite(v)) continue;
+    map.set(key, [...(map.get(key) ?? []), v]);
+  }
+  return [...map].map(([l, values]) => ({ label: l, values }));
+}
+
+// ── 빌더 캔버스용 표본 데이터(결정적) ─────────────────────────────────────────
+let seed = 42;
+const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+const SAMPLE_VALUES = Array.from({ length: 40 }, () => Number((45 + (rnd() + rnd() + rnd() - 1.5) * 3).toFixed(2)));
+const SAMPLE_SERIES = ['A', 'B', 'C', 'D', 'E'].map((label, i) => ({ label, value: 40 - i * 6 + Math.round(rnd() * 4) }));
+const SAMPLE_POINTS = Array.from({ length: 30 }, (_, i) => ({ x: i + 1, y: Number((i * 0.8 + rnd() * 6).toFixed(2)), z: 1 + Math.round(rnd() * 5), label: `p${i + 1}` }));
+
+/** 제목 + 컨테이너 + 빈 상태를 한 곳에서 처리해 20종의 모양을 통일한다. */
+function StatShell({
+  title,
+  note,
+  isEmpty,
+  children,
+}: {
+  title?: string;
+  note?: string;
+  isEmpty: boolean;
+  children: React.ReactElement;
+}) {
+  return (
+    <div className="flex h-full min-h-[140px] flex-col gap-1.5">
+      {title ? <h3 className="text-sm font-medium">{title}</h3> : null}
+      {note ? <p className="text-xs text-muted-foreground tabular-nums">{note}</p> : null}
+      {isEmpty ? (
+        <div className="flex flex-1 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground">
+          표시할 데이터가 없습니다
+        </div>
+      ) : (
+        <ChartContainer config={chartConfig} className="aspect-auto h-full min-h-0 w-full flex-1">
+          {children}
+        </ChartContainer>
+      )}
+    </div>
+  );
+}
+
+const axisProps = { tickLine: false, axisLine: false, tickMargin: 6, fontSize: 11 } as const;
+
+// ── 1. 히스토그램 ────────────────────────────────────────────────────────────
+const histogram = defineComponent({
+  key: 'stat-histogram',
+  label: '히스토그램',
+  group: '통계 차트',
+  icon: 'chart-column-big',
+  description: '값의 도수분포 — 구간별 빈도',
+  isContainer: false,
+  bindingModes: ['list'],
+  events: [],
+  propsSchema: z.object({ title: z.string().default('히스토그램'), binCount: z.number().min(2).max(30).default(8) }),
+  defaultProps: { title: '히스토그램', binCount: 8 },
+  defaultGrid: { span: 6, rowSpan: 22 },
+  render: ({ props, data }) => {
+    const values = data === undefined ? SAMPLE_VALUES : numbers(data);
+    const bins = histogramBins(values, props.binCount);
+    return (
+      <StatShell title={props.title} isEmpty={bins.length === 0} note={values.length > 0 ? `n=${values.length} · 평균 ${format(mean(values))}` : undefined}>
+        <ComposedChart data={bins}>
+          <CartesianGrid vertical={false} />
+          <XAxis dataKey="label" {...axisProps} />
+          <YAxis {...axisProps} allowDecimals={false} />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <Bar dataKey="count" name="빈도" fill="var(--chart-1)" radius={2} />
+        </ComposedChart>
+      </StatShell>
+    );
+  },
+});
+
+// ── 2. 박스플롯 ──────────────────────────────────────────────────────────────
+const boxplot = defineComponent({
+  key: 'stat-boxplot',
+  label: '박스플롯',
+  group: '통계 차트',
+  icon: 'box',
+  description: '그룹별 사분위 분포와 이상치',
+  isContainer: false,
+  bindingModes: ['list'],
+  events: [],
+  propsSchema: z.object({ title: z.string().default('박스플롯') }),
+  defaultProps: { title: '박스플롯' },
+  defaultGrid: { span: 6, rowSpan: 22 },
+  render: ({ props, data }) => {
+    const raw = data === undefined ? [{ label: '표본', values: SAMPLE_VALUES }] : groups(data);
+    const rows = raw.map((g) => {
+      const s = boxStats(g.values);
+      return {
+        label: g.label,
+        q1: s.q1,
+        box: s.q3 - s.q1,
+        median: s.median,
+        whisker: [s.q1 - s.min, s.max - s.q3] as [number, number],
+        min: s.min,
+        max: s.max,
+      };
+    });
+    return (
+      <StatShell title={props.title} isEmpty={rows.length === 0}>
+        <ComposedChart data={rows}>
+          <CartesianGrid vertical={false} />
+          <XAxis dataKey="label" {...axisProps} />
+          <YAxis domain={['auto', 'auto']} {...axisProps} />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          {/* 아래쪽 q1까지는 투명 막대로 띄우고, 그 위에 IQR 상자를 그린다 */}
+          <Bar dataKey="q1" stackId="box" fill="transparent" isAnimationActive={false} />
+          <Bar dataKey="box" stackId="box" name="IQR" fill="var(--chart-1)" radius={2}>
+            <ErrorBar dataKey="whisker" width={6} strokeWidth={1.5} stroke="var(--chart-5)" direction="y" />
+          </Bar>
+        </ComposedChart>
+      </StatShell>
+    );
+  },
+});
+
+// ── 3. 산점도 ────────────────────────────────────────────────────────────────
+const scatterPlot = defineComponent({
+  key: 'stat-scatter',
+  label: '산점도',
+  group: '통계 차트',
+  icon: 'scatter-chart',
+  description: '두 변수의 관계 — 숫자 컬럼 2개',
+  isContainer: false,
+  bindingModes: ['list'],
+  events: [],
+  propsSchema: z.object({ title: z.string().default('산점도') }),
+  defaultProps: { title: '산점도' },
+  defaultGrid: { span: 6, rowSpan: 22 },
+  render: ({ props, data }) => {
+    const pts = data === undefined ? SAMPLE_POINTS : points(data);
+    return (
+      <StatShell title={props.title} isEmpty={pts.length === 0}>
+        <ScatterChart>
+          <CartesianGrid />
+          <XAxis type="number" dataKey="x" name="x" domain={['auto', 'auto']} {...axisProps} />
+          <YAxis type="number" dataKey="y" name="y" {...axisProps} />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <Scatter data={pts} fill="var(--chart-1)" />
+        </ScatterChart>
+      </StatShell>
+    );
+  },
+});
+
+// ── 4. 회귀 산점도 ───────────────────────────────────────────────────────────
+const regressionScatter = defineComponent({
+  key: 'stat-regression',
+  label: '회귀 산점도',
+  group: '통계 차트',
+  icon: 'trending-up',
+  description: '산점도 + 최소제곱 추세선(R²)',
+  isContainer: false,
+  bindingModes: ['list'],
+  events: [],
+  propsSchema: z.object({ title: z.string().default('회귀 분석') }),
+  defaultProps: { title: '회귀 분석' },
+  defaultGrid: { span: 6, rowSpan: 22 },
+  render: ({ props, data }) => {
+    const pts = data === undefined ? SAMPLE_POINTS : points(data);
+    const { a, b, r2 } = linearRegression(pts);
+    const xs = pts.map((p) => p.x);
+    const fit = pts.length > 0 ? [Math.min(...xs), Math.max(...xs)].map((x) => ({ x, y: a + b * x })) : [];
+    return (
+      <StatShell
+        title={props.title}
+        isEmpty={pts.length === 0}
+        note={pts.length > 1 ? `y = ${format(a)} + ${format(b)}·x · R² ${r2.toFixed(3)}` : undefined}
+      >
+        <ComposedChart>
+          <CartesianGrid />
+          <XAxis type="number" dataKey="x" domain={['auto', 'auto']} {...axisProps} />
+          <YAxis type="number" dataKey="y" domain={['auto', 'auto']} {...axisProps} />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <Scatter data={pts} fill="var(--chart-1)" />
+          <Line data={fit} dataKey="y" stroke="var(--chart-5)" strokeWidth={2} dot={false} isAnimationActive={false} />
+        </ComposedChart>
+      </StatShell>
+    );
+  },
+});
+
+// ── 5. 버블 차트 ─────────────────────────────────────────────────────────────
+const bubbleChart = defineComponent({
+  key: 'stat-bubble',
+  label: '버블 차트',
+  group: '통계 차트',
+  icon: 'circle-dot',
+  description: '세 번째 숫자 컬럼을 크기로 쓰는 산점도',
+  isContainer: false,
+  bindingModes: ['list'],
+  events: [],
+  propsSchema: z.object({ title: z.string().default('버블 차트') }),
+  defaultProps: { title: '버블 차트' },
+  defaultGrid: { span: 6, rowSpan: 22 },
+  render: ({ props, data }) => {
+    const pts = data === undefined ? SAMPLE_POINTS : points(data);
+    return (
+      <StatShell title={props.title} isEmpty={pts.length === 0}>
+        <ScatterChart>
+          <CartesianGrid />
+          <XAxis type="number" dataKey="x" domain={['auto', 'auto']} {...axisProps} />
+          <YAxis type="number" dataKey="y" domain={['auto', 'auto']} {...axisProps} />
+          <ZAxis type="number" dataKey="z" range={[40, 400]} />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <Scatter data={pts} fill="var(--chart-2)" fillOpacity={0.7} />
+        </ScatterChart>
+      </StatShell>
+    );
+  },
+});
+
+// ── 6. 파레토 차트 ───────────────────────────────────────────────────────────
+const paretoChart = defineComponent({
+  key: 'stat-pareto',
+  label: '파레토 차트',
+  group: '통계 차트',
+  icon: 'chart-no-axes-combined',
+  description: '내림차순 막대 + 누적 비율(80% 기준선)',
+  isContainer: false,
+  bindingModes: ['list'],
+  events: [],
+  propsSchema: z.object({ title: z.string().default('파레토 분석') }),
+  defaultProps: { title: '파레토 분석' },
+  defaultGrid: { span: 6, rowSpan: 22 },
+  render: ({ props, data }) => {
+    const rows = paretoSeries(data === undefined ? SAMPLE_SERIES : series(data));
+    return (
+      <StatShell title={props.title} isEmpty={rows.length === 0}>
+        <ComposedChart data={rows}>
+          <CartesianGrid vertical={false} />
+          <XAxis dataKey="label" {...axisProps} />
+          <YAxis yAxisId="left" {...axisProps} />
+          <YAxis yAxisId="right" orientation="right" domain={[0, 100]} unit="%" {...axisProps} />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <Bar yAxisId="left" dataKey="value" name="건수" fill="var(--chart-1)" radius={2} />
+          <Line yAxisId="right" dataKey="cumulative" name="누적%" stroke="var(--chart-5)" strokeWidth={2} dot={{ r: 2 }} />
+          <ReferenceLine yAxisId="right" y={80} stroke="var(--chart-3)" strokeDasharray="4 4" />
+        </ComposedChart>
+      </StatShell>
+    );
+  },
+});
+
+/** 관리도 3종(X̄·개별값·p)이 공유하는 렌더 — 중심선과 ±kσ 한계선을 함께 그린다. */
+function ControlChart({ title, values, k, unit }: { title?: string; values: number[]; k: number; unit?: string }) {
+  const { center, ucl, lcl } = controlLimits(values, k);
+  const rows = values.map((v, i) => ({ label: String(i + 1), value: v, out: v > ucl || v < lcl }));
+  return (
+    <StatShell
+      title={title}
+      isEmpty={rows.length === 0}
+      note={rows.length > 0 ? `CL ${format(center)}${unit ?? ''} · UCL ${format(ucl)} · LCL ${format(lcl)} · 이탈 ${rows.filter((r) => r.out).length}건` : undefined}
+    >
+      <ComposedChart data={rows}>
+        <CartesianGrid vertical={false} />
+        <XAxis dataKey="label" {...axisProps} />
+        <YAxis domain={['auto', 'auto']} {...axisProps} />
+        <ChartTooltip content={<ChartTooltipContent />} />
+        <ReferenceLine y={ucl} stroke="var(--chart-5)" strokeDasharray="4 4" />
+        <ReferenceLine y={center} stroke="var(--chart-3)" />
+        <ReferenceLine y={lcl} stroke="var(--chart-5)" strokeDasharray="4 4" />
+        <Line dataKey="value" stroke="var(--chart-1)" strokeWidth={2} dot={{ r: 2 }} isAnimationActive={false} />
+      </ComposedChart>
+    </StatShell>
+  );
+}
+
+// ── 7~10. 관리도 4종 ─────────────────────────────────────────────────────────
+const controlXbar = defineComponent({
+  key: 'stat-control-xbar',
+  label: 'X̄ 관리도',
+  group: '통계 차트',
+  icon: 'activity',
+  description: '평균 관리도 — 중심선과 ±3σ 관리한계',
+  isContainer: false,
+  bindingModes: ['list'],
+  events: [],
+  propsSchema: z.object({ title: z.string().default('X̄ 관리도'), sigma: z.number().min(1).max(4).default(3) }),
+  defaultProps: { title: 'X̄ 관리도', sigma: 3 },
+  defaultGrid: { span: 6, rowSpan: 22 },
+  render: ({ props, data }) => <ControlChart title={props.title} values={data === undefined ? SAMPLE_VALUES : numbers(data)} k={props.sigma} />,
+});
+
+const controlR = defineComponent({
+  key: 'stat-control-r',
+  label: 'R 관리도',
+  group: '통계 차트',
+  icon: 'chart-spline',
+  description: '이동범위(MR) 관리도 — 산포의 안정성',
+  isContainer: false,
+  bindingModes: ['list'],
+  events: [],
+  propsSchema: z.object({ title: z.string().default('R 관리도'), sigma: z.number().min(1).max(4).default(3) }),
+  defaultProps: { title: 'R 관리도', sigma: 3 },
+  defaultGrid: { span: 6, rowSpan: 22 },
+  render: ({ props, data }) => <ControlChart title={props.title} values={movingRanges(data === undefined ? SAMPLE_VALUES : numbers(data))} k={props.sigma} />,
+});
+
+const controlImr = defineComponent({
+  key: 'stat-control-imr',
+  label: 'I-MR 관리도',
+  group: '통계 차트',
+  icon: 'chart-line',
+  description: '개별값과 이동범위를 함께 보는 관리도',
+  isContainer: false,
+  bindingModes: ['list'],
+  events: [],
+  propsSchema: z.object({ title: z.string().default('I-MR 관리도'), sigma: z.number().min(1).max(4).default(3) }),
+  defaultProps: { title: 'I-MR 관리도', sigma: 3 },
+  defaultGrid: { span: 6, rowSpan: 26 },
+  render: ({ props, data }) => {
+    const values = data === undefined ? SAMPLE_VALUES : numbers(data);
+    const mr = movingRanges(values);
+    const limits = controlLimits(values, props.sigma);
+    const rows = values.map((v, i) => ({ label: String(i + 1), value: v, mr: i === 0 ? null : mr[i - 1] }));
+    return (
+      <StatShell
+        title={props.title}
+        isEmpty={rows.length === 0}
+        note={rows.length > 0 ? `개별값 CL ${format(limits.center)} · MR 평균 ${format(mean(mr))}` : undefined}
+      >
+        <ComposedChart data={rows}>
+          <CartesianGrid vertical={false} />
+          <XAxis dataKey="label" {...axisProps} />
+          <YAxis domain={['auto', 'auto']} {...axisProps} />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <ReferenceLine y={limits.ucl} stroke="var(--chart-5)" strokeDasharray="4 4" />
+          <ReferenceLine y={limits.center} stroke="var(--chart-3)" />
+          <ReferenceLine y={limits.lcl} stroke="var(--chart-5)" strokeDasharray="4 4" />
+          <Bar dataKey="mr" name="이동범위" fill="var(--chart-2)" fillOpacity={0.45} radius={2} />
+          <Line dataKey="value" name="개별값" stroke="var(--chart-1)" strokeWidth={2} dot={{ r: 2 }} />
+        </ComposedChart>
+      </StatShell>
+    );
+  },
+});
+
+const controlP = defineComponent({
+  key: 'stat-control-p',
+  label: 'p 관리도',
+  group: '통계 차트',
+  icon: 'percent',
+  description: '불량률(비율) 관리도',
+  isContainer: false,
+  bindingModes: ['list'],
+  events: [],
+  propsSchema: z.object({ title: z.string().default('p 관리도(불량률)'), sigma: z.number().min(1).max(4).default(3) }),
+  defaultProps: { title: 'p 관리도(불량률)', sigma: 3 },
+  defaultGrid: { span: 6, rowSpan: 22 },
+  render: ({ props, data }) => <ControlChart title={props.title} values={data === undefined ? SAMPLE_VALUES.map((v) => Number((v / 100).toFixed(3))) : numbers(data)} k={props.sigma} unit="" />,
+});
+
+// ── 11. 공정능력 분석 ────────────────────────────────────────────────────────
+const capabilityChart = defineComponent({
+  key: 'stat-capability',
+  label: '공정능력 분석',
+  group: '통계 차트',
+  icon: 'gauge',
+  description: '도수분포 + 규격선(LSL/USL) + Cp·Cpk',
+  isContainer: false,
+  bindingModes: ['list'],
+  events: [],
+  propsSchema: z.object({
+    title: z.string().default('공정능력 분석'),
+    lsl: z.number().optional(),
+    usl: z.number().optional(),
+    binCount: z.number().min(2).max(30).default(10),
+  }),
+  defaultProps: { title: '공정능력 분석', binCount: 10 },
+  defaultGrid: { span: 6, rowSpan: 24 },
+  render: ({ props, data }) => {
+    const values = data === undefined ? SAMPLE_VALUES : numbers(data);
+    const bins = histogramBins(values, props.binCount);
+    const cap = capability(values, props.lsl, props.usl);
+    const note =
+      values.length > 0
+        ? `평균 ${format(cap.mean)} · σ ${format(cap.sigma)}${cap.cp != null ? ` · Cp ${cap.cp.toFixed(2)}` : ''}${cap.cpk != null ? ` · Cpk ${cap.cpk.toFixed(2)}` : ''}`
+        : undefined;
+    return (
+      <StatShell title={props.title} isEmpty={bins.length === 0} note={note}>
+        <ComposedChart data={bins}>
+          <CartesianGrid vertical={false} />
+          <XAxis dataKey="center" tickFormatter={(v: number) => format(v)} {...axisProps} />
+          <YAxis {...axisProps} allowDecimals={false} />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          {props.lsl != null && <ReferenceLine x={props.lsl} stroke="var(--chart-5)" strokeDasharray="4 4" />}
+          {props.usl != null && <ReferenceLine x={props.usl} stroke="var(--chart-5)" strokeDasharray="4 4" />}
+          <Bar dataKey="count" name="빈도" fill="var(--chart-1)" radius={2} />
+        </ComposedChart>
+      </StatShell>
+    );
+  },
+});
+
+// ── 12. 런 차트 ──────────────────────────────────────────────────────────────
+const runChart = defineComponent({
+  key: 'stat-run',
+  label: '런 차트',
+  group: '통계 차트',
+  icon: 'chart-line',
+  description: '시계열 값 + 중앙선(런 판정용)',
+  isContainer: false,
+  bindingModes: ['list'],
+  events: [],
+  propsSchema: z.object({ title: z.string().default('런 차트') }),
+  defaultProps: { title: '런 차트' },
+  defaultGrid: { span: 6, rowSpan: 20 },
+  render: ({ props, data }) => {
+    const rows = data === undefined ? SAMPLE_VALUES.map((v, i) => ({ label: String(i + 1), value: v })) : series(data);
+    const median = quantile(rows.map((r) => r.value), 0.5);
+    return (
+      <StatShell title={props.title} isEmpty={rows.length === 0} note={rows.length > 0 ? `중앙값 ${format(median)}` : undefined}>
+        <ComposedChart data={rows}>
+          <CartesianGrid vertical={false} />
+          <XAxis dataKey="label" {...axisProps} />
+          <YAxis domain={['auto', 'auto']} {...axisProps} />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <ReferenceLine y={median} stroke="var(--chart-3)" strokeDasharray="4 4" />
+          <Line dataKey="value" stroke="var(--chart-1)" strokeWidth={2} dot={{ r: 2 }} />
+        </ComposedChart>
+      </StatShell>
+    );
+  },
+});
+
+// ── 13. 이동평균 추이 ────────────────────────────────────────────────────────
+const movingAverageChart = defineComponent({
+  key: 'stat-moving-average',
+  label: '이동평균 추이',
+  group: '통계 차트',
+  icon: 'chart-spline',
+  description: '원본 시계열 + n점 이동평균',
+  isContainer: false,
+  bindingModes: ['list'],
+  events: [],
+  propsSchema: z.object({ title: z.string().default('이동평균 추이'), window: z.number().min(2).max(30).default(5) }),
+  defaultProps: { title: '이동평균 추이', window: 5 },
+  defaultGrid: { span: 6, rowSpan: 22 },
+  render: ({ props, data }) => {
+    const base = data === undefined ? SAMPLE_VALUES.map((v, i) => ({ label: String(i + 1), value: v })) : series(data);
+    const ma = movingAverage(base.map((b) => b.value), props.window);
+    const rows = base.map((b, i) => ({ ...b, ma: ma[i] }));
+    return (
+      <StatShell title={props.title} isEmpty={rows.length === 0} note={`이동평균 구간 ${props.window}`}>
+        <ComposedChart data={rows}>
+          <CartesianGrid vertical={false} />
+          <XAxis dataKey="label" {...axisProps} />
+          <YAxis domain={['auto', 'auto']} {...axisProps} />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <Line dataKey="value" name="실측" stroke="var(--chart-2)" strokeWidth={1.5} dot={false} />
+          <Line dataKey="ma" name={`MA${props.window}`} stroke="var(--chart-1)" strokeWidth={2.5} dot={false} connectNulls />
+        </ComposedChart>
+      </StatShell>
+    );
+  },
+});
+
+// ── 14. 누적분포(오자이브) ───────────────────────────────────────────────────
+const cdfChart = defineComponent({
+  key: 'stat-cdf',
+  label: '누적분포 곡선',
+  group: '통계 차트',
+  icon: 'chart-area',
+  description: '정렬된 값의 누적 비율(%) — 백분위 확인',
+  isContainer: false,
+  bindingModes: ['list'],
+  events: [],
+  propsSchema: z.object({ title: z.string().default('누적분포(오자이브)') }),
+  defaultProps: { title: '누적분포(오자이브)' },
+  defaultGrid: { span: 6, rowSpan: 20 },
+  render: ({ props, data }) => {
+    const values = [...(data === undefined ? SAMPLE_VALUES : numbers(data))].sort((a, b) => a - b);
+    const rows = values.map((v, i) => ({ label: format(v), value: v, cum: Number((((i + 1) / values.length) * 100).toFixed(1)) }));
+    return (
+      <StatShell title={props.title} isEmpty={rows.length === 0} note={rows.length > 0 ? `중앙값 ${format(quantile(values, 0.5))} · P90 ${format(quantile(values, 0.9))}` : undefined}>
+        <ComposedChart data={rows}>
+          <CartesianGrid vertical={false} />
+          <XAxis dataKey="value" tickFormatter={(v: number) => format(v)} {...axisProps} />
+          <YAxis domain={[0, 100]} unit="%" {...axisProps} />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <Area dataKey="cum" name="누적%" stroke="var(--chart-1)" fill="var(--chart-1)" fillOpacity={0.2} />
+        </ComposedChart>
+      </StatShell>
+    );
+  },
+});
+
+// ── 15. 정규확률도(Q-Q) ──────────────────────────────────────────────────────
+const qqPlot = defineComponent({
+  key: 'stat-qq',
+  label: '정규확률도(Q-Q)',
+  group: '통계 차트',
+  icon: 'diff',
+  description: '정규분포 적합도 — 직선에 가까울수록 정규',
+  isContainer: false,
+  bindingModes: ['list'],
+  events: [],
+  propsSchema: z.object({ title: z.string().default('정규확률도(Q-Q)') }),
+  defaultProps: { title: '정규확률도(Q-Q)' },
+  defaultGrid: { span: 6, rowSpan: 22 },
+  render: ({ props, data }) => {
+    const values = [...(data === undefined ? SAMPLE_VALUES : numbers(data))].sort((a, b) => a - b);
+    const pts = values.map((v, i) => ({ x: normalQuantile((i + 0.5) / values.length), y: v }));
+    const { a, b } = linearRegression(pts);
+    const xs = pts.map((p) => p.x);
+    const fit = pts.length > 1 ? [Math.min(...xs), Math.max(...xs)].map((x) => ({ x, y: a + b * x })) : [];
+    return (
+      <StatShell title={props.title} isEmpty={pts.length === 0}>
+        <ComposedChart>
+          <CartesianGrid />
+          <XAxis type="number" dataKey="x" name="이론 분위수" tickFormatter={(v: number) => format(v)} {...axisProps} />
+          <YAxis type="number" dataKey="y" name="관측값" domain={['auto', 'auto']} tickFormatter={(v: number) => format(v)} {...axisProps} />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <Scatter data={pts} fill="var(--chart-1)" />
+          <Line data={fit} dataKey="y" stroke="var(--chart-5)" strokeWidth={2} dot={false} isAnimationActive={false} />
+        </ComposedChart>
+      </StatShell>
+    );
+  },
+});
+
+// ── 16. 잔차 도표 ────────────────────────────────────────────────────────────
+const residualPlot = defineComponent({
+  key: 'stat-residual',
+  label: '잔차 도표',
+  group: '통계 차트',
+  icon: 'chart-scatter',
+  description: '회귀 잔차의 분포 — 패턴이 없어야 적합',
+  isContainer: false,
+  bindingModes: ['list'],
+  events: [],
+  propsSchema: z.object({ title: z.string().default('잔차 도표') }),
+  defaultProps: { title: '잔차 도표' },
+  defaultGrid: { span: 6, rowSpan: 20 },
+  render: ({ props, data }) => {
+    const pts = data === undefined ? SAMPLE_POINTS : points(data);
+    const { a, b } = linearRegression(pts);
+    const residuals = pts.map((p) => ({ x: p.x, y: Number((p.y - (a + b * p.x)).toFixed(4)) }));
+    return (
+      <StatShell title={props.title} isEmpty={residuals.length === 0} note={residuals.length > 0 ? `잔차 평균 ${format(mean(residuals.map((r) => r.y)))}` : undefined}>
+        <ScatterChart>
+          <CartesianGrid />
+          <XAxis type="number" dataKey="x" domain={['auto', 'auto']} {...axisProps} />
+          <YAxis type="number" dataKey="y" domain={['auto', 'auto']} {...axisProps} />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <ReferenceLine y={0} stroke="var(--chart-5)" />
+          <Scatter data={residuals} fill="var(--chart-2)" />
+        </ScatterChart>
+      </StatShell>
+    );
+  },
+});
+
+// ── 17. 히트맵 ───────────────────────────────────────────────────────────────
+const heatmapMatrix = defineComponent({
+  key: 'stat-heatmap',
+  label: '히트맵',
+  group: '통계 차트',
+  icon: 'grid-3x3',
+  description: '범주별 값의 농도 표시 — 밀집도·집중 구간 파악',
+  isContainer: false,
+  bindingModes: ['list'],
+  events: [],
+  propsSchema: z.object({ title: z.string().default('히트맵'), columns: z.number().min(2).max(12).default(6) }),
+  defaultProps: { title: '히트맵', columns: 6 },
+  defaultGrid: { span: 6, rowSpan: 20 },
+  render: ({ props, data }) => {
+    const rows = data === undefined ? SAMPLE_SERIES : series(data);
+    const max = rows.length > 0 ? Math.max(...rows.map((r) => Math.abs(r.value))) : 0;
+    // recharts에 히트맵 프리미티브가 없어 CSS 그리드로 그린다 — 색은 차트 토큰의 투명도만 바꾼다.
+    return (
+      <div className="flex h-full min-h-[140px] flex-col gap-1.5">
+        {props.title ? <h3 className="text-sm font-medium">{props.title}</h3> : null}
+        {rows.length === 0 ? (
+          <div className="flex flex-1 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground">
+            표시할 데이터가 없습니다
+          </div>
+        ) : (
+          <div className="grid flex-1 auto-rows-fr gap-1" style={{ gridTemplateColumns: `repeat(${props.columns}, minmax(0, 1fr))` }}>
+            {rows.map((r, i) => (
+              <div
+                key={`${r.label}-${i}`}
+                className="flex min-h-8 flex-col items-center justify-center rounded-sm p-1 text-[10px] leading-tight"
+                style={{ backgroundColor: 'var(--chart-1)', opacity: max === 0 ? 0.15 : 0.15 + (Math.abs(r.value) / max) * 0.85 }}
+                title={`${r.label}: ${format(r.value)}`}
+              >
+                <span className="truncate font-medium text-background mix-blend-luminosity">{r.label}</span>
+                <span className="tabular-nums text-background mix-blend-luminosity">{format(r.value)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  },
+});
+
+// ── 18. 레이더 차트 ──────────────────────────────────────────────────────────
+const radarChart = defineComponent({
+  key: 'stat-radar',
+  label: '레이더 차트',
+  group: '통계 차트',
+  icon: 'radar',
+  description: '다변량 지표 비교 — 항목별 균형 확인',
+  isContainer: false,
+  bindingModes: ['list'],
+  events: [],
+  propsSchema: z.object({ title: z.string().default('레이더 차트') }),
+  defaultProps: { title: '레이더 차트' },
+  defaultGrid: { span: 6, rowSpan: 24 },
+  render: ({ props, data }) => {
+    const rows = data === undefined ? SAMPLE_SERIES : series(data);
+    return (
+      <StatShell title={props.title} isEmpty={rows.length === 0}>
+        <RadarChart data={rows}>
+          <PolarGrid />
+          <PolarAngleAxis dataKey="label" fontSize={11} />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <Radar dataKey="value" stroke="var(--chart-1)" fill="var(--chart-1)" fillOpacity={0.35} />
+        </RadarChart>
+      </StatShell>
+    );
+  },
+});
+
+// ── 19. 워터폴 차트 ──────────────────────────────────────────────────────────
+const waterfallChart = defineComponent({
+  key: 'stat-waterfall',
+  label: '워터폴 차트',
+  group: '통계 차트',
+  icon: 'chart-column-stacked',
+  description: '증감 기여도 분해 — 누적 변화 추적',
+  isContainer: false,
+  bindingModes: ['list'],
+  events: [],
+  propsSchema: z.object({ title: z.string().default('워터폴 차트') }),
+  defaultProps: { title: '워터폴 차트' },
+  defaultGrid: { span: 6, rowSpan: 22 },
+  render: ({ props, data }) => {
+    const input = data === undefined ? SAMPLE_SERIES.map((s, i) => ({ ...s, value: i % 2 === 0 ? s.value : -s.value / 2 })) : series(data);
+    const rows = waterfallSeries(input);
+    return (
+      <StatShell title={props.title} isEmpty={rows.length === 0} note={rows.length > 0 ? `최종 누계 ${format(rows[rows.length - 1].total)}` : undefined}>
+        <ComposedChart data={rows}>
+          <CartesianGrid vertical={false} />
+          <XAxis dataKey="label" {...axisProps} />
+          <YAxis domain={['auto', 'auto']} {...axisProps} />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <Bar dataKey="base" stackId="w" fill="transparent" isAnimationActive={false} />
+          <Bar dataKey="value" stackId="w" name="변화량" radius={2}>
+            {rows.map((r, i) => (
+              <Cell key={i} fill={input[i]?.value >= 0 ? 'var(--chart-1)' : 'var(--chart-4)'} />
+            ))}
+          </Bar>
+        </ComposedChart>
+      </StatShell>
+    );
+  },
+});
+
+// ── 20. 퍼널 차트 ────────────────────────────────────────────────────────────
+const funnelChart = defineComponent({
+  key: 'stat-funnel',
+  label: '퍼널 차트',
+  group: '통계 차트',
+  icon: 'filter',
+  description: '단계별 통과/잔존 비율 — 공정 흐름 손실 분석',
+  isContainer: false,
+  bindingModes: ['list'],
+  events: [],
+  propsSchema: z.object({ title: z.string().default('퍼널 차트') }),
+  defaultProps: { title: '퍼널 차트' },
+  defaultGrid: { span: 6, rowSpan: 22 },
+  render: ({ props, data }) => {
+    const rows = [...(data === undefined ? SAMPLE_SERIES : series(data))].sort((a, b) => b.value - a.value);
+    const first = rows[0]?.value ?? 0;
+    return (
+      <StatShell title={props.title} isEmpty={rows.length === 0} note={rows.length > 1 && first > 0 ? `최종 통과율 ${((rows[rows.length - 1].value / first) * 100).toFixed(1)}%` : undefined}>
+        <FunnelChart>
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <Funnel dataKey="value" data={rows} isAnimationActive={false}>
+            {rows.map((r, i) => (
+              <Cell key={r.label} fill={`var(--chart-${(i % 5) + 1})`} />
+            ))}
+            <LabelList dataKey="label" position="right" fontSize={11} fill="var(--foreground)" />
+          </Funnel>
+        </FunnelChart>
+      </StatShell>
+    );
+  },
+});
+
+export const statisticsComponents = [
+  histogram,
+  boxplot,
+  scatterPlot,
+  regressionScatter,
+  bubbleChart,
+  paretoChart,
+  controlXbar,
+  controlR,
+  controlImr,
+  controlP,
+  capabilityChart,
+  runChart,
+  movingAverageChart,
+  cdfChart,
+  qqPlot,
+  residualPlot,
+  heatmapMatrix,
+  radarChart,
+  waterfallChart,
+  funnelChart,
+];

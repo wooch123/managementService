@@ -1,0 +1,1352 @@
+// 자동 생성 파일 — scripts/generate-node-meta.ts로 재생성한다. 직접 수정하지 말 것.
+export type NodeMeta = {
+  isContainer: boolean;
+  allowedChildren: string[] | null;
+  defaultGrid: { span: number; rowSpan: number };
+  defaultProps: Record<string, unknown>;
+  bindingModes: string[];
+  events: string[];
+};
+
+export const nodeMeta: Record<string, NodeMeta> = {
+  "card": {
+    "isContainer": true,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 20
+    },
+    "defaultProps": {
+      "title": "카드 제목",
+      "description": "",
+      "showHeader": true
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "separator": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 2
+    },
+    "defaultProps": {
+      "orientation": "horizontal"
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "aspect-ratio": {
+    "isContainer": true,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 20
+    },
+    "defaultProps": {
+      "ratio": 1.7777777777777777
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "resizable": {
+    "isContainer": true,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 30
+    },
+    "defaultProps": {
+      "orientation": "horizontal"
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "scroll-area": {
+    "isContainer": true,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 25
+    },
+    "defaultProps": {
+      "height": 200
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "tabs": {
+    "isContainer": true,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 25
+    },
+    "defaultProps": {
+      "tab1Label": "탭 1",
+      "tab2Label": "탭 2"
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "accordion": {
+    "isContainer": true,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 15
+    },
+    "defaultProps": {
+      "title": "섹션 제목"
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "collapsible": {
+    "isContainer": true,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 15
+    },
+    "defaultProps": {
+      "title": "자세히 보기"
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "item": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 8
+    },
+    "defaultProps": {
+      "title": "제목",
+      "description": "설명",
+      "icon": "circle"
+    },
+    "bindingModes": [
+      "single"
+    ],
+    "events": [
+      "onClick"
+    ]
+  },
+  "sidebar": {
+    "isContainer": true,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 3,
+      "rowSpan": 30
+    },
+    "defaultProps": {
+      "title": "메뉴"
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "input": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 8
+    },
+    "defaultProps": {
+      "label": "라벨",
+      "placeholder": "",
+      "type": "text"
+    },
+    "bindingModes": [
+      "field"
+    ],
+    "events": [
+      "onChange"
+    ]
+  },
+  "textarea": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 16
+    },
+    "defaultProps": {
+      "label": "라벨",
+      "placeholder": "",
+      "rows": 4
+    },
+    "bindingModes": [
+      "field"
+    ],
+    "events": [
+      "onChange"
+    ]
+  },
+  "native-select": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 8
+    },
+    "defaultProps": {
+      "label": "라벨"
+    },
+    "bindingModes": [
+      "field"
+    ],
+    "events": [
+      "onChange"
+    ]
+  },
+  "select": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 8
+    },
+    "defaultProps": {
+      "label": "라벨",
+      "placeholder": "선택하세요"
+    },
+    "bindingModes": [
+      "field"
+    ],
+    "events": [
+      "onChange"
+    ]
+  },
+  "combobox": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 8
+    },
+    "defaultProps": {
+      "label": "라벨"
+    },
+    "bindingModes": [
+      "field"
+    ],
+    "events": [
+      "onChange"
+    ]
+  },
+  "checkbox": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 6
+    },
+    "defaultProps": {
+      "label": "동의합니다"
+    },
+    "bindingModes": [
+      "field"
+    ],
+    "events": [
+      "onChange"
+    ]
+  },
+  "radio-group": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 12
+    },
+    "defaultProps": {
+      "label": "옵션 선택",
+      "options": [
+        {
+          "value": "1",
+          "label": "옵션 1"
+        },
+        {
+          "value": "2",
+          "label": "옵션 2"
+        }
+      ]
+    },
+    "bindingModes": [
+      "field"
+    ],
+    "events": [
+      "onChange"
+    ]
+  },
+  "switch": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 6
+    },
+    "defaultProps": {
+      "label": "알림 받기"
+    },
+    "bindingModes": [
+      "field"
+    ],
+    "events": [
+      "onChange"
+    ]
+  },
+  "slider": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 8
+    },
+    "defaultProps": {
+      "label": "값",
+      "min": 0,
+      "max": 100
+    },
+    "bindingModes": [
+      "field"
+    ],
+    "events": [
+      "onChange"
+    ]
+  },
+  "toggle": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 2,
+      "rowSpan": 6
+    },
+    "defaultProps": {
+      "label": "토글"
+    },
+    "bindingModes": [
+      "field"
+    ],
+    "events": [
+      "onChange"
+    ]
+  },
+  "toggle-group": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 6
+    },
+    "defaultProps": {
+      "options": [
+        "왼쪽",
+        "가운데",
+        "오른쪽"
+      ]
+    },
+    "bindingModes": [
+      "field"
+    ],
+    "events": [
+      "onChange"
+    ]
+  },
+  "date-picker": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 8
+    },
+    "defaultProps": {
+      "label": "날짜"
+    },
+    "bindingModes": [
+      "field"
+    ],
+    "events": [
+      "onChange"
+    ]
+  },
+  "calendar": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 30
+    },
+    "defaultProps": {},
+    "bindingModes": [
+      "field"
+    ],
+    "events": [
+      "onSelect"
+    ]
+  },
+  "input-otp": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 8
+    },
+    "defaultProps": {
+      "length": 6
+    },
+    "bindingModes": [
+      "field"
+    ],
+    "events": [
+      "onComplete"
+    ]
+  },
+  "input-group": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 8
+    },
+    "defaultProps": {
+      "placeholder": "검색"
+    },
+    "bindingModes": [
+      "field"
+    ],
+    "events": [
+      "onChange"
+    ]
+  },
+  "field": {
+    "isContainer": true,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 10
+    },
+    "defaultProps": {
+      "label": "필드 라벨",
+      "description": ""
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "label": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 2,
+      "rowSpan": 4
+    },
+    "defaultProps": {
+      "text": "라벨"
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "table": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 20
+    },
+    "defaultProps": {
+      "columns": [
+        "컬럼 1",
+        "컬럼 2"
+      ]
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "data-table": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 40
+    },
+    "defaultProps": {
+      "title": "",
+      "columns": [],
+      "showSearch": true,
+      "showExport": false,
+      "selectable": false,
+      "density": "default",
+      "emptyText": "데이터가 없습니다"
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": [
+      "onRowClick",
+      "onSelectionChange",
+      "onCreateClick"
+    ]
+  },
+  "chart": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 25
+    },
+    "defaultProps": {
+      "title": "",
+      "chartType": "bar",
+      "unit": ""
+    },
+    "bindingModes": [
+      "list",
+      "aggregate"
+    ],
+    "events": []
+  },
+  "carousel": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 8,
+      "rowSpan": 20
+    },
+    "defaultProps": {
+      "slideCount": 3
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "pagination": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 6
+    },
+    "defaultProps": {
+      "pageCount": 5
+    },
+    "bindingModes": [],
+    "events": [
+      "onPageChange"
+    ]
+  },
+  "badge": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 2,
+      "rowSpan": 4
+    },
+    "defaultProps": {
+      "text": "상태",
+      "variant": "default"
+    },
+    "bindingModes": [
+      "field"
+    ],
+    "events": []
+  },
+  "avatar": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 1,
+      "rowSpan": 4
+    },
+    "defaultProps": {
+      "initials": "U"
+    },
+    "bindingModes": [
+      "field"
+    ],
+    "events": []
+  },
+  "progress": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 4
+    },
+    "defaultProps": {
+      "value": 50
+    },
+    "bindingModes": [
+      "field",
+      "aggregate"
+    ],
+    "events": []
+  },
+  "typography": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 6
+    },
+    "defaultProps": {
+      "variant": "p",
+      "text": "텍스트"
+    },
+    "bindingModes": [
+      "field"
+    ],
+    "events": []
+  },
+  "empty": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 15
+    },
+    "defaultProps": {
+      "title": "데이터가 없습니다",
+      "description": ""
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "skeleton": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 4
+    },
+    "defaultProps": {
+      "height": 20
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "breadcrumb": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 4
+    },
+    "defaultProps": {
+      "items": [
+        "홈",
+        "현재 페이지"
+      ]
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "navigation-menu": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 6
+    },
+    "defaultProps": {
+      "items": [
+        "홈",
+        "소개",
+        "문의"
+      ]
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "menubar": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 6
+    },
+    "defaultProps": {
+      "menus": [
+        "파일",
+        "편집"
+      ]
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "dropdown-menu": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 3,
+      "rowSpan": 6
+    },
+    "defaultProps": {
+      "label": "메뉴",
+      "items": [
+        "항목 1",
+        "항목 2"
+      ]
+    },
+    "bindingModes": [],
+    "events": [
+      "onSelect"
+    ]
+  },
+  "context-menu": {
+    "isContainer": true,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 12
+    },
+    "defaultProps": {
+      "items": [
+        "복사",
+        "삭제"
+      ]
+    },
+    "bindingModes": [],
+    "events": [
+      "onSelect"
+    ]
+  },
+  "command": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 16
+    },
+    "defaultProps": {
+      "items": [
+        "명령 1",
+        "명령 2"
+      ]
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": [
+      "onSelect"
+    ]
+  },
+  "alert": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 8
+    },
+    "defaultProps": {
+      "title": "안내",
+      "description": "내용을 입력하세요",
+      "variant": "default"
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "alert-dialog": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 3,
+      "rowSpan": 6
+    },
+    "defaultProps": {
+      "triggerLabel": "삭제",
+      "title": "정말 삭제하시겠습니까?",
+      "description": "이 작업은 되돌릴 수 없습니다."
+    },
+    "bindingModes": [],
+    "events": [
+      "onConfirm",
+      "onCancel"
+    ]
+  },
+  "dialog": {
+    "isContainer": true,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 20
+    },
+    "defaultProps": {
+      "triggerLabel": "열기",
+      "title": "다이얼로그 제목"
+    },
+    "bindingModes": [],
+    "events": [
+      "onOpen",
+      "onClose"
+    ]
+  },
+  "drawer": {
+    "isContainer": true,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 20
+    },
+    "defaultProps": {
+      "title": "드로어 제목"
+    },
+    "bindingModes": [],
+    "events": [
+      "onOpen",
+      "onClose"
+    ]
+  },
+  "sheet": {
+    "isContainer": true,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 25
+    },
+    "defaultProps": {
+      "title": "시트 제목"
+    },
+    "bindingModes": [],
+    "events": [
+      "onOpen",
+      "onClose"
+    ]
+  },
+  "popover": {
+    "isContainer": true,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 15
+    },
+    "defaultProps": {
+      "triggerLabel": "열기"
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "hover-card": {
+    "isContainer": true,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 12
+    },
+    "defaultProps": {
+      "triggerLabel": "@username"
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "tooltip": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 3,
+      "rowSpan": 6
+    },
+    "defaultProps": {
+      "triggerLabel": "도움말",
+      "text": "설명 텍스트"
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "toast": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 6
+    },
+    "defaultProps": {
+      "message": "저장되었습니다",
+      "variant": "default"
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "spinner": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 1,
+      "rowSpan": 4
+    },
+    "defaultProps": {},
+    "bindingModes": [],
+    "events": []
+  },
+  "button": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 2,
+      "rowSpan": 6
+    },
+    "defaultProps": {
+      "label": "버튼",
+      "variant": "default",
+      "size": "default"
+    },
+    "bindingModes": [],
+    "events": [
+      "onClick"
+    ]
+  },
+  "button-group": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 3,
+      "rowSpan": 6
+    },
+    "defaultProps": {
+      "labels": [
+        "이전",
+        "다음"
+      ]
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "kbd": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 1,
+      "rowSpan": 4
+    },
+    "defaultProps": {
+      "text": "Ctrl"
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "attachment": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 3,
+      "rowSpan": 6
+    },
+    "defaultProps": {
+      "title": "문서.pdf",
+      "description": "1.2 MB"
+    },
+    "bindingModes": [
+      "field"
+    ],
+    "events": [
+      "onRemove"
+    ]
+  },
+  "bubble": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 6
+    },
+    "defaultProps": {
+      "text": "안녕하세요",
+      "align": "start",
+      "variant": "default"
+    },
+    "bindingModes": [
+      "field"
+    ],
+    "events": []
+  },
+  "marker": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 4
+    },
+    "defaultProps": {
+      "text": "항목"
+    },
+    "bindingModes": [
+      "field"
+    ],
+    "events": []
+  },
+  "message": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 8
+    },
+    "defaultProps": {
+      "author": "사용자",
+      "text": "메시지 내용",
+      "align": "start"
+    },
+    "bindingModes": [
+      "field"
+    ],
+    "events": []
+  },
+  "message-scroller": {
+    "isContainer": true,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 30
+    },
+    "defaultProps": {},
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "questionnaire": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 20
+    },
+    "defaultProps": {
+      "question": "질문을 입력하세요",
+      "choices": [
+        "선택지 1",
+        "선택지 2"
+      ]
+    },
+    "bindingModes": [],
+    "events": [
+      "onSubmit"
+    ]
+  },
+  "direction": {
+    "isContainer": true,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 12
+    },
+    "defaultProps": {
+      "direction": "ltr"
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "stat-histogram": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 22
+    },
+    "defaultProps": {
+      "title": "히스토그램",
+      "binCount": 8
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "stat-boxplot": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 22
+    },
+    "defaultProps": {
+      "title": "박스플롯"
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "stat-scatter": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 22
+    },
+    "defaultProps": {
+      "title": "산점도"
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "stat-regression": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 22
+    },
+    "defaultProps": {
+      "title": "회귀 분석"
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "stat-bubble": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 22
+    },
+    "defaultProps": {
+      "title": "버블 차트"
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "stat-pareto": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 22
+    },
+    "defaultProps": {
+      "title": "파레토 분석"
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "stat-control-xbar": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 22
+    },
+    "defaultProps": {
+      "title": "X̄ 관리도",
+      "sigma": 3
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "stat-control-r": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 22
+    },
+    "defaultProps": {
+      "title": "R 관리도",
+      "sigma": 3
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "stat-control-imr": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 26
+    },
+    "defaultProps": {
+      "title": "I-MR 관리도",
+      "sigma": 3
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "stat-control-p": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 22
+    },
+    "defaultProps": {
+      "title": "p 관리도(불량률)",
+      "sigma": 3
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "stat-capability": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 24
+    },
+    "defaultProps": {
+      "title": "공정능력 분석",
+      "binCount": 10
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "stat-run": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 20
+    },
+    "defaultProps": {
+      "title": "런 차트"
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "stat-moving-average": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 22
+    },
+    "defaultProps": {
+      "title": "이동평균 추이",
+      "window": 5
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "stat-cdf": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 20
+    },
+    "defaultProps": {
+      "title": "누적분포(오자이브)"
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "stat-qq": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 22
+    },
+    "defaultProps": {
+      "title": "정규확률도(Q-Q)"
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "stat-residual": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 20
+    },
+    "defaultProps": {
+      "title": "잔차 도표"
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "stat-heatmap": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 20
+    },
+    "defaultProps": {
+      "title": "히트맵",
+      "columns": 6
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "stat-radar": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 24
+    },
+    "defaultProps": {
+      "title": "레이더 차트"
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "stat-waterfall": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 22
+    },
+    "defaultProps": {
+      "title": "워터폴 차트"
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "stat-funnel": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 22
+    },
+    "defaultProps": {
+      "title": "퍼널 차트"
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  }
+};

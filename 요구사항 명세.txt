@@ -1,0 +1,44 @@
+현업에서 사용 할 업무 전반을 진행 할 웹 어플리케이션 제작할것이다.
+서비스는 이 local PC가 호스팅하고, webapp.dove9999.com으로 배포하라.
+중간중간 구현 수준을 %로 공유하고 예상 남은 시간도 공유하라. 
+
+아래 요구사항을 구현하라.
+
+
+page의 layout은 전형적인 웹어플리케이션 디자인인 본문 좌측에 페이지 네비게이션이 있는 디자인으로 아래 셈플 이미지를 참조하라.
+
+F:\Codex\Web_application\layout_sample.png
+
+웹 어플리케이션은,
+운영버전인 /home 관리자 버전인 /admin 으로 구성하고, 관리자 버전에서 구성한 page의 목록과 각 page의 layout이 실제로 운영 버전에 배포되는것을 목표로 한다. 
+
+
+관리자 로그인은
+
+id admin
+pass 123456
+
+으로 설정하고 관리자 페이지 접근 시 로그인 페이지가 별도로 나타나고 로그인을 해야 관리자 모드에 들어갈 수 있게 한다
+
+
+관리자 화면에서는 운영버전에 활용 될 page들과 component를 배치하고 
+각 component에 연결 될 DB를 디자인, 사용자와 상호작용 가능한 component의 동작을 정의한다.
+
+관리자모드는
+
+layout 구성 : Page의 구성과 각 Page에 요소를 배치할 수 있는 UI (Page는 Drag & Drop으로 위치를 변경할 수 있어야 한다. 모든 요소는 drag & drop으로 원하는 위치에 배치 할 수 있어야 한다. 좌측 사이드바에는 page 구성, 그 옆에는 요소들을 선택하는 네비게이터, 우측 사이드바에는 요소들을 상세 설정하는 속성 창을 배치한다.)
+↓
+관계도 : class diagram같은 형태의 시각화된 Node 배치 및 연결 선 통한 Page, Component, DB, Action 에 대한 연결 관계 설정 (각 Node도 Drag & drop으로 위치 조절을 할 수 있고, 사용자가 오와열을 잘 맞출 수 있게 grid 기반으로 배치될 수 있게 작성)
+↓
+구성 검증 : 각 요소들의 동작 관계에 틀어짐이 없는지 검증
+↓
+수정본 배포 : 실제 운영 버전에 배포
+
+※ 사이트 구현에 필요한 UI와 UX적인 요소는 아래 figma에서 제공하는 요소를 반영 할 것이다. 
+아래 UI적인 요소의 요구 명세서에서의 shadcn은 모두 아래 링크내의 요소를 의미한다.
+https://www.figma.com/design/aYBArRThYTynjrqJBNRIdQ/shadcn_ui-kit-for-Figma--PRO----2026.7--Community-?node-id=11002-7884&t=7bNNnSJ9br5A1BX6-1
+
+각 Page는 Icon을 가질 수 있고, 관리자 모드에서 아이콘을 클릭 시 shadcn에서 제공하는 Icons 컬랙션을 모두 보여준다. (검색이 가능하도록)
+각 Page에 배치 할 Component는 shadcn에서 제공하는 Default shadcn/ui components에 해당하는 모든 요소를 그룹별로 제공한다. (Utility Components 포함)
+
+

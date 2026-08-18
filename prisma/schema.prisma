@@ -1,0 +1,170 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./meta.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ── 인증 ──
+model AdminUser {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ── 페이지 (드래프트) ──
+model Page {
+  id         String          @id @default(cuid())
+  slug       String          @unique
+  title      String
+  icon       String?
+  parentId   String?
+  parent     Page?           @relation("PageTree", fields: [parentId], references: [id])
+  children   Page[]          @relation("PageTree")
+  order      Int
+  isVisible  Boolean         @default(true)
+  isHome     Boolean         @default(false)
+  layoutCols Int             @default(12)
+  rowHeight  Int             @default(8)
+  gap        Int             @default(16)
+  nodes      ComponentNode[]
+  graphNode  GraphNode?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@index([parentId, order])
+}
+
+// ── 컴포넌트 인스턴스 (드래프트) ──
+model ComponentNode {
+  id           String          @id @default(cuid())
+  pageId       String
+  page         Page            @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  type         String
+  parentNodeId String?
+  parentNode   ComponentNode?  @relation("NodeTree", fields: [parentNodeId], references: [id])
+  childNodes   ComponentNode[] @relation("NodeTree")
+  order        Int
+  gridCol      Int             @default(1)
+  gridSpan     Int             @default(12)
+  gridRow      Int             @default(1)
+  gridRowSpan  Int             @default(4)
+  /// 이 컴포넌트가 놓인 화면 영역 — "main"(본문 그리드) | "aside"(우측 플로팅 패널).
+  /// 두 영역 모두 같은 12칼럼 그리드 규칙을 쓰고, 관리자 캔버스에서 영역을 전환해 편집한다.
+  region       String          @default("main")
+  propsJson    String          @default("{}")
+  bindingJson  String?
+  eventsJson   String          @default("{}")
+  label        String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([pageId, parentNodeId, order])
+}
+
+// ── 데이터 설계 ──
+model Entity {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  tableName   String   @unique
+  description String?
+  fields      Field[]
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Field {
+  id          String  @id @default(cuid())
+  entityId    String
+  entity      Entity  @relation(fields: [entityId], references: [id], onDelete: Cascade)
+  name        String
+  columnName  String
+  dataType    String
+  isRequired  Boolean @default(false)
+  isUnique    Boolean @default(false)
+  isPrimary   Boolean @default(false)
+  defaultVal  String?
+  enumValues  String?
+  refEntityId String?
+  order       Int
+
+  @@unique([entityId, columnName])
+  @@index([entityId, order])
+}
+
+// ── 관계 (관계도의 연결선) ──
+model Relation {
+  id          String   @id @default(cuid())
+  fromType    String
+  fromId      String
+  toType      String
+  toId        String
+  kind        String
+  cardinality String?
+  labelText   String?
+  metaJson    String   @default("{}")
+  createdAt   DateTime @default(now())
+
+  @@unique([fromType, fromId, toType, toId, kind])
+}
+
+// ── 동작 정의 ──
+model Action {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  kind        String
+  configJson  String    @default("{}")
+  description String?
+  graphNode   GraphNode?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// ── 관계도 노드 좌표 ──
+model GraphNode {
+  id       String  @id @default(cuid())
+  refType  String
+  refId    String  @unique
+  x        Int
+  y        Int
+  width    Int     @default(220)
+  height   Int     @default(120)
+  isPinned Boolean @default(false)
+  pageId   String? @unique
+  page     Page?   @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  actionId String? @unique
+  action   Action? @relation(fields: [actionId], references: [id], onDelete: Cascade)
+}
+
+// ── 배포 ──
+model Revision {
+  id           String   @id @default(cuid())
+  revisionNo   Int      @unique
+  specJson     String
+  migrationSql String?
+  note         String?
+  publishedAt  DateTime @default(now())
+  publishedBy  String
+}
+
+model Deployment {
+  id               String   @id @default("singleton")
+  activeRevisionId String?
+  updatedAt        DateTime @updatedAt
+}
+
+// ── 검증 결과 캐시 ──
+model ValidationRun {
+  id         String    @id @default(cuid())
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  errorCount Int       @default(0)
+  warnCount  Int       @default(0)
+  resultJson String    @default("[]")
+  specHash   String
+}

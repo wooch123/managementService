@@ -1,0 +1,118 @@
+'use client';
+
+import { useCallback, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { renderNodeTree } from '@/lib/runtime/render-node-tree';
+import type { NodeDto } from '@/lib/db/nodes';
+import type { ComponentNodeSpec } from '@/types/spec';
+import type { Effect, ActionResult } from '@/lib/actions/executor';
+
+/** 우측 패널은 폭이 좁아 본문(기본 16px)보다 촘촘한 행 간격을 쓴다 — 같은 rowSpan이라도 패널
+ * 안에서는 더 조밀하게 쌓인다. */
+export const ASIDE_GAP = 4;
+
+/**
+ * §12.2~12.3 운영 렌더러. PreviewRuntime(P6, /admin/preview 전용)과 로직(dispatch → §10.7
+ * POST /api/runtime/action → effects 처리, 입력값 추적)은 거의 같지만 세 가지가 다르다:
+ * 드래프트가 아니라 서버에서 이미 프리페치한 발행 스펙 노드/바인딩 데이터를 받고, navigate가
+ * `/admin/preview`가 아니라 실제 `/home/{slug}`로 이동하며, refresh는 router.refresh()로
+ * 서버 컴포넌트(바인딩 프리페치 포함)를 다시 실행시킨다.
+ */
+export function RuntimeRenderer({
+  nodes,
+  bindingData,
+  cols,
+  rowHeight,
+  gap,
+}: {
+  /** 본문(main)과 우측 패널(aside) 컴포넌트가 모두 들어온다 — 영역 분리는 이 안에서 한다. */
+  nodes: ComponentNodeSpec[];
+  bindingData: Record<string, unknown>;
+  cols: number;
+  rowHeight: number;
+  gap: number;
+}) {
+  // 두 영역을 한 컴포넌트 안에서 렌더해야 입력값 상태(componentValues)를 공유한다 —
+  // 우측 패널의 입력이 본문 액션의 값 소스가 되는 구성도 그대로 동작해야 하기 때문이다.
+  const asideRootIds = new Set(nodes.filter((n) => n.region === 'aside' && !n.parentNodeId).map((n) => n.id));
+  const isAside = (n: ComponentNodeSpec) => n.region === 'aside';
+  const mainNodes = nodes.filter((n) => !isAside(n));
+  const asideNodes = nodes.filter(isAside);
+  const hasAside = asideRootIds.size > 0;
+  const router = useRouter();
+  const [componentValues, setComponentValues] = useState<Record<string, unknown>>({});
+
+  function applyEffects(effects: Effect[]) {
+    for (const effect of effects) {
+      if (effect.type === 'toast') {
+        const fn = effect.variant === 'destructive' ? toast.error : effect.variant === 'success' ? toast.success : toast;
+        fn(effect.message);
+      } else if (effect.type === 'navigate') {
+        router.push(`/home/${effect.slug}`);
+      } else if (effect.type === 'openModal' || effect.type === 'closeModal') {
+        // §12.3 명세대로 effect는 수신·소비하지만, 카탈로그의 dialog/sheet/drawer가 캔버스
+        // WYSIWYG 제약 때문에 정적 미리보기로 고정되어 있어(feedback.tsx 주석 참고) 실제
+        // 열림/닫힘 시각 반영은 이번 P8 범위에서는 하지 않는다 — PROGRESS.md에 스코프 축소로
+        // 기록했다. 데이터 흐름(입력→액션→토스트→갱신) 자체는 이 제약과 무관하게 동작한다.
+      } else if (effect.type === 'refresh') {
+        router.refresh();
+      }
+    }
+  }
+
+  const handleDispatch = useCallback(
+    async (node: NodeDto, eventName: string) => {
+      const actionId = node.events[eventName];
+      if (!actionId) return;
+      const res = await fetch('/api/runtime/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actionId, context: { componentValues } }),
+      });
+      const result = (await res.json()) as ActionResult;
+      if (!result.ok) {
+        toast.error(result.error ?? '액션 실행에 실패했습니다.');
+        return;
+      }
+      applyEffects(result.effects);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [componentValues]
+  );
+
+  const hooks = {
+    dispatch: (node: NodeDto, eventName: string) => void handleDispatch(node, eventName),
+    getValue: (nodeId: string) => componentValues[nodeId],
+    onValueChange: (nodeId: string, v: unknown) => setComponentValues((prev) => ({ ...prev, [nodeId]: v })),
+    getData: (nodeId: string) => bindingData[nodeId],
+  };
+
+  return (
+    // 본문은 읽기 좋은 폭(최대 1120px)으로 제한하고, 남는 오른쪽 공간은 플로팅 패널이 쓴다.
+    // 패널에 컴포넌트가 하나도 없으면 아예 렌더하지 않아 본문이 가운데로 정렬된다.
+    <div className="mx-auto flex w-full max-w-[1440px] gap-6">
+      <div className="mx-auto w-full min-w-0 max-w-[1120px] flex-1">
+        <div
+          className="grid gap-4"
+          style={{ gridTemplateColumns: `repeat(${cols}, 1fr)`, gridAutoRows: `${rowHeight}px`, gap }}
+        >
+          {renderNodeTree(mainNodes as unknown as NodeDto[], null, hooks)}
+        </div>
+      </div>
+
+      {hasAside && (
+        <aside className="hidden w-[300px] shrink-0 lg:block">
+          <div className="sticky top-0 rounded-xl border bg-card/80 p-3 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-card/60">
+            <div
+              className="grid"
+              style={{ gridTemplateColumns: `repeat(${cols}, 1fr)`, gridAutoRows: `${rowHeight}px`, gap: ASIDE_GAP }}
+            >
+              {renderNodeTree(asideNodes as unknown as NodeDto[], null, hooks)}
+            </div>
+          </div>
+        </aside>
+      )}
+    </div>
+  );
+}

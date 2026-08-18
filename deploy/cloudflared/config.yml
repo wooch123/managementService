@@ -1,0 +1,15 @@
+# 2026-08-18 기준 실제 운영 설정. dove9999.com 계정에 이미 있던 dove-web-service 터널을
+# 이 프로젝트용으로 재사용하기로 결정(demo1.dove9999.com이 아니라 demo.dove9999.com) —
+# deploy/README.md §1 참고. 이 파일은 참고용 사본이고, cloudflared가 실제로 읽는 파일은
+# C:\Users\<user>\.cloudflared\config-dove-web-service.yml이다(계정 로그인 시 로컬에 이미 생성됨).
+tunnel: dove-web-service
+# 실제 값(터널 UUID)은 저장소에 두지 않는다 — cloudflared tunnel list로 확인해 로컬에서 채운다.
+credentials-file: C:\Users\<user>\.cloudflared\<tunnel-uuid>.json
+
+ingress:
+  - hostname: demo.dove9999.com
+    service: http://127.0.0.1:3000
+    originRequest:
+      connectTimeout: 30s
+      keepAliveTimeout: 90s
+  - service: http_status:404
