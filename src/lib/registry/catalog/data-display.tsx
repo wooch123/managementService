@@ -303,7 +303,7 @@ export const dataDisplayComponents = [
               <BarChart data={sampleChartData}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="label" {...categoricalXAxisProps(sampleChartData.map((d) => d.label))} />
-                {props.yLabel.trim() ? (
+                {(props.yLabel ?? '').trim() ? (
                   <YAxis tickLine={false} axisLine={false} fontSize={11} {...yAxisLabelProps(props.yLabel)} />
                   ) : null}
                 <ChartTooltip content={<ChartTooltipContent />} />
@@ -317,9 +317,10 @@ export const dataDisplayComponents = [
       // aggregate 바인딩 → runAggregateQuery가 숫자 하나를 돌려준다(§6.4). KPI 타일로 렌더한다.
       if (typeof data === 'number') {
         return (
-          <div className="flex h-full flex-col justify-center gap-1">
-            {props.title && <span className="text-xs text-muted-foreground">{props.title}</span>}
-            <span className="text-3xl font-semibold tabular-nums">
+          // Tremor KPI 카드 규격: 레이블 14px/500 회색, 지표 30px/600 진한 회색.
+          <div className="flex h-full flex-col justify-center gap-1.5">
+            {props.title && <span className="text-sm font-medium text-muted-foreground">{props.title}</span>}
+            <span className="text-3xl font-semibold text-foreground tabular-nums">
               {formatChartNumber(data)}
               {props.unit && <span className="ml-1 text-base font-normal text-muted-foreground">{props.unit}</span>}
             </span>
@@ -352,7 +353,7 @@ export const dataDisplayComponents = [
               <LineChart data={series}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="label" {...categoricalXAxisProps(series.map((s) => s.label))} />
-                {props.yLabel.trim() ? (
+                {(props.yLabel ?? '').trim() ? (
                   <YAxis tickLine={false} axisLine={false} fontSize={11} {...yAxisLabelProps(props.yLabel)} />
                   ) : null}
                 <ChartTooltip content={<ChartTooltipContent />} />
@@ -362,7 +363,7 @@ export const dataDisplayComponents = [
               <BarChart data={series}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="label" {...categoricalXAxisProps(series.map((s) => s.label))} />
-                {props.yLabel.trim() ? (
+                {(props.yLabel ?? '').trim() ? (
                   <YAxis tickLine={false} axisLine={false} fontSize={11} {...yAxisLabelProps(props.yLabel)} />
                   ) : null}
                 <ChartTooltip content={<ChartTooltipContent />} />

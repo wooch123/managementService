@@ -48,7 +48,8 @@ export function renderNodeTree(nodes: NodeDto[], parentId: string | null = null,
     // 컴포넌트만 예외로 두어 테두리가 겹치지 않게 한다.
     const withCard = (content: React.ReactNode) =>
       isRoot && !SELF_SURFACED.has(node.type) ? (
-        <div className="flex h-full flex-col rounded-xl border bg-card p-3 text-card-foreground shadow-sm">
+        // Tremor식 카드 표면: 그림자 대신 1px 테두리, 반지름 8px, 넉넉한 안쪽 여백.
+        <div className="flex h-full flex-col rounded-lg border bg-card p-4 text-card-foreground">
           <div className="min-h-0 flex-1">{content}</div>
         </div>
       ) : (
@@ -74,7 +75,10 @@ export function renderNodeTree(nodes: NodeDto[], parentId: string | null = null,
             def={def}
             ctx={{
               node: { id: node.id, type: node.type },
-              props: node.props,
+              // 카탈로그에 속성이 새로 생기면 예전에 저장된 노드에는 그 값이 없다. 기본값을 먼저 깔고
+              // 저장된 값을 덮어써야, 새 속성을 참조하는 렌더 코드가 undefined에서 터지지 않는다
+              // (2026-08-19 실측: yLabel 추가 후 기존 차트가 전부 "렌더링 오류"로 떨어졌다).
+              props: { ...def.defaultProps, ...node.props },
               data: hooks?.getData?.(node.id),
               dispatch: (eventName, payload) => hooks?.dispatch?.(node, eventName, payload),
               value: hooks?.getValue?.(node.id),
