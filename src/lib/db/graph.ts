@@ -208,6 +208,32 @@ export async function getGraphData() {
     }
   }
 
+  // 파생 엣지 3 — 액션 체인(onSuccess/onError): 저장이 끝난 뒤 이어서 도는 액션을 잇는다.
+  // WHY: 이 연결은 액션 설정 안에만 있어서 관계도에서는 보이지 않았고, 이어서 도는 액션이
+  // "아무 데도 연결되지 않은 고아 노드"로 잡혔다(검증 W-REL-005). 설정에 이미 있는 사실을
+  // 그대로 그린다 — 사용자가 따로 이어줄 필요는 없다.
+  for (const a of actions) {
+    const config = JSON.parse(a.configJson) as { onSuccess?: string | null; onError?: string | null };
+    for (const [key, label] of [
+      ['onSuccess', '성공 후'],
+      ['onError', '실패 시'],
+    ] as const) {
+      const nextId = config[key];
+      if (!nextId) continue;
+      edges.push({
+        id: `derived-chain-${key}-${a.id}`,
+        fromType: 'ACTION',
+        fromId: a.id,
+        toType: 'ACTION',
+        toId: nextId,
+        kind: 'TRIGGERS',
+        cardinality: null,
+        labelText: label,
+        derived: true,
+      });
+    }
+  }
+
   // 사용자 편집 엣지 — Relation 테이블
   const relations = await prisma.relation.findMany();
   for (const r of relations) {

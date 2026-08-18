@@ -95,8 +95,17 @@ export const relOrphanNode: ValidationRule = {
     const issues = [];
     for (const n of spec.nodes) if (!connected.has(n.id)) issues.push(issue('W-REL-005', 'warning', 'relation', `연결이 하나도 없는 고아 컴포넌트입니다.`, { type: 'COMPONENT', id: n.id }, false));
     for (const e of spec.entities) if (!connected.has(e.id)) issues.push(issue('W-REL-005', 'warning', 'relation', `연결이 하나도 없는 고아 엔티티입니다: ${e.name}`, { type: 'ENTITY', id: e.id }, false));
+    // 액션이 다른 액션의 후속(onSuccess/onError)으로 지정돼 있으면 그것도 "연결"이다 —
+    // 이 연결은 Relation 테이블이 아니라 액션 설정 안에 있어서, 예전에는 후속 액션이 전부
+    // 고아로 잡혔다(관계도에는 lib/db/graph.ts가 파생 엣지로 같은 사실을 그린다).
+    const chained = new Set<string>();
     for (const a of spec.actions) {
-      const usedAsTarget = spec.relations.some((r) => r.toId === a.id);
+      const config = a.config as { onSuccess?: string | null; onError?: string | null };
+      if (config.onSuccess) chained.add(config.onSuccess);
+      if (config.onError) chained.add(config.onError);
+    }
+    for (const a of spec.actions) {
+      const usedAsTarget = chained.has(a.id) || spec.relations.some((r) => r.toId === a.id);
       if (!usedAsTarget) issues.push(issue('W-REL-005', 'warning', 'relation', `연결이 하나도 없는 고아 액션입니다: ${a.name}`, { type: 'ACTION', id: a.id }, false));
     }
     return issues;

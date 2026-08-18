@@ -7,9 +7,14 @@
       "name": "webapp-v1",
       "cwd": "F:/Claude/WebApp_V1",
       "script": "node_modules/next/dist/bin/next",
-      "args": ["start"],
+      "args": [
+        "start"
+      ],
       "interpreter": "node",
-      "env": { "NODE_ENV": "production" },
+      "env": {
+        "NODE_ENV": "production",
+        "NEXT_DIST_DIR": ".next"
+      },
       "autorestart": true,
       "max_restarts": 20,
       "restart_delay": 3000,
@@ -18,7 +23,12 @@
     {
       "name": "cloudflared-tunnel",
       "script": "C:/Program Files (x86)/cloudflared/cloudflared.exe",
-      "args": ["tunnel", "--config", "C:/Users/wooch/.cloudflared/config-dove-web-service.yml", "run"],
+      "args": [
+        "tunnel",
+        "--config",
+        "C:/Users/wooch/.cloudflared/config-dove-web-service.yml",
+        "run"
+      ],
       "interpreter": "none",
       "autorestart": true,
       "max_restarts": 20,

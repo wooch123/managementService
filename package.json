@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
+    "dev": "pnpm theme:gen && next dev --turbopack",
+    "build": "pnpm theme:gen && next build --turbopack",
     "analyze": "node scripts/analyze.mjs",
     "start": "next start",
     "lint": "eslint",
@@ -16,7 +16,9 @@
     "db:seed": "prisma db seed",
     "shadcn:sync": "tsx scripts/shadcn-sync.ts",
     "registry:gen-meta": "tsx scripts/generate-node-meta.ts",
-    "audit:catalog": "tsx --tsconfig scripts/audit.tsconfig.json scripts/audit-catalog.tsx"
+    "audit:catalog": "tsx --tsconfig scripts/audit.tsconfig.json scripts/audit-catalog.tsx",
+    "theme:gen": "tsx scripts/generate-theme-css.ts",
+    "audit:ui": "node scripts/audit-ui.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

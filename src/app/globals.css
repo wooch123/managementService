@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+/* 테마 20종(html[data-theme=...]) — scripts/generate-theme-css.ts가 만든다. */
+@import "./themes.generated.css";
 
 @custom-variant dark (&:is(.dark *));
 
