@@ -18,7 +18,8 @@
     "registry:gen-meta": "tsx scripts/generate-node-meta.ts",
     "audit:catalog": "tsx --tsconfig scripts/audit.tsconfig.json scripts/audit-catalog.tsx",
     "theme:gen": "tsx scripts/generate-theme-css.ts",
-    "audit:ui": "node scripts/audit-ui.mjs"
+    "audit:ui": "node scripts/audit-ui.mjs",
+    "db:optimize": "tsx scripts/optimize-indexes.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

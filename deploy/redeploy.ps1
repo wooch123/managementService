@@ -68,6 +68,9 @@ if (-not $ok) {
 $rev = (Invoke-RestMethod -Uri $HealthUrl -TimeoutSec 5).revisionNo
 Write-Host "배포 완료 — 서비스 폴더 $target, 배포 리비전 #$rev"
 
+# 3-1) 배포된 스펙이 쓰는 컬럼에 인덱스를 맞춘다(없으면 만들고, 있으면 건너뛴다).
+& pnpm db:optimize
+
 # 4) 이제 아무도 쓰지 않는 이전 폴더를 정리한다(.next는 예전 방식 잔재라 함께 지운다)
 foreach ($old in @($current, '.next')) {
   if ($old -ne $target -and (Test-Path (Join-Path $Root $old))) {
