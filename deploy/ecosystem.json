@@ -1,0 +1,29 @@
+{
+  "//": "pm2 프로세스 정의 — 자동 기동(deploy/start-hosting.ps1)과 수동 재기동이 같은 정의를 쓴다.",
+  "//1": "CLI로 'pm2 start <script> ... -- start' 형태를 쓰면 node로 pm2를 직접 실행할 때 마지막 인자가",
+  "//2": "스크립트로 재해석돼 next가 인자 없이(=dev 모드) 뜨는 사고가 있었다(2026-08-18). 정의 파일로 고정한다.",
+  "apps": [
+    {
+      "name": "webapp-v1",
+      "cwd": "F:/Claude/WebApp_V1",
+      "script": "node_modules/next/dist/bin/next",
+      "args": ["start"],
+      "interpreter": "node",
+      "env": { "NODE_ENV": "production" },
+      "autorestart": true,
+      "max_restarts": 20,
+      "restart_delay": 3000,
+      "time": true
+    },
+    {
+      "name": "cloudflared-tunnel",
+      "script": "C:/Program Files (x86)/cloudflared/cloudflared.exe",
+      "args": ["tunnel", "--config", "C:/Users/wooch/.cloudflared/config-dove-web-service.yml", "run"],
+      "interpreter": "none",
+      "autorestart": true,
+      "max_restarts": 20,
+      "restart_delay": 5000,
+      "time": true
+    }
+  ]
+}

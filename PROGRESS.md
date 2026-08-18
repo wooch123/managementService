@@ -735,3 +735,36 @@ Claim 분석(FA Assign · FA 현황+인수인계 · FA Tech Report) / Reball(의
 - 열림 상태는 컴포넌트 상태로 관리하고, 현재 보고 있는 페이지가 그 묶음 안이면 자동으로 펼친다
 - 실측: 운영에서 상위 클릭 → `/home/claim-analysis` 이동 + 하위 펼침 / 화살표 클릭 → URL 유지하며
   접힘 / 관리자에서 상위 클릭 → 해당 페이지가 빌더에 선택됨
+
+### P9 후속 13 — 재부팅 후 자동 호스팅 복구 (2026-08-18 저녁)
+
+윈도우 재부팅(20:27) 후 `demo.dove9999.com`이 죽어 있었다. pm2 데몬 자체가 떠 있지 않았다.
+
+조사 결과 원인이 두 겹이었다.
+
+1. `pm2-windows-startup`이 `HKCU\...\Run`에 등록한 숨김 실행(wscript → pm2_resurrect.cmd)이
+   로그온 때 발화하지 않았다. `pm2.log`에 데몬 기동 흔적조차 없었고, 숨김 실행이라 실패 로그도
+   남지 않았다. (같은 명령을 손으로 실행하면 정상 동작 — 명령이 아니라 트리거 문제)
+2. **작업 스케줄러/비대화형 컨텍스트에서 `%APPDATA%\npm` 폴더가 비어 보인다.** 같은 계정인데도
+   항목 수 0, `pm2.cmd`에 대한 `Test-Path`/`[IO.File]::Exists` 모두 False(대화형에서는 28개).
+   ACL·EFS·정션·Defender 제어된 폴더 액세스 모두 정상. 원인은 특정하지 못했고, 대신 자동 기동이
+   전역 npm에 의존하지 않도록 바꿨다.
+
+조치
+
+- `F:\Claude\tools`에 pm2 7.0.3 사본 설치 → 자동 기동은 이 사본을 `node`로 직접 실행
+  (PM2_HOME은 `%USERPROFILE%\.pm2`로 고정해 터미널의 전역 pm2와 상태를 공유)
+- `deploy/ecosystem.json` — 프로세스 정의를 파일로 고정. CLI `-- start` 방식은 pm2를 node로 직접
+  실행할 때 마지막 인자가 스크립트로 재해석돼 **인자 없는 `next`(dev 모드)** 로 뜨는 사고가 있었다
+  (실측 확인 후 교체)
+- `deploy/start-hosting.ps1` — 대기(F:/네트워크) → 상태 확인 → 필요할 때만 기동 → 헬스체크까지
+  확인하고 `data/logs/autostart.log`에 전 과정 기록. 이미 정상이면 아무 것도 하지 않는다
+- `deploy/register-autostart.ps1` — 작업 스케줄러 등록(관리자 권한 불필요). 로그온 30초 후 1회 +
+  10분마다 감시 반복
+
+검증(재부팅 없이 동일 조건 재현): `pm2 kill`로 완전 초기화 후 작업만 실행 → 4초 만에
+`webapp-v1`(args `["start"]`, NODE_ENV=production, Ready in 571ms) + `cloudflared-tunnel` 기동,
+로컬·공개 URL 모두 `{"ok":true,"revisionNo":26}` 응답.
+
+한계: "사용자 로그온 시" 트리거라 재부팅 후 이 계정으로 로그인해야 뜬다. 로그인 없이 부팅부터
+띄우려면 관리자 권한으로 Windows 서비스 등록이 필요하다(deploy/README.md §2.1 마지막 참고).
