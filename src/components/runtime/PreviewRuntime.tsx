@@ -82,10 +82,10 @@ export function PreviewRuntime({
   const mainNodes = nodes.filter((n) => n.region !== 'aside');
   const asideNodes = nodes.filter((n) => n.region === 'aside');
 
-  // 운영 화면(RuntimeRenderer)과 같은 2단 구성 — 미리보기에서도 우측 패널이 그대로 보여야 한다.
+  // 운영 화면(RuntimeRenderer)과 같은 2단 구성(좌측 정렬 + 우측 패널) — 미리보기도 동일하게 보여야 한다.
   return (
-    <div className="mx-auto flex w-full max-w-[1440px] gap-6">
-      <div className="mx-auto w-full min-w-0 max-w-[1120px] flex-1">
+    <div className="flex w-full max-w-[1760px] gap-6">
+      <div className="w-full min-w-0 max-w-[1200px] flex-1">
         <div
           className="grid gap-4"
           style={{ gridTemplateColumns: 'repeat(12, 1fr)', gridAutoRows: `${rowHeight}px`, gap }}

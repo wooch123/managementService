@@ -89,10 +89,13 @@ export function RuntimeRenderer({
   };
 
   return (
-    // 본문은 읽기 좋은 폭(최대 1120px)으로 제한하고, 남는 오른쪽 공간은 플로팅 패널이 쓴다.
-    // 패널에 컴포넌트가 하나도 없으면 아예 렌더하지 않아 본문이 가운데로 정렬된다.
-    <div className="mx-auto flex w-full max-w-[1440px] gap-6">
-      <div className="mx-auto w-full min-w-0 max-w-[1120px] flex-1">
+    // 본문은 읽기 좋은 폭(최대 1200px)으로 제한하되 **가운데 정렬하지 않는다** — mx-auto로
+    // 가운데에 두면 화면이 넓어질수록 사이드바와 본문 사이가 같이 벌어진다(2560px에서 432px까지
+    // 떨어졌다). 관리 콘솔류(Vercel·Linear·Stripe 대시보드)의 일반적인 처리대로 콘텐츠를
+    // 사이드바에 붙여 좌측 정렬하고, 남는 여백은 오른쪽에 둔다. 우측 지표 패널은 본문 바로
+    // 옆에 붙어 함께 움직인다(뷰포트 오른쪽 끝에 고정하지 않는다).
+    <div className="flex w-full max-w-[1760px] gap-6">
+      <div className="w-full min-w-0 max-w-[1200px] flex-1">
         <div
           className="grid gap-4"
           style={{ gridTemplateColumns: `repeat(${cols}, 1fr)`, gridAutoRows: `${rowHeight}px`, gap }}
