@@ -40,13 +40,11 @@ async function gridOf(page: Page, pageId: string, nodeId: string): Promise<Grid>
   return node.grid;
 }
 
-/** 노드의 드래그 핸들(좌측 상단 배지)을 잡아 dx, dy만큼 끈다. */
+/** 컴포넌트 본문 아무 곳이나 잡아 dx, dy만큼 끈다(별도 핸들 없이 전체가 드래그 영역이다). */
 async function dragNodeBy(page: Page, nodeId: string, dx: number, dy: number) {
   const el = page.locator(`[data-node-id="${nodeId}"]`);
-  await el.hover({ position: { x: 30, y: 10 } });
-  const handle = el.locator('span[title="드래그해서 위치 이동"]');
-  const box = await handle.boundingBox();
-  if (!box) throw new Error('드래그 핸들을 찾을 수 없습니다');
+  const box = await el.boundingBox();
+  if (!box) throw new Error('컴포넌트를 찾을 수 없습니다');
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
   await page.mouse.move(cx, cy);

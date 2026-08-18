@@ -176,6 +176,9 @@ export function CanvasNodeView({
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <div
+          ref={isRoot ? setDragHandleRef : undefined}
+          {...(isRoot ? dragAttributes : {})}
+          {...(isRoot ? dragListeners : {})}
           style={isRoot ? gridStyle(node) : undefined}
           onClick={(e) => {
             e.stopPropagation();
@@ -185,18 +188,21 @@ export function CanvasNodeView({
           onPointerUp={endResize}
           data-node-id={node.id}
           tabIndex={0}
-          className={cn('group/node relative outline-none', selected && 'z-10', isDragging && 'opacity-40')}
+          className={cn(
+            // 컴포넌트 어디를 눌러도 끌 수 있다 — 예전에는 선택 후 좌상단 배지만 잡을 수 있어
+            // "드래그가 안 된다"고 느끼기 쉬웠다. 클릭만 하면(4px 미만 이동) 선택으로 처리된다
+            // (PointerSensor activationConstraint).
+            'group/node relative outline-none',
+            isRoot && 'cursor-grab active:cursor-grabbing',
+            selected && 'z-10',
+            isDragging && 'opacity-40'
+          )}
         >
-          {/* 핸들은 선택했을 때뿐 아니라 마우스를 올리기만 해도 보인다 — 선택하지 않으면 잡을
-              곳이 아예 없어서 "드래그가 안 된다"고 느끼기 쉬웠다. */}
+          {/* 배지는 이제 "이 컴포넌트가 무엇인지" 알려주는 라벨이다(드래그는 본문 전체에서 된다). */}
           <span
-            ref={isRoot ? setDragHandleRef : undefined}
-            {...(isRoot ? dragAttributes : {})}
-            {...(isRoot ? dragListeners : {})}
             className={cn(
-              'absolute -top-5 left-0 z-20 flex items-center gap-1 rounded bg-primary px-1.5 py-0.5 text-[10px] text-primary-foreground transition-opacity',
-              selected ? 'opacity-100' : 'opacity-0 group-hover/node:opacity-100',
-              isRoot && 'cursor-grab active:cursor-grabbing'
+              'pointer-events-none absolute -top-5 left-0 z-20 flex items-center gap-1 rounded bg-primary px-1.5 py-0.5 text-[10px] text-primary-foreground transition-opacity',
+              selected ? 'opacity-100' : 'opacity-0 group-hover/node:opacity-100'
             )}
             title={isRoot ? '드래그해서 위치 이동' : undefined}
           >
