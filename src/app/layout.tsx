@@ -26,10 +26,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+    // 서체 변수는 <html>에 둔다 — globals.css가 `html { @apply font-sans }`로 적용하는데
+    // 변수가 <body>에만 있으면 html 시점에 var()가 비어 선언 전체가 무효가 되고 브라우저
+    // 기본 서체로 떨어진다(그동안 Geist가 화면에 반영되지 않던 이유다).
+    <html
+      lang="ko"
+      className={`${geistSans.variable} ${geistMono.variable}`}
+      suppressHydrationWarning
+    >
+      <body className="antialiased">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <TooltipProvider>
             {children}

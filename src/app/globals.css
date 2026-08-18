@@ -7,9 +7,13 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  /* `--font-sans: var(--font-sans)`는 자기 자신을 가리키는 순환이라 무효 처리된다 — 그 탓에
+   * layout.tsx가 불러온 Geist가 화면에 한 번도 적용되지 않고 브라우저 기본 서체로 떨어져 있었다.
+   * next/font가 만드는 변수를 직접 가리킨다. 한글 글리프는 Geist에 없으므로 그 다음 후보인
+   * 운영체제 기본 서체(Windows 맑은 고딕 / macOS Apple SD Gothic Neo)로 자연스럽게 넘어간다. */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-heading: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
