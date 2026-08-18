@@ -34,8 +34,9 @@ import { Toolbar } from '@/components/graph/Toolbar';
 import { NodeDetailSheet } from '@/components/graph/NodeDetailSheet';
 import { EdgeDetailPanel } from '@/components/graph/EdgeDetailPanel';
 import { GraphSearch } from '@/components/graph/GraphSearch';
+import { PageNav, collectPageScope, type PageNavItem } from '@/components/graph/PageNav';
 import { toRFNode, toRFEdge } from '@/components/graph/convert';
-import { applyDagreLayout, type LayoutDensity } from '@/components/graph/dagre-layout';
+import { applyTypeBandLayout, type LayoutDensity } from '@/components/graph/type-band-layout';
 import {
   alignLeft,
   alignRight,
@@ -77,7 +78,7 @@ function GraphCanvas({
   initialSelectedEdgeId?: string | null;
 }) {
   const router = useRouter();
-  const { setCenter } = useReactFlow();
+  const { setCenter, fitView } = useReactFlow();
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -88,6 +89,8 @@ function GraphCanvas({
   const [searchOpen, setSearchOpen] = useState(false);
   const [minimapOpen, setMinimapOpen] = useState(true);
   const [pendingTrigger, setPendingTrigger] = useState<{ source: RFNode; target: RFNode } | null>(null);
+  /** null = 전체 구조 보기, 그 외 = 해당 페이지 범위만 보기 */
+  const [activePageId, setActivePageId] = useState<string | null>(null);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -137,14 +140,46 @@ function GraphCanvas({
     return new Set(nodes.filter((n) => !connected.has(n.id)).map((n) => n.id));
   }, [orphanOnly, nodes, edges]);
 
+  const pageItems = useMemo<PageNavItem[]>(
+    () =>
+      nodes
+        .filter((n) => n.data.refType === 'PAGE')
+        .map((n) => {
+          const d = n.data as unknown as { refId: string; title: string; slug: string; icon: string | null };
+          return {
+            id: d.refId,
+            title: d.title,
+            slug: d.slug,
+            icon: d.icon,
+            nodeCount: nodes.filter((c) => c.data.refType === 'COMPONENT' && (c.data as { pageId?: string }).pageId === d.refId).length,
+          };
+        })
+        .sort((a, b) => a.title.localeCompare(b.title, 'ko')),
+    [nodes]
+  );
+
+  /** 페이지를 고른 경우 그 페이지 범위의 노드 id 집합(전체 보기면 null) */
+  const pageScopeIds = useMemo(
+    () => (activePageId ? collectPageScope(nodes, edges, activePageId) : null),
+    [activePageId, nodes, edges]
+  );
+
   const visibleNodes = useMemo(
     () =>
       nodes
         .filter((n) => visibleTypes.has(n.data.refType))
+        .filter((n) => !pageScopeIds || pageScopeIds.has(n.id))
         .map((n) => (orphanIds.has(n.id) ? { ...n, style: { ...n.style, outline: '2px solid #ef4444', outlineOffset: 2 } } : n)),
-    [nodes, visibleTypes, orphanIds]
+    [nodes, visibleTypes, orphanIds, pageScopeIds]
   );
   const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((n) => n.id)), [visibleNodes]);
+
+  // 보기 범위(전체 ↔ 페이지)를 바꾸면 그 범위가 한눈에 들어오도록 화면을 맞춘다.
+  useEffect(() => {
+    const timer = setTimeout(() => void fitView({ padding: 0.15, duration: 300 }), 60);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePageId]);
   const visibleEdges = useMemo(
     () => edges.filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target)),
     [edges, visibleNodeIds]
@@ -248,10 +283,19 @@ function GraphCanvas({
     setNodes(next);
     void savePositions(next);
   }
+  /** 자동 배치는 **지금 보이는 범위**만 대상으로 한다 — 페이지를 골라 놓았으면 그 페이지의
+   * 노드만 재배치하고 나머지 좌표는 건드리지 않는다(전체 보기에서는 지금까지처럼 전부). */
   function handleAutoLayout(direction: 'TB' | 'LR', density: LayoutDensity) {
-    const next = applyDagreLayout(nodes, edges, direction, density);
+    const scopeIds = new Set(visibleNodes.map((n) => n.id));
+    const scopedNodes = nodes.filter((n) => scopeIds.has(n.id));
+    const laidOut = applyTypeBandLayout(scopedNodes, direction, density);
+    const byId = new Map(laidOut.map((n) => [n.id, n]));
+    const next = nodes.map((n) => byId.get(n.id) ?? n);
     setNodes(next);
-    void savePositions(next);
+    void savePositions(laidOut);
+    // 재배치 후에는 화면도 새 배열에 맞춰준다 — 그러지 않으면 노드가 화면 밖으로 나가 "빈 캔버스"처럼 보인다.
+    setTimeout(() => void fitView({ padding: 0.15, duration: 400 }), 50);
+    if (activePageId) toast.success(`이 페이지 범위의 노드 ${laidOut.length}개만 재배치했습니다.`);
   }
 
   function handleSearchSelect(nodeId: string) {
@@ -300,7 +344,14 @@ function GraphCanvas({
         onAutoLayout={handleAutoLayout}
         onOpenSearch={() => setSearchOpen(true)}
       />
-      <div className="relative flex-1">
+      <div className="flex min-h-0 flex-1">
+        <PageNav
+          pages={pageItems}
+          activePageId={activePageId}
+          onSelect={setActivePageId}
+          totalNodeCount={nodes.length}
+        />
+        <div className="relative flex-1">
         <EdgeMarkerDefs />
         <ReactFlow
           nodes={visibleNodes}
@@ -357,6 +408,7 @@ function GraphCanvas({
           </Panel>
         </ReactFlow>
         <EdgeDetailPanel edge={detailEdge} onClose={() => setDetailEdge(null)} onSave={handleEdgeSave} onDelete={handleEdgeDelete} />
+        </div>
       </div>
 
       <NodeDetailSheet

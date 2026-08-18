@@ -27,7 +27,7 @@ import {
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Card, CardContent } from '@/components/ui/card';
 import type { RefType } from '@/types/graph';
-import type { LayoutDensity } from '@/components/graph/dagre-layout';
+import type { LayoutDensity } from '@/components/graph/type-band-layout';
 import { TYPE_LABEL, TYPE_COLOR } from '@/components/graph/types';
 
 const ALL_TYPES: RefType[] = ['PAGE', 'COMPONENT', 'ENTITY', 'ACTION'];
@@ -139,14 +139,14 @@ export function Toolbar({
           <AlertDialogHeader>
             <AlertDialogTitle>자동 레이아웃 실행</AlertDialogTitle>
             <AlertDialogDescription>
-              현재 수동으로 배치한 노드 좌표가 모두 덮어써집니다. 계속할까요?
+              지금 보이는 범위(전체 구조 또는 선택한 페이지)의 노드 좌표가 덮어써집니다. 계속할까요?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-1.5">
             <span className="text-xs text-muted-foreground">배치 방향</span>
             <ToggleGroup type="single" value={layoutDirection} onValueChange={(v) => v && setLayoutDirection(v as 'TB' | 'LR')} size="sm">
-              <ToggleGroupItem value="TB">세로 방향</ToggleGroupItem>
-              <ToggleGroupItem value="LR">가로 방향</ToggleGroupItem>
+              <ToggleGroupItem value="TB">세로 (9:16)</ToggleGroupItem>
+              <ToggleGroupItem value="LR">가로 (16:9)</ToggleGroupItem>
             </ToggleGroup>
           </div>
           <div className="space-y-1.5">
@@ -156,7 +156,8 @@ export function Toolbar({
               <ToggleGroupItem value="compact">밀집 배치</ToggleGroupItem>
             </ToggleGroup>
             <p className="text-xs text-muted-foreground">
-              밀집 배치는 계층 순서(단 배정·단 안의 좌우 순서)는 그대로 두고 간격만 최소로 좁혀 화면을 촘촘하게 채웁니다.
+              종류별 밴드(페이지 · 컴포넌트 · 엔티티 · 액션) 순서로 오와 열을 맞춰 배치합니다. 가로는 왼→오 열, 세로는 위→아래 행이며
+              전체 배열이 각각 16:9 · 9:16에 가장 가까워지도록 칸 수를 자동으로 정합니다. 밀집 배치는 같은 규칙에서 간격만 좁힙니다.
             </p>
           </div>
           <AlertDialogFooter>
