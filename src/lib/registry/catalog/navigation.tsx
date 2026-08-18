@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { z } from 'zod';
 import {
   Breadcrumb,
@@ -52,17 +53,20 @@ export const navigationComponents = [
     render: ({ props }) => (
       <Breadcrumb>
         <BreadcrumbList>
+          {/* map이 돌려주는 바깥 요소에 key가 있어야 한다 — 이름 없는 조각(<>)으로 감싸면 안쪽에
+              key를 붙여도 React가 "key prop이 없다"고 경고한다(실측). 같은 항목명이 두 번 들어와도
+              구분되도록 순번을 함께 쓴다. */}
           {props.items.map((item, i) => (
-            <>
-              <BreadcrumbItem key={item}>
+            <Fragment key={`${item}-${i}`}>
+              <BreadcrumbItem>
                 {i === props.items.length - 1 ? (
                   <BreadcrumbPage>{item}</BreadcrumbPage>
                 ) : (
                   <BreadcrumbLink href="#">{item}</BreadcrumbLink>
                 )}
               </BreadcrumbItem>
-              {i < props.items.length - 1 && <BreadcrumbSeparator key={`${item}-sep`} />}
-            </>
+              {i < props.items.length - 1 && <BreadcrumbSeparator />}
+            </Fragment>
           ))}
         </BreadcrumbList>
       </Breadcrumb>

@@ -15,7 +15,8 @@
     "db:backup": "tsx scripts/backup-db.ts",
     "db:seed": "prisma db seed",
     "shadcn:sync": "tsx scripts/shadcn-sync.ts",
-    "registry:gen-meta": "tsx scripts/generate-node-meta.ts"
+    "registry:gen-meta": "tsx scripts/generate-node-meta.ts",
+    "audit:catalog": "tsx --tsconfig scripts/audit.tsconfig.json scripts/audit-catalog.tsx"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
