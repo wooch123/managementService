@@ -96,7 +96,7 @@ describe('항목별 집계 바인딩', () => {
 
   it('필터를 적용해도 집계가 맞는다', async () => {
     const r = await runGroupQuery(
-      { ...base, filters: [{ fieldId: 'f-status', op: 'eq', value: '완료' }] },
+      { ...base, filters: [{ fieldId: 'f-status', op: 'eq', source: 'fixed', value: '완료' }] },
       ENTITY as never
     );
     const expected = testDb.prepare("SELECT COUNT(*) c FROM claims WHERE status = '완료'").get() as { c: number };
