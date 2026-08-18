@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/shell/AppSidebar';
+import { getAppSettings } from '@/lib/db/app-settings';
 import { getActiveSpec } from '@/lib/runtime/spec-cache';
 import { buildPublishedPageTree } from '@/lib/runtime/published-page-tree';
 
@@ -9,7 +10,7 @@ export default async function PublicLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [cookieStore, spec] = await Promise.all([cookies(), getActiveSpec()]);
+  const [cookieStore, spec, settings] = await Promise.all([cookies(), getActiveSpec(), getAppSettings()]);
   const defaultOpen = cookieStore.get('sidebar_state')?.value !== 'false';
   // §12.2 "사이드바 메뉴 생성(isVisible 페이지 트리)" — 드래프트가 아니라 배포된 스펙만 쓴다.
   // 아직 아무 것도 배포되지 않았으면(spec === null) 빈 메뉴로 렌더한다 — page.tsx가 그 상태를
@@ -18,7 +19,7 @@ export default async function PublicLayout({
 
   return (
     <SidebarProvider defaultOpen={defaultOpen} className="h-svh overflow-hidden">
-      <AppSidebar pages={pages} mode="public" />
+      <AppSidebar pages={pages} mode="public" siteTitle={settings.siteTitle} siteSubtitle={settings.siteSubtitle} />
       <SidebarInset className="min-h-0">{children}</SidebarInset>
     </SidebarProvider>
   );
