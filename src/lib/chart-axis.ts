@@ -127,3 +127,24 @@ export function categoricalXAxisProps(
     tickFormatter: (value: unknown) => truncateLabel(value, layout.maxChars),
   } as const;
 }
+
+/**
+ * y축 이름(세로로 세운 축 제목)을 붙이는 recharts props.
+ *
+ * 값이 비어 있으면 빈 객체를 돌려주므로, 이름을 넣지 않은 차트는 지금까지와 똑같이 그려진다.
+ * 이름을 넣으면 글자가 들어갈 만큼 축 폭을 넓힌다 — 넓히지 않으면 세로 글자가 그림 영역을 침범한다.
+ */
+export function yAxisLabelProps(label?: string | null) {
+  const text = (label ?? '').trim();
+  if (!text) return {};
+  return {
+    width: 56,
+    label: {
+      value: text,
+      angle: -90,
+      position: 'insideLeft' as const,
+      offset: 6,
+      style: { textAnchor: 'middle' as const, fontSize: 11, fill: 'var(--muted-foreground)' },
+    },
+  };
+}

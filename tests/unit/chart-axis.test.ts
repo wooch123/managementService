@@ -4,6 +4,7 @@ import {
   categoricalXAxisProps,
   estimateTextWidth,
   truncateLabel,
+  yAxisLabelProps,
 } from '@/lib/chart-axis';
 
 describe('x축 레이블 배치 (밀집 시 회전)', () => {
@@ -64,5 +65,24 @@ describe('x축 레이블 배치 (밀집 시 회전)', () => {
     expect(props.tickLine).toBe(false);
     expect(typeof props.tickFormatter).toBe('function');
     expect(props.tickFormatter('가')).toBe('가');
+  });
+});
+
+describe('y축 이름', () => {
+  it('이름이 없으면 축 설정을 건드리지 않는다', () => {
+    expect(yAxisLabelProps('')).toEqual({});
+    expect(yAxisLabelProps('   ')).toEqual({});
+    expect(yAxisLabelProps(null)).toEqual({});
+  });
+
+  it('이름을 주면 세로로 세운 라벨과 넉넉한 축 폭을 돌려준다', () => {
+    const props = yAxisLabelProps('불량 건수');
+    expect(props.label?.value).toBe('불량 건수');
+    expect(props.label?.angle).toBe(-90);
+    expect(props.width).toBeGreaterThanOrEqual(48);
+  });
+
+  it('앞뒤 공백은 정리한다', () => {
+    expect(yAxisLabelProps('  건수  ').label?.value).toBe('건수');
   });
 });

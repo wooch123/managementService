@@ -502,7 +502,8 @@ export const nodeMeta: Record<string, NodeMeta> = {
     "defaultProps": {
       "title": "",
       "chartType": "bar",
-      "unit": ""
+      "unit": "",
+      "yLabel": ""
     },
     "bindingModes": [
       "list",
@@ -1097,7 +1098,8 @@ export const nodeMeta: Record<string, NodeMeta> = {
     },
     "defaultProps": {
       "title": "히스토그램",
-      "binCount": 8
+      "binCount": 8,
+      "yLabel": ""
     },
     "bindingModes": [
       "list"
@@ -1112,7 +1114,8 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "rowSpan": 22
     },
     "defaultProps": {
-      "title": "박스플롯"
+      "title": "박스플롯",
+      "yLabel": ""
     },
     "bindingModes": [
       "list"
@@ -1127,7 +1130,8 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "rowSpan": 22
     },
     "defaultProps": {
-      "title": "산점도"
+      "title": "산점도",
+      "yLabel": ""
     },
     "bindingModes": [
       "list"
@@ -1142,7 +1146,8 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "rowSpan": 22
     },
     "defaultProps": {
-      "title": "회귀 분석"
+      "title": "회귀 분석",
+      "yLabel": ""
     },
     "bindingModes": [
       "list"
@@ -1157,7 +1162,8 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "rowSpan": 22
     },
     "defaultProps": {
-      "title": "버블 차트"
+      "title": "버블 차트",
+      "yLabel": ""
     },
     "bindingModes": [
       "list"
@@ -1172,7 +1178,8 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "rowSpan": 22
     },
     "defaultProps": {
-      "title": "파레토 분석"
+      "title": "파레토 분석",
+      "yLabel": ""
     },
     "bindingModes": [
       "list"
@@ -1220,7 +1227,8 @@ export const nodeMeta: Record<string, NodeMeta> = {
     },
     "defaultProps": {
       "title": "I-MR 관리도",
-      "sigma": 3
+      "sigma": 3,
+      "yLabel": ""
     },
     "bindingModes": [
       "list"
@@ -1252,7 +1260,8 @@ export const nodeMeta: Record<string, NodeMeta> = {
     },
     "defaultProps": {
       "title": "공정능력 분석",
-      "binCount": 10
+      "binCount": 10,
+      "yLabel": ""
     },
     "bindingModes": [
       "list"
@@ -1267,7 +1276,8 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "rowSpan": 20
     },
     "defaultProps": {
-      "title": "런 차트"
+      "title": "런 차트",
+      "yLabel": ""
     },
     "bindingModes": [
       "list"
@@ -1283,7 +1293,8 @@ export const nodeMeta: Record<string, NodeMeta> = {
     },
     "defaultProps": {
       "title": "이동평균 추이",
-      "window": 5
+      "window": 5,
+      "yLabel": ""
     },
     "bindingModes": [
       "list"
@@ -1298,7 +1309,8 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "rowSpan": 20
     },
     "defaultProps": {
-      "title": "누적분포(오자이브)"
+      "title": "누적분포(오자이브)",
+      "yLabel": ""
     },
     "bindingModes": [
       "list"
@@ -1313,7 +1325,8 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "rowSpan": 22
     },
     "defaultProps": {
-      "title": "정규확률도(Q-Q)"
+      "title": "정규확률도(Q-Q)",
+      "yLabel": ""
     },
     "bindingModes": [
       "list"
@@ -1328,7 +1341,8 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "rowSpan": 20
     },
     "defaultProps": {
-      "title": "잔차 도표"
+      "title": "잔차 도표",
+      "yLabel": ""
     },
     "bindingModes": [
       "list"
@@ -1374,7 +1388,8 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "rowSpan": 22
     },
     "defaultProps": {
-      "title": "워터폴 차트"
+      "title": "워터폴 차트",
+      "yLabel": ""
     },
     "bindingModes": [
       "list"

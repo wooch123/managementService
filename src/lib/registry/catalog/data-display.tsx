@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { BarChart, Bar, LineChart, Line, XAxis, CartesianGrid } from 'recharts';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import {
   Table,
   TableBody,
@@ -40,7 +40,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/
 import { Skeleton } from '@/components/ui/skeleton';
 import { Inbox } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { categoricalXAxisProps } from '@/lib/chart-axis';
+import { categoricalXAxisProps, yAxisLabelProps } from '@/lib/chart-axis';
 import { defineComponent, type ComponentDef } from '@/lib/registry/types';
 
 const chartConfig = { value: { label: '값', color: 'var(--primary)' } } satisfies ChartConfig;
@@ -285,8 +285,10 @@ export const dataDisplayComponents = [
       title: z.string().default(''),
       chartType: z.enum(['bar', 'line']).default('bar'),
       unit: z.string().default(''),
+      /** 비워 두면 y축을 그리지 않는다(지금까지의 모양). 값을 넣으면 축과 함께 세로 이름이 붙는다. */
+      yLabel: z.string().default(''),
     }),
-    defaultProps: { title: '', chartType: 'bar', unit: '' },
+    defaultProps: { title: '', chartType: 'bar', unit: '', yLabel: '' },
     defaultGrid: { span: 6, rowSpan: 25 },
     render: ({ props, data }) => {
       const heading = props.title ? <h3 className="text-sm font-medium">{props.title}</h3> : null;
@@ -301,6 +303,9 @@ export const dataDisplayComponents = [
               <BarChart data={sampleChartData}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="label" {...categoricalXAxisProps(sampleChartData.map((d) => d.label))} />
+                {props.yLabel.trim() ? (
+                  <YAxis tickLine={false} axisLine={false} fontSize={11} {...yAxisLabelProps(props.yLabel)} />
+                  ) : null}
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Bar dataKey="value" fill="var(--color-value)" radius={4} />
               </BarChart>
@@ -347,6 +352,9 @@ export const dataDisplayComponents = [
               <LineChart data={series}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="label" {...categoricalXAxisProps(series.map((s) => s.label))} />
+                {props.yLabel.trim() ? (
+                  <YAxis tickLine={false} axisLine={false} fontSize={11} {...yAxisLabelProps(props.yLabel)} />
+                  ) : null}
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Line dataKey="value" stroke="var(--color-value)" strokeWidth={2} dot={false} />
               </LineChart>
@@ -354,6 +362,9 @@ export const dataDisplayComponents = [
               <BarChart data={series}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="label" {...categoricalXAxisProps(series.map((s) => s.label))} />
+                {props.yLabel.trim() ? (
+                  <YAxis tickLine={false} axisLine={false} fontSize={11} {...yAxisLabelProps(props.yLabel)} />
+                  ) : null}
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Bar dataKey="value" fill="var(--color-value)" radius={4} />
               </BarChart>

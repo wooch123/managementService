@@ -1,7 +1,7 @@
 'use client';
 
 import '@xyflow/react/dist/style.css';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -98,6 +98,16 @@ function GraphCanvas({
   const [activePageId, setActivePageId] = useState<string | null>(null);
   /** 페이지별 보기에서 기억한 좌표 — 저장된 노드만 그 보기에서 위치를 덮어쓴다(없으면 전체 좌표). */
   const [viewPositions, setViewPositions] = useState<ViewPositions>(initialViewPositions);
+  /**
+   * 전체 구조 보기의 좌표.
+   *
+   * WHY: 그리는 좌표는 항상 `nodes` 상태 하나만 본다(그래야 드래그 중 이동이 그대로 보인다).
+   * 대신 페이지 보기로 들어가면 그 페이지 좌표로 `nodes`를 갈아끼우므로, 전체 보기로 돌아올 때
+   * 쓸 원래 좌표를 여기에 따로 들고 있는다. 렌더에는 쓰이지 않아 ref로 둔다.
+   */
+  const basePositionsRef = useRef<Record<string, { x: number; y: number }>>(
+    Object.fromEntries(initialNodes.map((n) => [n.id, { x: n.position.x, y: n.position.y }]))
+  );
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -171,20 +181,36 @@ function GraphCanvas({
     [activePageId, nodes, edges]
   );
 
+  // 좌표는 건드리지 않고 걸러내기만 한다.
+  // WHY: 예전에는 여기서 페이지 보기 좌표(viewPositions)로 위치를 덮어썼는데, 그러면 드래그 중
+  // React Flow가 갱신한 위치가 매 렌더마다 원래 자리로 되돌려져 "손을 떼야 그제야 움직이는" 상태가
+  // 됐다(전체 구조 보기는 덮어쓸 좌표가 없어 멀쩡했다). 보기별 좌표는 보기를 바꾸는 순간에만
+  // nodes에 반영한다(아래 useEffect).
   const visibleNodes = useMemo(() => {
-    const saved = activePageId ? viewPositions[activePageId] : undefined;
     return nodes
       .filter((n) => visibleTypes.has(n.data.refType))
       .filter((n) => !pageScopeIds || pageScopeIds.has(n.id))
-      .map((n) => {
-        // 이 보기에서 따로 정렬해 둔 위치가 있으면 그 좌표로 그린다(전체 구조 보기는 원본 그대로).
-        const pos = saved?.[n.id];
-        const withPos = pos ? { ...n, position: pos } : n;
-        return orphanIds.has(n.id)
-          ? { ...withPos, style: { ...withPos.style, outline: '2px solid #ef4444', outlineOffset: 2 } }
-          : withPos;
-      });
-  }, [nodes, visibleTypes, orphanIds, pageScopeIds, activePageId, viewPositions]);
+      .map((n) =>
+        orphanIds.has(n.id)
+          ? { ...n, style: { ...n.style, outline: '2px solid #ef4444', outlineOffset: 2 } }
+          : n
+      );
+  }, [nodes, visibleTypes, orphanIds, pageScopeIds]);
+
+  // 보기를 바꾸면 그 보기의 좌표로 한 번 갈아끼운다. viewPositions는 의존성에서 뺀다 —
+  // 드래그 중에 갱신되면 다시 덮어써서 같은 문제가 재발한다.
+  useEffect(() => {
+    setNodes((nds) =>
+      nds.map((n) => {
+        const saved = activePageId ? viewPositions[activePageId]?.[n.id] : undefined;
+        const base = basePositionsRef.current[n.id];
+        const next = saved ?? base;
+        if (!next || (next.x === n.position.x && next.y === n.position.y)) return n;
+        return { ...n, position: { ...next } };
+      })
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePageId]);
   const visibleNodeIds = useMemo(() => new Set(visibleNodes.map((n) => n.id)), [visibleNodes]);
 
   // 보기 범위(전체 ↔ 페이지)를 바꾸면 그 범위가 한눈에 들어오도록 화면을 맞춘다.
@@ -252,24 +278,38 @@ function GraphCanvas({
     ]);
   }
 
-  const onNodeDragStop = useCallback(
-    (_event: unknown, _node: RFNode, draggedNodes: RFNode[]) => {
-      const moved = draggedNodes.length > 0 ? draggedNodes : [_node];
+  /**
+   * 옮겨진 좌표를 "기억"과 서버에 반영한다. 화면(nodes)은 이미 옮겨진 상태이므로 건드리지 않는다.
+   * 페이지 보기에서 옮긴 위치는 그 페이지에만, 전체 구조 보기에서 옮긴 위치는 전체 좌표로 남는다.
+   */
+  const commitMoved = useCallback(
+    (moved: RFNode[]) => {
+      if (moved.length === 0) return;
       if (activePageId) {
-        // 페이지 보기에서 옮긴 위치는 그 페이지에만 기억한다.
         setViewPositions((prev) => ({
           ...prev,
           [activePageId]: {
             ...(prev[activePageId] ?? {}),
-            ...Object.fromEntries(moved.map((n) => [n.id, { x: Math.round(n.position.x), y: Math.round(n.position.y) }])),
+            ...Object.fromEntries(
+              moved.map((n) => [n.id, { x: Math.round(n.position.x), y: Math.round(n.position.y) }])
+            ),
           },
         }));
       } else {
-        setNodes((nds) => nds.map((n) => moved.find((m) => m.id === n.id) ?? n));
+        for (const n of moved) {
+          basePositionsRef.current[n.id] = { x: n.position.x, y: n.position.y };
+        }
       }
       void savePositions(moved, activePageId);
     },
-    [activePageId, setNodes]
+    [activePageId]
+  );
+
+  const onNodeDragStop = useCallback(
+    (_event: unknown, _node: RFNode, draggedNodes: RFNode[]) => {
+      commitMoved(draggedNodes.length > 0 ? draggedNodes : [_node]);
+    },
+    [commitMoved]
   );
 
   const onSelectionChange: OnSelectionChangeFunc = useCallback(({ nodes: sel }) => {
@@ -289,7 +329,8 @@ function GraphCanvas({
 
   function applyAndPersist(next: RFNode[]) {
     setNodes(next);
-    void savePositions(next.filter((n) => selectedIds.has(n.id)));
+    // 정렬/분배도 지금 보고 있는 보기에 기억시킨다(페이지 보기에서 맞춘 줄이 전체 보기를 흔들지 않게).
+    commitMoved(next.filter((n) => selectedIds.has(n.id)));
   }
 
   function handleAlign(dir: 'left' | 'right' | 'top' | 'bottom') {
@@ -303,7 +344,7 @@ function GraphCanvas({
   function handleSnapAll() {
     const next = snapAllToGrid(nodes);
     setNodes(next);
-    void savePositions(next);
+    commitMoved(next);
   }
   /** 자동 배치는 **지금 보이는 범위**만 대상으로 한다 — 페이지를 골라 놓았으면 그 페이지의
    * 노드만 재배치하고 나머지 좌표는 건드리지 않는다(전체 보기에서는 지금까지처럼 전부). */
@@ -314,8 +355,12 @@ function GraphCanvas({
     const allScoped = nodes.filter((n) => visibleTypes.has(n.data.refType));
     if (allScoped.length > 0) {
       const allLaidOut = applyTypeBandLayout(allScoped, direction, density);
-      const byId = new Map(allLaidOut.map((n) => [n.id, n]));
-      setNodes(nodes.map((n) => byId.get(n.id) ?? n));
+      for (const n of allLaidOut) basePositionsRef.current[n.id] = { x: n.position.x, y: n.position.y };
+      // 전체 보기를 보고 있을 때만 화면을 바꾼다 — 페이지 보기 중이라면 그 페이지 배치(아래)가 화면을 맡는다.
+      if (!activePageId) {
+        const byId = new Map(allLaidOut.map((n) => [n.id, n]));
+        setNodes(nodes.map((n) => byId.get(n.id) ?? n));
+      }
       await savePositions(allLaidOut);
     }
 
@@ -331,6 +376,11 @@ function GraphCanvas({
         ...(nextViews[page.id] ?? {}),
         ...Object.fromEntries(laidOut.map((n) => [n.id, { x: n.position.x, y: n.position.y }])),
       };
+      // 지금 이 페이지를 보고 있다면 화면도 바로 새 배치로 바꿔 준다.
+      if (activePageId === page.id) {
+        const byId = new Map(laidOut.map((n) => [n.id, n]));
+        setNodes((nds) => nds.map((n) => byId.get(n.id) ?? n));
+      }
       await savePositions(laidOut, page.id);
       touched += 1;
     }
@@ -347,20 +397,11 @@ function GraphCanvas({
     const scopedNodes = visibleNodes;
     const laidOut = applyTypeBandLayout(scopedNodes, direction, density);
 
-    if (activePageId) {
-      // 페이지별 배치는 그 페이지 보기에만 기억한다 — 전체 구조 보기와 다른 페이지 배치는 그대로 둔다.
-      setViewPositions((prev) => ({
-        ...prev,
-        [activePageId]: {
-          ...(prev[activePageId] ?? {}),
-          ...Object.fromEntries(laidOut.map((n) => [n.id, { x: n.position.x, y: n.position.y }])),
-        },
-      }));
-    } else {
-      const byId = new Map(laidOut.map((n) => [n.id, n]));
-      setNodes(nodes.map((n) => byId.get(n.id) ?? n));
-    }
-    void savePositions(laidOut, activePageId);
+    // 화면은 어느 보기든 즉시 새 배치로 바꾸고(예전에는 페이지 보기에서 viewPositions만 고쳐 화면이
+    // 따라오지 않을 수 있었다), 기억 위치는 commitMoved가 보기에 맞춰 나눠 저장한다.
+    const byId = new Map(laidOut.map((n) => [n.id, n]));
+    setNodes(nodes.map((n) => byId.get(n.id) ?? n));
+    commitMoved(laidOut);
     // 재배치 후에는 화면도 새 배열에 맞춰준다 — 그러지 않으면 노드가 화면 밖으로 나가 "빈 캔버스"처럼 보인다.
     setTimeout(() => void fitView({ padding: 0.15, duration: 400 }), 50);
     if (activePageId) toast.success(`이 페이지 범위의 노드 ${laidOut.length}개만 재배치했습니다.`);

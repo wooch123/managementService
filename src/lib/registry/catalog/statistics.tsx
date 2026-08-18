@@ -22,7 +22,7 @@ import {
   ZAxis,
 } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
-import { categoricalXAxisProps } from '@/lib/chart-axis';
+import { categoricalXAxisProps, yAxisLabelProps } from '@/lib/chart-axis';
 import { defineComponent } from '@/lib/registry/types';
 import {
   boxStats,
@@ -192,8 +192,8 @@ const histogram = defineComponent({
   isContainer: false,
   bindingModes: ['list'],
   events: [],
-  propsSchema: z.object({ title: z.string().default('히스토그램'), binCount: z.number().min(2).max(30).default(8) }),
-  defaultProps: { title: '히스토그램', binCount: 8 },
+  propsSchema: z.object({ title: z.string().default('히스토그램'), binCount: z.number().min(2).max(30).default(8), yLabel: z.string().default('') }),
+  defaultProps: { title: '히스토그램', binCount: 8, yLabel: '' },
   defaultGrid: { span: 6, rowSpan: 22 },
   render: ({ props, data }) => {
     const values = data === undefined ? SAMPLE_VALUES : numbers(data);
@@ -203,7 +203,7 @@ const histogram = defineComponent({
         <ComposedChart data={bins}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="label" {...axisProps} {...catAxis(bins, 'label')} />
-          <YAxis {...axisProps} allowDecimals={false} />
+          <YAxis {...axisProps} allowDecimals={false} {...yAxisLabelProps(props.yLabel)} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Bar dataKey="count" name="빈도" fill="var(--chart-1)" radius={2} />
         </ComposedChart>
@@ -222,8 +222,8 @@ const boxplot = defineComponent({
   isContainer: false,
   bindingModes: ['list'],
   events: [],
-  propsSchema: z.object({ title: z.string().default('박스플롯') }),
-  defaultProps: { title: '박스플롯' },
+  propsSchema: z.object({ title: z.string().default('박스플롯'), yLabel: z.string().default('') }),
+  defaultProps: { title: '박스플롯', yLabel: '' },
   defaultGrid: { span: 6, rowSpan: 22 },
   render: ({ props, data }) => {
     const raw = data === undefined ? [{ label: '표본', values: SAMPLE_VALUES }] : groups(data);
@@ -244,7 +244,7 @@ const boxplot = defineComponent({
         <ComposedChart data={rows}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="label" {...axisProps} {...catAxis(rows, 'label')} />
-          <YAxis domain={['auto', 'auto']} {...axisProps} />
+          <YAxis domain={['auto', 'auto']} {...axisProps} {...yAxisLabelProps(props.yLabel)} />
           <ChartTooltip content={<ChartTooltipContent />} />
           {/* 아래쪽 q1까지는 투명 막대로 띄우고, 그 위에 IQR 상자를 그린다 */}
           <Bar dataKey="q1" stackId="box" fill="transparent" isAnimationActive={false} />
@@ -267,8 +267,8 @@ const scatterPlot = defineComponent({
   isContainer: false,
   bindingModes: ['list'],
   events: [],
-  propsSchema: z.object({ title: z.string().default('산점도') }),
-  defaultProps: { title: '산점도' },
+  propsSchema: z.object({ title: z.string().default('산점도'), yLabel: z.string().default('') }),
+  defaultProps: { title: '산점도', yLabel: '' },
   defaultGrid: { span: 6, rowSpan: 22 },
   render: ({ props, data }) => {
     const pts = data === undefined ? SAMPLE_POINTS : points(data);
@@ -277,7 +277,7 @@ const scatterPlot = defineComponent({
         <ScatterChart>
           <CartesianGrid />
           <XAxis type="number" dataKey="x" name="x" domain={['auto', 'auto']} {...axisProps} />
-          <YAxis type="number" dataKey="y" name="y" {...axisProps} />
+          <YAxis type="number" dataKey="y" name="y" {...axisProps} {...yAxisLabelProps(props.yLabel)} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Scatter data={pts} fill="var(--chart-1)" />
         </ScatterChart>
@@ -296,8 +296,8 @@ const regressionScatter = defineComponent({
   isContainer: false,
   bindingModes: ['list'],
   events: [],
-  propsSchema: z.object({ title: z.string().default('회귀 분석') }),
-  defaultProps: { title: '회귀 분석' },
+  propsSchema: z.object({ title: z.string().default('회귀 분석'), yLabel: z.string().default('') }),
+  defaultProps: { title: '회귀 분석', yLabel: '' },
   defaultGrid: { span: 6, rowSpan: 22 },
   render: ({ props, data }) => {
     const pts = data === undefined ? SAMPLE_POINTS : points(data);
@@ -313,7 +313,7 @@ const regressionScatter = defineComponent({
         <ComposedChart>
           <CartesianGrid />
           <XAxis type="number" dataKey="x" domain={['auto', 'auto']} {...axisProps} />
-          <YAxis type="number" dataKey="y" domain={['auto', 'auto']} {...axisProps} />
+          <YAxis type="number" dataKey="y" domain={['auto', 'auto']} {...axisProps} {...yAxisLabelProps(props.yLabel)} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Scatter data={pts} fill="var(--chart-1)" />
           <Line data={fit} dataKey="y" stroke="var(--chart-5)" strokeWidth={2} dot={false} isAnimationActive={false} />
@@ -333,8 +333,8 @@ const bubbleChart = defineComponent({
   isContainer: false,
   bindingModes: ['list'],
   events: [],
-  propsSchema: z.object({ title: z.string().default('버블 차트') }),
-  defaultProps: { title: '버블 차트' },
+  propsSchema: z.object({ title: z.string().default('버블 차트'), yLabel: z.string().default('') }),
+  defaultProps: { title: '버블 차트', yLabel: '' },
   defaultGrid: { span: 6, rowSpan: 22 },
   render: ({ props, data }) => {
     const pts = data === undefined ? SAMPLE_POINTS : points(data);
@@ -343,7 +343,7 @@ const bubbleChart = defineComponent({
         <ScatterChart>
           <CartesianGrid />
           <XAxis type="number" dataKey="x" domain={['auto', 'auto']} {...axisProps} />
-          <YAxis type="number" dataKey="y" domain={['auto', 'auto']} {...axisProps} />
+          <YAxis type="number" dataKey="y" domain={['auto', 'auto']} {...axisProps} {...yAxisLabelProps(props.yLabel)} />
           <ZAxis type="number" dataKey="z" range={[40, 400]} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Scatter data={pts} fill="var(--chart-2)" fillOpacity={0.7} />
@@ -363,8 +363,8 @@ const paretoChart = defineComponent({
   isContainer: false,
   bindingModes: ['list'],
   events: [],
-  propsSchema: z.object({ title: z.string().default('파레토 분석') }),
-  defaultProps: { title: '파레토 분석' },
+  propsSchema: z.object({ title: z.string().default('파레토 분석'), yLabel: z.string().default('') }),
+  defaultProps: { title: '파레토 분석', yLabel: '' },
   defaultGrid: { span: 6, rowSpan: 22 },
   render: ({ props, data }) => {
     const rows = paretoSeries(data === undefined ? SAMPLE_SERIES : series(data));
@@ -373,7 +373,7 @@ const paretoChart = defineComponent({
         <ComposedChart data={rows}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="label" {...axisProps} {...catAxis(rows, 'label')} />
-          <YAxis yAxisId="left" {...axisProps} />
+          <YAxis yAxisId="left" {...axisProps} {...yAxisLabelProps(props.yLabel)} />
           <YAxis yAxisId="right" orientation="right" domain={[0, 100]} unit="%" {...axisProps} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Bar yAxisId="left" dataKey="value" name="건수" fill="var(--chart-1)" radius={2} />
@@ -449,8 +449,8 @@ const controlImr = defineComponent({
   isContainer: false,
   bindingModes: ['list'],
   events: [],
-  propsSchema: z.object({ title: z.string().default('I-MR 관리도'), sigma: z.number().min(1).max(4).default(3) }),
-  defaultProps: { title: 'I-MR 관리도', sigma: 3 },
+  propsSchema: z.object({ title: z.string().default('I-MR 관리도'), sigma: z.number().min(1).max(4).default(3), yLabel: z.string().default('') }),
+  defaultProps: { title: 'I-MR 관리도', sigma: 3, yLabel: '' },
   defaultGrid: { span: 6, rowSpan: 26 },
   render: ({ props, data }) => {
     const values = data === undefined ? SAMPLE_VALUES : numbers(data);
@@ -466,7 +466,7 @@ const controlImr = defineComponent({
         <ComposedChart data={rows}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="label" {...axisProps} {...catAxis(rows, 'label')} />
-          <YAxis domain={['auto', 'auto']} {...axisProps} />
+          <YAxis domain={['auto', 'auto']} {...axisProps} {...yAxisLabelProps(props.yLabel)} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <ReferenceLine y={limits.ucl} stroke="var(--chart-5)" strokeDasharray="4 4" />
           <ReferenceLine y={limits.center} stroke="var(--chart-3)" />
@@ -509,8 +509,9 @@ const capabilityChart = defineComponent({
     lsl: z.number().optional(),
     usl: z.number().optional(),
     binCount: z.number().min(2).max(30).default(10),
+    yLabel: z.string().default(''),
   }),
-  defaultProps: { title: '공정능력 분석', binCount: 10 },
+  defaultProps: { title: '공정능력 분석', binCount: 10, yLabel: '' },
   defaultGrid: { span: 6, rowSpan: 24 },
   render: ({ props, data }) => {
     const values = data === undefined ? SAMPLE_VALUES : numbers(data);
@@ -525,7 +526,7 @@ const capabilityChart = defineComponent({
         <ComposedChart data={bins}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="center" {...axisProps} {...catAxis(bins.map((b) => ({ center: format(b.center) })), 'center')} tickFormatter={(v: number) => format(v)} />
-          <YAxis {...axisProps} allowDecimals={false} />
+          <YAxis {...axisProps} allowDecimals={false} {...yAxisLabelProps(props.yLabel)} />
           <ChartTooltip content={<ChartTooltipContent />} />
           {props.lsl != null && <ReferenceLine x={props.lsl} stroke="var(--chart-5)" strokeDasharray="4 4" />}
           {props.usl != null && <ReferenceLine x={props.usl} stroke="var(--chart-5)" strokeDasharray="4 4" />}
@@ -546,8 +547,8 @@ const runChart = defineComponent({
   isContainer: false,
   bindingModes: ['list'],
   events: [],
-  propsSchema: z.object({ title: z.string().default('런 차트') }),
-  defaultProps: { title: '런 차트' },
+  propsSchema: z.object({ title: z.string().default('런 차트'), yLabel: z.string().default('') }),
+  defaultProps: { title: '런 차트', yLabel: '' },
   defaultGrid: { span: 6, rowSpan: 20 },
   render: ({ props, data }) => {
     const rows = data === undefined ? SAMPLE_VALUES.map((v, i) => ({ label: String(i + 1), value: v })) : series(data);
@@ -557,7 +558,7 @@ const runChart = defineComponent({
         <ComposedChart data={rows}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="label" {...axisProps} {...catAxis(rows, 'label')} />
-          <YAxis domain={['auto', 'auto']} {...axisProps} />
+          <YAxis domain={['auto', 'auto']} {...axisProps} {...yAxisLabelProps(props.yLabel)} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <ReferenceLine y={median} stroke="var(--chart-3)" strokeDasharray="4 4" />
           <Line dataKey="value" stroke="var(--chart-1)" strokeWidth={2} dot={{ r: 2 }} />
@@ -577,8 +578,8 @@ const movingAverageChart = defineComponent({
   isContainer: false,
   bindingModes: ['list'],
   events: [],
-  propsSchema: z.object({ title: z.string().default('이동평균 추이'), window: z.number().min(2).max(30).default(5) }),
-  defaultProps: { title: '이동평균 추이', window: 5 },
+  propsSchema: z.object({ title: z.string().default('이동평균 추이'), window: z.number().min(2).max(30).default(5), yLabel: z.string().default('') }),
+  defaultProps: { title: '이동평균 추이', window: 5, yLabel: '' },
   defaultGrid: { span: 6, rowSpan: 22 },
   render: ({ props, data }) => {
     const base = data === undefined ? SAMPLE_VALUES.map((v, i) => ({ label: String(i + 1), value: v })) : series(data);
@@ -589,7 +590,7 @@ const movingAverageChart = defineComponent({
         <ComposedChart data={rows}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="label" {...axisProps} {...catAxis(rows, 'label')} />
-          <YAxis domain={['auto', 'auto']} {...axisProps} />
+          <YAxis domain={['auto', 'auto']} {...axisProps} {...yAxisLabelProps(props.yLabel)} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Line dataKey="value" name="실측" stroke="var(--chart-2)" strokeWidth={1.5} dot={false} />
           <Line dataKey="ma" name={`MA${props.window}`} stroke="var(--chart-1)" strokeWidth={2.5} dot={false} connectNulls />
@@ -609,8 +610,8 @@ const cdfChart = defineComponent({
   isContainer: false,
   bindingModes: ['list'],
   events: [],
-  propsSchema: z.object({ title: z.string().default('누적분포(오자이브)') }),
-  defaultProps: { title: '누적분포(오자이브)' },
+  propsSchema: z.object({ title: z.string().default('누적분포(오자이브)'), yLabel: z.string().default('') }),
+  defaultProps: { title: '누적분포(오자이브)', yLabel: '' },
   defaultGrid: { span: 6, rowSpan: 20 },
   render: ({ props, data }) => {
     const values = [...(data === undefined ? SAMPLE_VALUES : numbers(data))].sort((a, b) => a - b);
@@ -620,7 +621,7 @@ const cdfChart = defineComponent({
         <ComposedChart data={rows}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="value" {...axisProps} {...catAxis(rows, 'value')} tickFormatter={(v: number) => format(v)} />
-          <YAxis domain={[0, 100]} unit="%" {...axisProps} />
+          <YAxis domain={[0, 100]} unit="%" {...axisProps} {...yAxisLabelProps(props.yLabel)} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Area dataKey="cum" name="누적%" stroke="var(--chart-1)" fill="var(--chart-1)" fillOpacity={0.2} />
         </ComposedChart>
@@ -639,8 +640,8 @@ const qqPlot = defineComponent({
   isContainer: false,
   bindingModes: ['list'],
   events: [],
-  propsSchema: z.object({ title: z.string().default('정규확률도(Q-Q)') }),
-  defaultProps: { title: '정규확률도(Q-Q)' },
+  propsSchema: z.object({ title: z.string().default('정규확률도(Q-Q)'), yLabel: z.string().default('') }),
+  defaultProps: { title: '정규확률도(Q-Q)', yLabel: '' },
   defaultGrid: { span: 6, rowSpan: 22 },
   render: ({ props, data }) => {
     const values = [...(data === undefined ? SAMPLE_VALUES : numbers(data))].sort((a, b) => a - b);
@@ -653,7 +654,7 @@ const qqPlot = defineComponent({
         <ComposedChart>
           <CartesianGrid />
           <XAxis type="number" dataKey="x" name="이론 분위수" tickFormatter={(v: number) => format(v)} {...axisProps} />
-          <YAxis type="number" dataKey="y" name="관측값" domain={['auto', 'auto']} tickFormatter={(v: number) => format(v)} {...axisProps} />
+          <YAxis type="number" dataKey="y" name="관측값" domain={['auto', 'auto']} tickFormatter={(v: number) => format(v)} {...axisProps} {...yAxisLabelProps(props.yLabel)} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Scatter data={pts} fill="var(--chart-1)" />
           <Line data={fit} dataKey="y" stroke="var(--chart-5)" strokeWidth={2} dot={false} isAnimationActive={false} />
@@ -673,8 +674,8 @@ const residualPlot = defineComponent({
   isContainer: false,
   bindingModes: ['list'],
   events: [],
-  propsSchema: z.object({ title: z.string().default('잔차 도표') }),
-  defaultProps: { title: '잔차 도표' },
+  propsSchema: z.object({ title: z.string().default('잔차 도표'), yLabel: z.string().default('') }),
+  defaultProps: { title: '잔차 도표', yLabel: '' },
   defaultGrid: { span: 6, rowSpan: 20 },
   render: ({ props, data }) => {
     const pts = data === undefined ? SAMPLE_POINTS : points(data);
@@ -685,7 +686,7 @@ const residualPlot = defineComponent({
         <ScatterChart>
           <CartesianGrid />
           <XAxis type="number" dataKey="x" domain={['auto', 'auto']} {...axisProps} />
-          <YAxis type="number" dataKey="y" domain={['auto', 'auto']} {...axisProps} />
+          <YAxis type="number" dataKey="y" domain={['auto', 'auto']} {...axisProps} {...yAxisLabelProps(props.yLabel)} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <ReferenceLine y={0} stroke="var(--chart-5)" />
           <Scatter data={residuals} fill="var(--chart-2)" />
@@ -777,8 +778,8 @@ const waterfallChart = defineComponent({
   isContainer: false,
   bindingModes: ['list'],
   events: [],
-  propsSchema: z.object({ title: z.string().default('워터폴 차트') }),
-  defaultProps: { title: '워터폴 차트' },
+  propsSchema: z.object({ title: z.string().default('워터폴 차트'), yLabel: z.string().default('') }),
+  defaultProps: { title: '워터폴 차트', yLabel: '' },
   defaultGrid: { span: 6, rowSpan: 22 },
   render: ({ props, data }) => {
     const input = data === undefined ? SAMPLE_SERIES.map((s, i) => ({ ...s, value: i % 2 === 0 ? s.value : -s.value / 2 })) : series(data);
@@ -788,7 +789,7 @@ const waterfallChart = defineComponent({
         <ComposedChart data={rows}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="label" {...axisProps} {...catAxis(rows, 'label')} />
-          <YAxis domain={['auto', 'auto']} {...axisProps} />
+          <YAxis domain={['auto', 'auto']} {...axisProps} {...yAxisLabelProps(props.yLabel)} />
           <ChartTooltip content={<ChartTooltipContent />} />
           <Bar dataKey="base" stackId="w" fill="transparent" isAnimationActive={false} />
           <Bar dataKey="value" stackId="w" name="변화량" radius={2}>
