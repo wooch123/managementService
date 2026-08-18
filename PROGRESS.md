@@ -661,3 +661,19 @@ SPEC.md 전체 8개 Phase 구현과 실제 운영 배포가 이것으로 종료�
   지정했다(button/[role=button·menuitem·option·tab·radio·switch·checkbox]/a[href]/label[for]/summary/select).
   비활성 요소는 `not-allowed`. 유틸리티 클래스가 우선하므로 캔버스 드래그 핸들의 `cursor-grab`,
   로고의 `cursor-default` 같은 의도적 예외는 그대로 유지된다(실측 확인)
+
+
+### P9 후속 8 — Claim 통합 분석 서비스 재구성 + 카드 디자인 (같은 날)
+
+**1) 서비스 재구성(리비전 #16)**: 반도체 스토리지(eMMC/UFS) Claim 통합 분석으로 전체 교체.
+엔티티 8종(claims·claim_trend·fa_assignments·fa_tech_reports·reball_requests·reball_updates·
+analysis_requests·tips) / 샘플 363행 / 페이지 15개(2단) / CREATE 액션 11종.
+Claim 종합 현황(월·주별 추이, Fail Mode·고객사·제품군 분포, TAT 이동평균, 개발실 인계 비율) /
+Claim 분석(FA Assign · FA 현황+인수인계 · FA Tech Report) / Reball(의뢰서·작업 현황) /
+의뢰서 5종(개발실 상세분석·Auto향·DRAM·pFA 비파괴/파괴) / Tip 게시판.
+런타임 폼(인수인계·Reball 의뢰·개발실 의뢰) 실제 제출까지 실측 확인.
+
+**2) 컴포넌트 카드 디자인(리비전 #17)**: `render-node-tree`(운영·미리보기)와 `CanvasNodeView`(빌더)
+양쪽에서 루트 컴포넌트를 카드 표면으로 감싼다. `card`/`alert`는 자기 테두리가 있어 예외.
+카드 패딩(24px)이 더해지며 일부 컴포넌트가 밴드를 넘쳐, 운영 화면에서 실제 내용 높이를 측정해
+15개 페이지 137개 컴포넌트의 행 좌표·높이를 다시 맞췄다(넘침 0건 실측 확인).

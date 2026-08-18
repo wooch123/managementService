@@ -17,6 +17,9 @@ import { NodeErrorBoundary } from '@/components/builder/NodeErrorBoundary';
 import { applyResize } from '@/components/builder/grid-utils';
 import { cn } from '@/lib/utils';
 
+/** 자기 표면을 이미 갖고 있는 컴포넌트 — 카드로 감싸면 테두리가 겹친다(runtime/render-node-tree와 동일 규칙). */
+const SELF_SURFACED = new Set(['card', 'alert']);
+
 const MIN_SPAN = 1;
 const MAX_SPAN = 12;
 const MIN_ROW_SPAN = 2;
@@ -200,7 +203,16 @@ export function CanvasNodeView({
             {isRoot && <GripVertical className="size-3" />}
             {def.label}
           </span>
-          <div className={cn('rounded-md', selected && 'outline outline-2 outline-offset-2 outline-primary')}>{content}</div>
+          <div
+            className={cn(
+              'h-full rounded-md',
+              // 운영 화면과 같은 카드 표면 — 캔버스에서 보이는 모양이 실제 결과와 같아야 한다.
+              isRoot && !SELF_SURFACED.has(node.type) && 'flex flex-col rounded-xl border bg-card p-3 text-card-foreground shadow-sm',
+              selected && 'outline outline-2 outline-offset-2 outline-primary'
+            )}
+          >
+            {isRoot && !SELF_SURFACED.has(node.type) ? <div className="min-h-0 flex-1">{content}</div> : content}
+          </div>
           {selected && isRoot && (
             <>
               <div

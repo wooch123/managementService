@@ -24,6 +24,9 @@ function NodeRenderer({ def, ctx }: { def: ComponentDef; ctx: RenderContext }) {
   return <>{def.render(ctx)}</>;
 }
 
+/** 자기 표면(테두리+배경)을 이미 갖고 있는 컴포넌트 — 카드로 한 번 더 감싸면 테두리가 겹친다. */
+const SELF_SURFACED = new Set(['card', 'alert']);
+
 /**
  * §12.2 렌더 파이프라인의 축소판. `hooks`가 주어지면(미리보기/운영) 실제 dispatch와
  * 입력값 추적을 연결하고, 없으면(빌더 캔버스) 지금까지처럼 정적으로 렌더한다.
@@ -41,9 +44,21 @@ export function renderNodeTree(nodes: NodeDto[], parentId: string | null = null,
       );
     }
     const isRoot = parentId === null;
+    // 배치된 컴포넌트는 모두 카드 표면 위에 올린다(§3 디자인 규칙) — 자기 테두리를 이미 가진
+    // 컴포넌트만 예외로 두어 테두리가 겹치지 않게 한다.
+    const withCard = (content: React.ReactNode) =>
+      isRoot && !SELF_SURFACED.has(node.type) ? (
+        <div className="flex h-full flex-col rounded-xl border bg-card p-3 text-card-foreground shadow-sm">
+          <div className="min-h-0 flex-1">{content}</div>
+        </div>
+      ) : (
+        content
+      );
+
     return (
       <div
         key={node.id}
+        className={isRoot ? 'min-h-0' : undefined}
         style={
           isRoot
             ? {
@@ -53,6 +68,7 @@ export function renderNodeTree(nodes: NodeDto[], parentId: string | null = null,
             : undefined
         }
       >
+        {withCard(
         <NodeErrorBoundary typeName={def.label}>
           <NodeRenderer
             def={def}
@@ -67,6 +83,7 @@ export function renderNodeTree(nodes: NodeDto[], parentId: string | null = null,
             }}
           />
         </NodeErrorBoundary>
+        )}
       </div>
     );
   });
