@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ChevronRight, ChevronsUpDown, EyeOff, LayoutGrid, LogOut, Moon, Pencil, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
@@ -14,6 +14,7 @@ import {
   SidebarGroup,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
@@ -136,6 +137,12 @@ function PageMenuItem({
   const hasChildren = node.children.length > 0;
   const active = isActive(node);
   const childActive = node.children.some((c) => isActive(c));
+  // 현재 보고 있는 페이지가 이 묶음 안에 있으면 열어 둔다(다른 곳으로 이동해도 사용자가 직접
+  // 접기 전까지는 열린 상태를 유지한다).
+  const [open, setOpen] = useState(active || childActive);
+  useEffect(() => {
+    if (active || childActive) setOpen(true);
+  }, [active, childActive]);
 
   if (!hasChildren) {
     return (
@@ -152,14 +159,30 @@ function PageMenuItem({
   }
 
   return (
-    <Collapsible defaultOpen={childActive} className="group/collapsible">
+    // 하위 페이지가 있어도 상위 항목 자체가 링크다 — 예전에는 상위를 누르면 하위 메뉴만 열리고
+    // 그 페이지로는 이동하지 않아, 상위 페이지에 배치한 내용(요약 표·KPI)을 볼 방법이 없었다.
+    // 이동과 펼치기를 동시에 하고, 펼침/접힘만 하고 싶을 때는 오른쪽 화살표 버튼을 쓴다.
+    <Collapsible open={open} onOpenChange={setOpen} className="group/collapsible">
       <SidebarMenuItem>
-        <CollapsibleTrigger asChild>
-          <SidebarMenuButton tooltip={node.title}>
+        <SidebarMenuButton asChild isActive={active} tooltip={node.title} onClick={() => setOpen(true)}>
+          <Link href={hrefFor(node)}>
             {node.icon && <DynamicIcon name={node.icon} className="size-4" />}
             <span>{node.title}</span>
-            <ChevronRight className="ml-auto size-4 transition-transform group-data-open/collapsible:rotate-90" />
-          </SidebarMenuButton>
+            {!node.isVisible && <EyeOff className="ml-auto size-3.5 text-muted-foreground" />}
+          </Link>
+        </SidebarMenuButton>
+        <CollapsibleTrigger asChild>
+          <SidebarMenuAction
+            aria-label={open ? '하위 메뉴 접기' : '하위 메뉴 펼치기'}
+            onClick={(e) => {
+              // 화살표는 펼침 전용 — 링크 클릭(이동)으로 번지지 않게 한다.
+              e.preventDefault();
+              e.stopPropagation();
+              setOpen((v) => !v);
+            }}
+          >
+            <ChevronRight className="transition-transform group-data-open/collapsible:rotate-90" />
+          </SidebarMenuAction>
         </CollapsibleTrigger>
         <CollapsibleContent>
           <SidebarMenuSub>
