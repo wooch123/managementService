@@ -691,7 +691,9 @@ type ComponentDef = {
 | **내비게이션** | breadcrumb, navigation-menu, menubar, dropdown-menu, context-menu, command |
 | **피드백/오버레이** | alert, alert-dialog, dialog, drawer, sheet, popover, hover-card, tooltip, toast, spinner |
 | **액션** | button, button-group, kbd |
-| **유틸리티** | attachment, bubble, marker, message, message-scroller, questionnaire, direction |
+| **유틸리티** | attachment, bubble, marker, message, message-scroller, questionnaire, direction, live-chat |
+| **통계 차트** | histogram, boxplot, scatter, regression, bubble-chart, pareto, xbar-r · i-mr · p 관리도, capability, run, moving-average, cdf, qq, residual, heatmap, radar, waterfall, funnel (계산은 `src/lib/stats.ts`) |
+| **게시판** | board — 목록 · 조회 · 글쓰기가 배치 즉시 동작하는 프리셋. 글은 메타 DB `BoardPost`에 저장하고 `boardKey`(기본값 = 노드 id)로 게시판을 구분한다. 동적 DDL 경로를 쓰지 않는 이유는 배치 후 엔티티 설계·배포를 거치면 "배치 즉시 동작"이 성립하지 않기 때문이다 |
 
 > shadcn 레지스트리는 계속 확장된다. 카탈로그는 위 목록을 기본으로 하되, `pnpm shadcn:sync` 스크립트로 설치된 `components/ui/*` 파일을 스캔해 **카탈로그에 없는 컴포넌트를 콘솔에 경고**하도록 한다. 요구사항의 "모든 요소를 그룹별로 제공"을 지속적으로 만족시키기 위한 장치다.
 
