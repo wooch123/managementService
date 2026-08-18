@@ -2,7 +2,6 @@
 
 import '@xyflow/react/dist/style.css';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -84,7 +83,6 @@ function GraphCanvas({
   initialSelectedNodeId?: string | null;
   initialSelectedEdgeId?: string | null;
 }) {
-  const router = useRouter();
   const { setCenter, fitView } = useReactFlow();
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
@@ -278,19 +276,12 @@ function GraphCanvas({
     setSelectedIds(new Set(sel.map((n) => n.id)));
   }, []);
 
-  const onNodeClick: NodeMouseHandler = useCallback((_e, node) => {
+  // 상세 패널은 더블클릭으로 연다. 단일 클릭은 선택/드래그 전용이다 — 노드를 잡을 때마다
+  // 우측 패널이 열려 배치 작업을 방해했다. 예전에 더블클릭이 하던 "빌더/DB 화면으로 바로 이동"은
+  // 패널 안의 '빌더에서 편집'·'DB 설계에서 편집' 버튼이 같은 곳으로 보내므로 없어지지 않는다.
+  const onNodeDoubleClick: NodeMouseHandler = useCallback((_e, node) => {
     setDetailNode(node as RFNode);
   }, []);
-
-  const onNodeDoubleClick: NodeMouseHandler = useCallback(
-    (_e, node) => {
-      const data = (node as RFNode).data;
-      if (data.refType === 'PAGE') router.push(`/admin/builder?pageId=${data.refId}`);
-      else if (data.refType === 'COMPONENT') router.push(`/admin/builder?pageId=${data.pageId}`);
-      else if (data.refType === 'ENTITY') router.push('/admin/data');
-    },
-    [router]
-  );
 
   const onEdgeClick: EdgeMouseHandler = useCallback((_e, edge) => {
     setDetailEdge(edge as RFEdge);
@@ -438,7 +429,6 @@ function GraphCanvas({
           onConnect={onConnect}
           onNodeDragStop={onNodeDragStop}
           onSelectionChange={onSelectionChange}
-          onNodeClick={onNodeClick}
           onNodeDoubleClick={onNodeDoubleClick}
           onEdgeClick={onEdgeClick}
           nodeTypes={nodeTypes}

@@ -6,6 +6,7 @@ import { feedbackComponents } from '@/lib/registry/catalog/feedback';
 import { actionComponents } from '@/lib/registry/catalog/action';
 import { utilityComponents } from '@/lib/registry/catalog/utility';
 import { statisticsComponents } from '@/lib/registry/catalog/statistics';
+import { boardComponents } from '@/lib/registry/catalog/board';
 import type { ComponentDef, ComponentGroup } from '@/lib/registry/types';
 import { COMPONENT_GROUPS } from '@/lib/registry/types';
 
@@ -18,6 +19,7 @@ const allComponents: ComponentDef[] = [
   ...actionComponents,
   ...utilityComponents,
   ...statisticsComponents,
+  ...boardComponents,
 ];
 
 export const catalog: Record<string, ComponentDef> = Object.fromEntries(

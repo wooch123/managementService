@@ -10,6 +10,7 @@ export const COMPONENT_GROUPS = [
   '액션',
   '유틸리티',
   '통계 차트',
+  '게시판',
 ] as const;
 export type ComponentGroup = (typeof COMPONENT_GROUPS)[number];
 

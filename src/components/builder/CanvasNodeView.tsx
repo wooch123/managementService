@@ -75,6 +75,7 @@ export function CanvasNodeView({
     setNodeRef: setDragHandleRef,
     attributes: dragAttributes,
     listeners: dragListeners,
+    transform: dragTransform,
     isDragging,
   } = useDraggable({
     id: `existing:${node.id}`,
@@ -179,7 +180,22 @@ export function CanvasNodeView({
           ref={isRoot ? setDragHandleRef : undefined}
           {...(isRoot ? dragAttributes : {})}
           {...(isRoot ? dragListeners : {})}
-          style={isRoot ? gridStyle(node) : undefined}
+          style={
+            isRoot
+              ? {
+                  ...gridStyle(node),
+                  // 드래그하는 동안 실제로 커서를 따라오게 한다 — 예전에는 드롭한 뒤에야 새 칸에
+                  // 나타나서, 끌고 있는 동안 어디로 가는지 전혀 알 수 없었다. 최종 위치는 드롭할 때
+                  // 격자에 맞춰 정렬된다(delta → 칸 수 환산).
+                  ...(dragTransform
+                    ? {
+                        transform: `translate3d(${dragTransform.x}px, ${dragTransform.y}px, 0)`,
+                        zIndex: 30,
+                      }
+                    : null),
+                }
+              : undefined
+          }
           onClick={(e) => {
             e.stopPropagation();
             select(node.id);
@@ -195,7 +211,7 @@ export function CanvasNodeView({
             'group/node relative outline-none',
             isRoot && 'cursor-grab active:cursor-grabbing',
             selected && 'z-10',
-            isDragging && 'opacity-40'
+            isDragging && 'opacity-90 shadow-lg'
           )}
         >
           {/* 배지는 이제 "이 컴포넌트가 무엇인지" 알려주는 라벨이다(드래그는 본문 전체에서 된다). */}

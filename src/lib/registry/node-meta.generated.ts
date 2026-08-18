@@ -1395,5 +1395,24 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "list"
     ],
     "events": []
+  },
+  "board": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 44
+    },
+    "defaultProps": {
+      "title": "게시판",
+      "description": "",
+      "boardKey": "",
+      "pageSize": 10,
+      "allowWrite": true,
+      "searchable": true,
+      "categories": ""
+    },
+    "bindingModes": [],
+    "events": []
   }
 };

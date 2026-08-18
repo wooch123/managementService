@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- 앱 소스가 아니라 작업 스케줄러가 node로 직접 실행하는 CommonJS 스크립트다. */
 /**
  * pm2 프로세스 상태를 "이름=상태" 줄 목록으로 출력한다.
  *
