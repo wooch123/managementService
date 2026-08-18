@@ -67,27 +67,22 @@ async function searchByIndex(
   const categorySql = category ? 'AND p."category" = ?' : '';
   const params: unknown[] = category ? [match, boardKey, category] : [match, boardKey];
 
-  // 왕복을 두 번(개수 + 목록)으로 끝낸다. 예전에는 id만 받아 다시 조회하느라 세 번이었다.
-  const [totalRows, rows] = await Promise.all([
-    prisma.$queryRawUnsafe<{ c: bigint | number }[]>(
-      `SELECT COUNT(*) AS c FROM "BoardPost" p
-         JOIN "BoardPostFts" f ON f.rowid = p.rowid
-        WHERE f."BoardPostFts" MATCH ? AND p."boardKey" = ? ${categorySql}`,
-      ...params
-    ),
-    prisma.$queryRawUnsafe<RawPost[]>(
-      `SELECT p."id", p."title", p."content", p."author", p."category", p."viewCount", p."createdAt"
-         FROM "BoardPost" p
-         JOIN "BoardPostFts" f ON f.rowid = p.rowid
-        WHERE f."BoardPostFts" MATCH ? AND p."boardKey" = ? ${categorySql}
-        ORDER BY p."createdAt" DESC
-        LIMIT ? OFFSET ?`,
-      ...params,
-      pageSize,
-      (page - 1) * pageSize
-    ),
-  ]);
-  return { rows, total: Number(totalRows[0]?.c ?? 0) };
+  // 한 번의 질의로 끝낸다 — 목록과 전체 건수를 함께 받는다(COUNT(*) OVER()).
+  // WHY: SQL 자체는 0.2ms인데 Prisma raw 호출 한 번마다 15~20ms가 붙는다(실측). 왕복 수가
+  // 곧 응답 시간이라, 개수를 따로 세지 않고 같은 결과 집합에서 뽑는다.
+  const rows = await prisma.$queryRawUnsafe<(RawPost & { total: bigint | number })[]>(
+    `SELECT p."id", p."title", p."content", p."author", p."category", p."viewCount", p."createdAt",
+            COUNT(*) OVER () AS total
+       FROM "BoardPost" p
+       JOIN "BoardPostFts" f ON f.rowid = p.rowid
+      WHERE f."BoardPostFts" MATCH ? AND p."boardKey" = ? ${categorySql}
+      ORDER BY p."createdAt" DESC
+      LIMIT ? OFFSET ?`,
+    ...params,
+    pageSize,
+    (page - 1) * pageSize
+  );
+  return { rows, total: Number(rows[0]?.total ?? 0) };
 }
 
 /** raw 조회는 날짜를 숫자(ms)나 문자열로 돌려줄 수 있어 한 곳에서 Date로 맞춘다. */
