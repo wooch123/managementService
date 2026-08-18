@@ -33,6 +33,7 @@ $LogDir       = Join-Path $Root 'data\logs'
 $LogFile      = Join-Path $LogDir 'autostart.log'
 $Pm2Js        = 'F:\Claude\tools\node_modules\pm2\bin\pm2'
 $Ecosystem    = 'F:/Claude/WebApp_V1/deploy/ecosystem.json'
+$StatusJs     = 'F:/Claude/WebApp_V1/deploy/pm2-status.cjs'
 $LocalHealth  = 'http://127.0.0.1:3000/api/health'
 $PublicHealth = 'https://demo.dove9999.com/api/health'
 $AppName      = 'webapp-v1'
@@ -105,19 +106,15 @@ function Wait-Until([scriptblock]$Test, [int]$TimeoutSec, [string]$What) {
 
 function Get-Pm2Status {
   # 이름 → 상태(online/stopped/errored) 해시. 데몬이 없으면 빈 해시.
+  # 파싱은 node(deploy/pm2-status.cjs)가 한다 — PowerShell 5.1의 ConvertFrom-Json이
+  # username/USERNAME 같은 대소문자 중복 키에서 실패해, 살아 있는 프로세스를 못 보고
+  # 10분마다 재시작하는 사고가 있었다(2026-08-18).
   $map = @{}
-  try {
-    $raw = (Invoke-Pm2 jlist | Out-String)
-    # pm2가 JSON 앞뒤로 '[PM2] ...' 배너를 찍을 때가 있어, 객체 배열이 시작하는 '[{'를 기준으로
-    # 잘라낸다. 첫 '['를 쓰면 배너의 대괄호에 걸려 파싱이 통째로 실패한다(2026-08-18 실측 —
-    # 그 탓에 이미 살아 있는 프로세스를 못 보고 중복 기동한 적이 있다).
-    $start = $raw.IndexOf('[{')
-    if ($start -lt 0) { return $map }
-    $end = $raw.LastIndexOf('}]')
-    if ($end -lt $start) { return $map }
-    $apps = $raw.Substring($start, $end - $start + 2) | ConvertFrom-Json
-    foreach ($a in $apps) { $map[$a.name] = $a.pm2_env.status }
-  } catch { }
+  if (-not ($NodeExe -and (Test-Path $StatusJs))) { return $map }
+  foreach ($line in (& $NodeExe $StatusJs $Pm2Js 2>$null)) {
+    $kv = "$line".Split("=")
+    if ($kv.Length -eq 2 -and $kv[0].Trim()) { $map[$kv[0].Trim()] = $kv[1].Trim() }
+  }
   return $map
 }
 

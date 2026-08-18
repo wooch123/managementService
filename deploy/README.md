@@ -86,6 +86,20 @@ powershell -NoProfile -ExecutionPolicy Bypass -File F:\Claude\WebApp_V1\deploy\r
 4. `http://127.0.0.1:3000/api/health`가 응답할 때까지 확인, 이어서 공개 URL 확인
 5. 모든 결과를 `data/logs/autostart.log`에 남긴다(실패 시 0이 아닌 종료코드 → 스케줄러가 2분 간격 3회 재시도)
 
+구성 파일:
+
+| 파일 | 역할 |
+|---|---|
+| `deploy/ecosystem.json` | 프로세스 정의(자동·수동 공통) |
+| `deploy/start-hosting.ps1` | 기동/감시 본체 |
+| `deploy/register-autostart.ps1` | 작업 스케줄러 등록(1회) |
+| `deploy/pm2-status.cjs` | pm2 상태 조회 |
+
+> `pm2-status.cjs`가 따로 있는 이유: PowerShell 5.1의 `ConvertFrom-Json`은 대소문자만 다른 중복 키를
+> 만나면 실패하는데, `pm2 jlist` 결과에는 Windows 환경변수 `username`/`USERNAME`이 함께 들어 있어
+> 항상 이 오류가 난다. 그 탓에 감시 실행이 "이미 떠 있음"을 인식하지 못하고 **10분마다 서비스를
+> 재시작**했다(2026-08-18 실측 후 수정). 상태 파싱은 node가 한다.
+
 상태 확인:
 
 ```powershell

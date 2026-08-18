@@ -768,3 +768,9 @@ Claim 분석(FA Assign · FA 현황+인수인계 · FA Tech Report) / Reball(의
 
 한계: "사용자 로그온 시" 트리거라 재부팅 후 이 계정으로 로그인해야 뜬다. 로그인 없이 부팅부터
 띄우려면 관리자 권한으로 Windows 서비스 등록이 필요하다(deploy/README.md §2.1 마지막 참고).
+
+추가로, 감시 실행이 매번 서비스를 재시작하는 문제를 실측으로 잡았다. PowerShell 5.1의
+`ConvertFrom-Json`이 `pm2 jlist` 결과의 대소문자 중복 키(Windows의 `username`/`USERNAME`)에서
+실패해 상태 조회가 항상 비어 있었고, 그 결과 10분마다 재기동이 일어났다. 상태 파싱을
+`deploy/pm2-status.cjs`(node)로 옮겨 해결했고, 감시 실행이 `이미 정상 동작 중 — 조치 없음`으로
+끝나고 재시작 횟수가 늘지 않는 것을 확인했다.
