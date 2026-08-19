@@ -88,7 +88,19 @@ export async function resolveBindingData(
     }
     if (binding.mode === 'aggregate') {
       const entity = findPublishedEntity(spec, binding.entityId);
-      return await runAggregateQuery({ ...binding, filters: resolveRuntimeFilters(entity, binding.filters, params) }, entity);
+      const value = await runAggregateQuery({ ...binding, filters: resolveRuntimeFilters(entity, binding.filters, params) }, entity);
+
+      // 직전 같은 길이의 기간과 견준다 — 기간 필터가 넣어 둔 prevFrom/prevTo로 한 번 더 센다.
+      // 기간이 한쪽이라도 열려 있으면(전체 등) 비교 구간이 없어 그냥 숫자만 돌려준다.
+      if (!binding.compare || !params.prevFrom || !params.prevTo) return value;
+      const previous = await runAggregateQuery(
+        {
+          ...binding,
+          filters: resolveRuntimeFilters(entity, binding.filters, { ...params, from: params.prevFrom, to: params.prevTo }),
+        },
+        entity
+      );
+      return { value, previous };
     }
     if (binding.mode === 'single') {
       if (binding.keySource !== 'fixed' || !binding.keyValue) return null; // route/selection은 클라이언트에서 §10.7 재조회

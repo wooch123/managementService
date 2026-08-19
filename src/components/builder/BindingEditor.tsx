@@ -91,7 +91,7 @@ export function BindingEditor() {
             if (mode === 'list') setBinding({ mode: 'list', entityId: '', select: [], filters: [], sort: [], pageSize: 10 });
             else if (mode === 'single') setBinding({ mode: 'single', entityId: '', select: [], keySource: 'fixed' });
             else if (mode === 'field') setBinding({ mode: 'field', entityId: '', fieldId: '' });
-            else if (mode === 'aggregate') setBinding({ mode: 'aggregate', entityId: '', fn: 'count', filters: [] });
+            else if (mode === 'aggregate') setBinding({ mode: 'aggregate', entityId: '', fn: 'count', filters: [], compare: false });
             else if (mode === 'group') setBinding({ mode: 'group', entityId: '', groupFieldId: '', groupTransform: 'none', fn: 'count', filters: [], orderBy: 'value', limit: 20 });
           }}
         >
@@ -533,6 +533,20 @@ function AggregateBindingForm({
             </div>
           )}
           <FilterBuilder fields={fields} filters={binding.filters} onChange={(v) => onChange({ ...binding, filters: v })} />
+          <label className="flex items-start gap-2 text-xs">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={binding.compare ?? false}
+              onChange={(e) => onChange({ ...binding, compare: e.target.checked })}
+            />
+            <span>
+              <span className="font-medium">직전 기간과 비교</span>
+              <span className="block text-muted-foreground">
+                조회 기간과 같은 길이의 직전 구간을 함께 세어 증감(%)을 붙인다. 기간 필터가 있는 화면에서만 동작한다.
+              </span>
+            </span>
+          </label>
         </>
       )}
     </div>

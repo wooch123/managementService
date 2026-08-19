@@ -51,6 +51,15 @@ export type ComponentDef<Schema extends z.ZodObject<any> = z.ZodObject<any>> = {
    * 필터가 좁은 폭에서 세 줄로 접혔는데 칸은 56px 그대로여서 넘친 줄이 아래 카드 뒤로 숨었다.
    */
   growsWithContent?: boolean;
+  /**
+   * 카드 표면의 세기. 모든 컴포넌트가 같은 흰 배경 + 얇은 파란 테두리로 그려지면 화면에 계층이
+   * 없어 지표도 차트도 필터도 같은 무게로 읽힌다(디자인 리뷰 ②).
+   *
+   *   'strong' — 지표 타일처럼 먼저 읽혀야 하는 것(테두리를 또렷하게)
+   *   'default'— 보통
+   *   'quiet'  — 차트처럼 안의 그림이 주인공이라 테두리가 뒤로 물러나야 하는 것
+   */
+  surface?: 'strong' | 'default' | 'quiet';
   allowedChildren?: string[];
   bindingModes: BindingMode[];
   events: EventDef[];

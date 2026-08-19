@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useCallback, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { CalendarRange } from 'lucide-react';
+import { CalendarRange, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { PERIOD_PRESETS, isIsoDate, periodSearchString, type PeriodPresetKey, type PeriodRange } from '@/lib/period';
 
 /**
@@ -67,7 +67,23 @@ function PeriodFilterBar({
     startTransition(() => router.push(`${window.location.pathname}?${query}`, { scroll: false }));
   }
 
-  const customReady = isIsoDate(from) && isIsoDate(to);
+  /**
+   * 날짜를 고르는 즉시 반영한다. 두 칸이 모두 올바른 날짜일 때만 움직이고, 한쪽만 바꾸는 도중에는
+   * 기다린다 — 시작일을 바꾸는 순간 종료일이 아직 옛 값이어도 곧바로 조회가 나가면 화면이 두 번 튄다.
+   */
+  const applyCustom = useCallback(
+    (nextFrom: string, nextTo: string) => {
+      setFrom(nextFrom);
+      setTo(nextTo);
+      if (!isIsoDate(nextFrom) || !isIsoDate(nextTo)) return;
+      if (nextFrom === resolved?.from && nextTo === resolved?.to) return;
+      go({ from: nextFrom, to: nextTo });
+    },
+    // go는 렌더마다 새로 만들어지지만 하는 일이 같아(주소 이동) 의존성에서 뺀다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [resolved?.from, resolved?.to]
+  );
+
   const activePreset = resolved?.preset ?? null;
 
   return (
@@ -79,20 +95,25 @@ function PeriodFilterBar({
         {title}
       </div>
 
+      {/* 프리셋은 **한 덩어리(세그먼트)** 로 묶는다 — 낱개 버튼 다섯 개가 날짜 입력·적용과 나란히
+          늘어서 있으면 컨트롤이 여덟 개처럼 보인다(디자인 리뷰 ⑩). */}
       {showPresets && (
-        <div className="flex min-w-0 flex-wrap items-center gap-1">
+        <ToggleGroup
+          type="single"
+          size="sm"
+          variant="outline"
+          spacing={0}
+          value={activePreset === 'custom' ? '' : (activePreset ?? '')}
+          onValueChange={(v) => v && go({ preset: v as PeriodPresetKey })}
+          disabled={pending}
+          aria-label="조회 기간 프리셋"
+        >
           {PERIOD_PRESETS.map((preset) => (
-            <Button
-              key={preset.key}
-              size="sm"
-              variant={activePreset === preset.key ? 'default' : 'outline'}
-              disabled={pending}
-              onClick={() => go({ preset: preset.key })}
-            >
+            <ToggleGroupItem key={preset.key} value={preset.key} className="px-2.5">
               {preset.label}
-            </Button>
+            </ToggleGroupItem>
           ))}
-        </div>
+        </ToggleGroup>
       )}
 
       {/* 한 줄에 다 들어가는 넓이에서만 구분선을 둔다 — 줄바꿈이 일어나면 선만 덩그러니 남는다. */}
@@ -100,39 +121,28 @@ function PeriodFilterBar({
 
       {showCustom && (
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          {/* 폭이 모자라면 날짜 칸이 먼저 줄어들되(min-w) 읽을 수 있는 선은 지킨다. */}
+          {/* 폭이 모자라면 날짜 칸이 먼저 줄어들되(min-w) 읽을 수 있는 선은 지킨다.
+              날짜를 고르면 **바로 반영**한다 — 따로 누를 '적용'이 없어 컨트롤이 하나 줄어든다. */}
           <Input
             type="date"
             aria-label="시작일"
-            className="h-8 w-[150px] min-w-[130px] flex-1"
+            className="h-8 w-[148px] min-w-[130px] flex-1"
             value={from}
             max={to || undefined}
-            onChange={(e) => setFrom(e.target.value)}
+            onChange={(e) => applyCustom(e.target.value, to)}
           />
           <span className="text-muted-foreground">~</span>
           <Input
             type="date"
             aria-label="종료일"
-            className="h-8 w-[150px] min-w-[130px] flex-1"
+            className="h-8 w-[148px] min-w-[130px] flex-1"
             value={to}
             min={from || undefined}
-            onChange={(e) => setTo(e.target.value)}
+            onChange={(e) => applyCustom(from, e.target.value)}
           />
-          <Button
-            size="sm"
-            variant={activePreset === 'custom' ? 'default' : 'secondary'}
-            disabled={!customReady || pending}
-            onClick={() => go({ from, to })}
-          >
-            적용
-          </Button>
+          {pending && <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" />}
         </div>
       )}
-
-      {/* 지금 적용된 기간은 날짜 입력칸이 이미 같은 값을 보여주므로, 자리가 빠듯하면 감춘다. */}
-      <div className={cn('ml-auto hidden text-xs text-muted-foreground tabular-nums lg:block', pending && 'opacity-50')}>
-        {resolved ? (resolved.from || resolved.to ? `${resolved.from ?? '처음'} ~ ${resolved.to ?? '오늘'}` : '전체 기간') : null}
-      </div>
     </div>
   );
 }

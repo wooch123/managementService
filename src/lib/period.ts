@@ -125,7 +125,32 @@ export function periodQueryValues(range: PeriodRange): Record<string, string> {
   const values: Record<string, string> = {};
   if (range.from) values[PERIOD_PARAM.from] = range.from;
   if (range.to) values[PERIOD_PARAM.to] = range.to;
+  const prev = previousPeriod(range);
+  if (prev) {
+    values.prevFrom = prev.from;
+    values.prevTo = prev.to;
+  }
   return values;
+}
+
+const DAY_MS = 86_400_000;
+
+/**
+ * **직전 같은 길이의 기간**. 최근 3개월을 보고 있으면 그 앞 3개월 — KPI가 "지난번과 견줘 늘었는지"를
+ * 말할 수 있게 하는 비교 구간이다.
+ *
+ * 경계는 맞물리되 겹치지 않는다: 지금 구간이 5/19~8/19(93일)이면 직전은 2/15~5/18이다.
+ * 한쪽 끝이 열려 있으면(전체 기간 등) 견줄 대상이 없으므로 null을 돌려준다.
+ */
+export function previousPeriod(range: PeriodRange): { from: string; to: string } | null {
+  if (!range.from || !range.to) return null;
+  const from = new Date(`${range.from}T00:00:00`);
+  const to = new Date(`${range.to}T00:00:00`);
+  const days = Math.round((to.getTime() - from.getTime()) / DAY_MS) + 1; // 양 끝 포함
+  if (days <= 0) return null;
+  const prevTo = new Date(from.getTime() - DAY_MS);
+  const prevFrom = new Date(prevTo.getTime() - (days - 1) * DAY_MS);
+  return { from: toIsoDate(prevFrom), to: toIsoDate(prevTo) };
 }
 
 /** 기간 필터 컴포넌트가 주소를 바꿀 때 쓰는 쿼리 문자열(다른 파라미터는 건드리지 않는다). */

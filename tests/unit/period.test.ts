@@ -5,6 +5,7 @@ import {
   monthsBefore,
   periodQueryValues,
   periodSearchString,
+  previousPeriod,
   presetRange,
   resolvePeriod,
   toIsoDate,
@@ -88,7 +89,38 @@ describe('주소 → 기간 해석', () => {
 describe('바인딩에 넘기는 값', () => {
   it('경계가 없으면 키 자체를 넣지 않는다 (조건을 아예 걸지 않기 위해)', () => {
     expect(periodQueryValues(presetRange('all', TODAY))).toEqual({});
-    expect(periodQueryValues(presetRange('3m', TODAY))).toEqual({ from: '2026-05-19', to: '2026-08-19' });
+  });
+
+  it('직전 같은 길이의 기간도 함께 넘긴다 (지표 증감 비교용)', () => {
+    // 2026-05-19 ~ 2026-08-19 = 93일 → 직전 93일은 2026-02-15 ~ 2026-05-18
+    expect(periodQueryValues(presetRange('3m', TODAY))).toEqual({
+      from: '2026-05-19',
+      to: '2026-08-19',
+      prevFrom: '2026-02-15',
+      prevTo: '2026-05-18',
+    });
+  });
+});
+
+describe('직전 기간', () => {
+  it('길이가 같고 경계가 맞물리되 겹치지 않는다', () => {
+    const prev = previousPeriod({ from: '2026-08-01', to: '2026-08-10', preset: 'custom' });
+    expect(prev).toEqual({ from: '2026-07-22', to: '2026-07-31' });
+    // 10일 구간 → 직전도 10일, 끝은 시작 하루 전
+    const days = (a: string, b: string) => (new Date(b).getTime() - new Date(a).getTime()) / 86_400_000 + 1;
+    expect(days(prev!.from, prev!.to)).toBe(days('2026-08-01', '2026-08-10'));
+  });
+
+  it('하루짜리 구간도 하루로 견준다', () => {
+    expect(previousPeriod({ from: '2026-08-10', to: '2026-08-10', preset: 'custom' })).toEqual({
+      from: '2026-08-09',
+      to: '2026-08-09',
+    });
+  });
+
+  it('한쪽이 열려 있으면 견줄 대상이 없다', () => {
+    expect(previousPeriod({ from: null, to: null, preset: 'all' })).toBeNull();
+    expect(previousPeriod({ from: '2026-01-01', to: null, preset: 'custom' })).toBeNull();
   });
 });
 

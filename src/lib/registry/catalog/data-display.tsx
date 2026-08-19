@@ -38,10 +38,11 @@ import {
 } from '@/components/ui/typography';
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Inbox } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, Inbox } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { categoricalXAxisProps, yAxisLabelProps } from '@/lib/chart-axis';
 import { asSeriesResult, selectedColumns, toLabelValueSeries } from '@/lib/chart-series';
+import { cn } from '@/lib/utils';
 import { defineComponent, type ComponentDef } from '@/lib/registry/types';
 
 const chartConfig = { value: { label: '값', color: 'var(--primary)' } } satisfies ChartConfig;
@@ -50,6 +51,21 @@ const sampleChartData = [
   { label: '2월', value: 19 },
   { label: '3월', value: 8 },
 ];
+
+/**
+ * 집계 결과를 KPI 타일이 읽는 모양으로. 숫자 하나만 오거나(비교 없음)
+ * { value, previous }가 온다(직전 동일 기간과 비교, types/binding.ts의 aggregate.compare).
+ */
+function toKpi(data: unknown): { value: number; previous: number | null } | null {
+  if (typeof data === 'number') return { value: data, previous: null };
+  if (data && typeof data === 'object' && 'value' in data) {
+    const d = data as { value: unknown; previous?: unknown };
+    if (typeof d.value === 'number') {
+      return { value: d.value, previous: typeof d.previous === 'number' ? d.previous : null };
+    }
+  }
+  return null;
+}
 
 function formatChartNumber(value: number): string {
   return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 2 }).format(value);
@@ -240,6 +256,9 @@ export const dataDisplayComponents = [
     icon: 'chart-column',
     description: '막대/선 차트(list 바인딩) 또는 집계 KPI 숫자(aggregate 바인딩)',
     isContainer: false,
+    // 지표 타일과 차트가 한 컴포넌트다 — 표면은 둘 중 더 자주 쓰이는 차트 기준으로 물러나게 두고,
+    // 지표는 숫자 자체가 크고 진해 충분히 앞선다.
+    surface: 'quiet',
     bindingModes: ['list', 'aggregate', 'group'],
     events: [],
     propsSchema: z.object({
@@ -275,16 +294,37 @@ export const dataDisplayComponents = [
         );
       }
 
-      // aggregate 바인딩 → runAggregateQuery가 숫자 하나를 돌려준다(§6.4). KPI 타일로 렌더한다.
-      if (typeof data === 'number') {
+      // aggregate 바인딩 → 숫자 하나(§6.4), 비교를 켜면 { value, previous }. KPI 타일로 렌더한다.
+      const kpi = toKpi(data);
+      if (kpi) {
+        const delta = kpi.previous !== null && kpi.previous !== 0 ? (kpi.value - kpi.previous) / Math.abs(kpi.previous) : null;
         return (
           // Tremor KPI 카드 규격: 레이블 14px/500 회색, 지표 30px/600 진한 회색.
           <div className="flex h-full flex-col justify-center gap-1.5">
             {props.title && <span className="text-sm font-medium text-muted-foreground">{props.title}</span>}
-            <span className="text-3xl font-semibold text-foreground tabular-nums">
-              {formatChartNumber(data)}
-              {props.unit && <span className="ml-1 text-base font-normal text-muted-foreground">{props.unit}</span>}
-            </span>
+            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <span className="text-3xl font-semibold text-foreground tabular-nums">
+                {formatChartNumber(kpi.value)}
+                {props.unit && <span className="ml-1 text-base font-normal text-muted-foreground">{props.unit}</span>}
+              </span>
+              {/* 직전 같은 길이의 기간 대비 증감. 숫자 하나만 크게 띄우면 많은 건지 적은 건지
+                  알 수 없다 — 견줄 값이 있을 때만 붙인다. 색은 좋고 나쁨이 아니라 방향만 나타낸다. */}
+              {delta !== null && (
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium tabular-nums',
+                    delta > 0 ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                    : delta < 0 ? 'bg-rose-500/10 text-rose-700 dark:text-rose-400'
+                    : 'bg-muted text-muted-foreground'
+                  )}
+                  title={`직전 동일 기간 ${formatChartNumber(kpi.previous ?? 0)}${props.unit}`}
+                >
+                  {delta > 0 ? <ArrowUpRight className="size-3" /> : delta < 0 ? <ArrowDownRight className="size-3" /> : null}
+                  {delta > 0 ? '+' : ''}
+                  {(delta * 100).toFixed(delta !== 0 && Math.abs(delta) < 0.1 ? 1 : 0)}%
+                </span>
+              )}
+            </div>
           </div>
         );
       }

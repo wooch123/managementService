@@ -1,6 +1,7 @@
 import { getComponentDef } from '@/lib/registry/catalog';
 import { NodeErrorBoundary } from '@/components/builder/NodeErrorBoundary';
 import type { ComponentDef, RenderContext } from '@/lib/registry/types';
+import { cn } from '@/lib/utils';
 import type { NodeDto } from '@/lib/db/nodes';
 
 export type RuntimeHooks = {
@@ -59,15 +60,20 @@ export function renderNodeTree(nodes: NodeDto[], parentId: string | null = null,
     const grows = def.growsWithContent === true;
     // 배치된 컴포넌트는 모두 카드 표면 위에 올린다(§3 디자인 규칙) — 자기 테두리를 이미 가진
     // 컴포넌트만 예외로 두어 테두리가 겹치지 않게 한다.
+    // 표면의 세기로 화면에 계층을 만든다 — 지표는 또렷하게, 차트는 물러나게(registry/types.ts).
+    const surface =
+      def.surface === 'strong' ? 'border-border shadow-xs'
+      : def.surface === 'quiet' ? 'border-border/50'
+      : 'border-border';
     const withCard = (content: React.ReactNode) =>
       isRoot && !SELF_SURFACED.has(node.type) ? (
         // Tremor식 카드 표면: 그림자 대신 1px 테두리, 반지름 8px, 넉넉한 안쪽 여백.
         <div
-          className={
-            grows
-              ? 'flex min-h-full flex-col rounded-lg border bg-card p-4 text-card-foreground'
-              : 'flex h-full flex-col rounded-lg border bg-card p-4 text-card-foreground'
-          }
+          className={cn(
+            'flex flex-col rounded-lg border bg-card p-4 text-card-foreground',
+            grows ? 'min-h-full' : 'h-full',
+            surface
+          )}
         >
           <div className={grows ? 'flex-1' : 'min-h-0 flex-1'}>{content}</div>
         </div>

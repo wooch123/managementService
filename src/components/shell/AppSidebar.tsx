@@ -158,7 +158,7 @@ function PageMenuItem({
   if (!hasChildren) {
     return (
       <SidebarMenuItem>
-        <SidebarMenuButton asChild isActive={active} tooltip={node.title}>
+        <SidebarMenuButton asChild isActive={active} tooltip={node.title} className={'relative data-active:bg-sidebar-accent/50 data-active:before:absolute data-active:before:inset-y-1.5 data-active:before:left-0 data-active:before:w-0.5 data-active:before:rounded-full data-active:before:bg-sidebar-primary'}>
           <Link href={hrefFor(node)}>
             {node.icon && <DynamicIcon name={node.icon} className="size-4" />}
             <span className="sidebar-fade">{node.title}</span>
@@ -175,7 +175,7 @@ function PageMenuItem({
     // 이동과 펼치기를 동시에 하고, 펼침/접힘만 하고 싶을 때는 오른쪽 화살표 버튼을 쓴다.
     <Collapsible open={open} onOpenChange={setOpen} className="group/collapsible">
       <SidebarMenuItem>
-        <SidebarMenuButton asChild isActive={active} tooltip={node.title} onClick={() => setOpen(true)}>
+        <SidebarMenuButton asChild isActive={active} tooltip={node.title} onClick={() => setOpen(true)} className={'relative data-active:bg-sidebar-accent/50 data-active:before:absolute data-active:before:inset-y-1.5 data-active:before:left-0 data-active:before:w-0.5 data-active:before:rounded-full data-active:before:bg-sidebar-primary'}>
           <Link href={hrefFor(node)}>
             {node.icon && <DynamicIcon name={node.icon} className="size-4" />}
             <span className="sidebar-fade">{node.title}</span>
@@ -199,7 +199,7 @@ function PageMenuItem({
           <SidebarMenuSub>
             {node.children.map((child) => (
               <SidebarMenuSubItem key={child.id}>
-                <SidebarMenuSubButton asChild isActive={isActive(child)}>
+                <SidebarMenuSubButton asChild isActive={isActive(child)} className={'relative data-active:bg-sidebar-accent/50 data-active:before:absolute data-active:before:inset-y-1.5 data-active:before:left-0 data-active:before:w-0.5 data-active:before:rounded-full data-active:before:bg-sidebar-primary'}>
                   <Link href={hrefFor(child)}>
                     <span className="sidebar-fade">{child.title}</span>
                     {!child.isVisible && (

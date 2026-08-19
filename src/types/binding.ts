@@ -46,6 +46,14 @@ export const bindingSpecSchema = z.discriminatedUnion('mode', [
     fn: z.enum(['count', 'sum', 'avg', 'min', 'max']),
     fieldId: z.string().optional(),
     filters: z.array(filterSchema).default([]),
+    /**
+     * 켜면 **직전 같은 길이의 기간**과 함께 조회해 증감을 함께 돌려준다(최근 3개월이면 그 앞 3개월).
+     *
+     * WHY: 숫자 하나만 크게 띄우면 "419건"이 많은 건지 적은 건지 알 수 없다 — 상태나 추세가 없어
+     * 단순 집계값으로만 읽힌다(디자인 리뷰 ③). 기간 필터가 준 `from`/`to`를 앞으로 민 값으로
+     * 한 번 더 세어 비교한다. 기간 한쪽이 열려 있으면 견줄 대상이 없어 비교하지 않는다.
+     */
+    compare: z.boolean().default(false),
   }),
   /**
    * 항목별 집계 — 차트처럼 "분류별 합계"를 그리는 컴포넌트를 위한 모드.
