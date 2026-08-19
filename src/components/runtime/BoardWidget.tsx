@@ -529,7 +529,9 @@ export function Board({
                                     // 이미지가 늦게 자리를 차지하면 높이가 바뀐다 — 맨 아래를 보고 있었다면 따라 내려간다.
                                     if (atBottomRef.current) scrollToBottom();
                                   }}
-                                  className="h-auto max-h-96 w-auto max-w-full"
+                                  // 원본 크기 그대로 — **폭이 모자랄 때만** 비율을 지키며 줄어든다.
+                                  // 높이 상한은 두지 않는다(세로로 긴 그림도 잘리거나 눌리지 않게).
+                                  className="h-auto w-auto max-w-full"
                                   style={a.width && a.height ? { aspectRatio: `${a.width} / ${a.height}` } : undefined}
                                 />
                               </button>
@@ -680,7 +682,13 @@ export function Board({
       {/* 눌러서 크게 보기 — **원본 크기 그대로**. 다만 화면 폭을 넘지는 않게 하고(넘으면 비율을
           지키며 줄인다), 세로로 긴 그림은 줄이지 않고 안에서 스크롤한다. */}
       <Dialog open={Boolean(lightbox)} onOpenChange={(o) => !o && setLightbox(null)}>
-        <DialogContent className="max-w-[96vw] p-3 sm:max-w-[96vw]">
+        <DialogContent
+          className="w-auto max-w-[96vw] p-3 sm:max-w-[96vw]"
+          // 상자를 **그림 크기에 맞춘다**. 폭을 지정하지 않으면 어떤 그림이든 늘 최대 폭(96vw)으로
+          // 열려, 작은 그림이 커다란 빈 상자 한가운데 놓인다. 안쪽 여백(p-3, 좌우 합 1.5rem)을
+          // 더한 값으로 잡고 화면 폭에서 멈춘다 — 넘치는 그림은 비율을 지키며 줄어든다.
+          style={lightbox?.width ? { width: `min(calc(${lightbox.width}px + 1.5rem), 96vw)` } : undefined}
+        >
           <DialogHeader>
             <DialogTitle className="truncate text-sm">
               {lightbox?.name}
