@@ -390,7 +390,7 @@ export const dataDisplayComponents = [
                   interval={0}
                   // 가장 긴 이름이 **한 줄로** 들어갈 만큼 넓힌다. 좁으면 recharts가 글자를 접어
                   // 두 줄로 만들어 막대와 어긋난다. 너무 넓히면 막대가 그만큼 짧아지므로 상한을 둔다.
-                  width={Math.min(168, Math.max(56, Math.ceil(Math.max(...series.map((s) => estimateTextWidth(s.label))) + 20)))}
+                  width={Math.min(200, Math.max(64, Math.ceil(Math.max(...series.map((s) => estimateTextWidth(s.label))) * 1.25 + 24)))}
                 />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Bar dataKey="value" fill="var(--color-value)" radius={4} />
