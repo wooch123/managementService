@@ -34,6 +34,14 @@ export type XAxisLayout = {
   tickMargin: number;
   /** 글자 수 제한(넘으면 말줄임). null이면 자르지 않는다. */
   maxChars: number | null;
+  /**
+   * 양 끝 레이블이 그림 영역 밖으로 삐져나가지 않도록 좌우에 비워 둘 폭.
+   *
+   * WHY: 가로쓰기 레이블은 눈금 위에 **가운데 정렬**되므로 첫/마지막 레이블은 절반이 축 밖으로
+   * 나가 잘린다. 항목이 적고 이름이 길 때 특히 눈에 띈다 — 4개월짜리 추이에서 '2026-05'가
+   * '26-05'로 잘려 보였다. 기울인 경우에는 오른쪽 끝에 맞춰 그리므로 이 문제가 없다.
+   */
+  padding: { left: number; right: number };
 };
 
 const DEFAULTS = {
@@ -42,7 +50,11 @@ const DEFAULTS = {
   plotWidth: 520,
   /** 축이 차트 높이를 잡아먹지 않도록 제한. */
   maxHeight: 88,
+  /** 좌우 여백 상한 — 이 이상 비우면 그림이 눈에 띄게 좁아진다. */
+  maxEdgePad: 40,
 };
+
+const NO_PADDING = { left: 0, right: 0 } as const;
 
 /**
  * 레이블 목록을 보고 회전 여부·각도·축 높이를 정한다.
@@ -62,7 +74,7 @@ export function categoricalXAxisLayout(
   const texts = labels.map((l) => String(l ?? ''));
   const count = texts.length;
   if (count === 0) {
-    return { interval: 0, angle: 0, textAnchor: 'middle', height: 24, tickMargin: 6, maxChars: null };
+    return { interval: 0, angle: 0, textAnchor: 'middle', height: 24, tickMargin: 6, maxChars: null, padding: NO_PADDING };
   }
 
   const widest = Math.max(...texts.map((t) => estimateTextWidth(t, fontSize)));
@@ -71,7 +83,9 @@ export function categoricalXAxisLayout(
 
   // 가로로 두어도 겹치지 않는다면 회전하지 않는다.
   if (widest + GAP <= slot) {
-    return { interval: 0, angle: 0, textAnchor: 'middle', height: 24, tickMargin: 6, maxChars: null };
+    // 양 끝 레이블의 절반이 축 밖으로 나가지 않도록 그만큼 비워 둔다.
+    const pad = Math.min(DEFAULTS.maxEdgePad, Math.ceil(widest / 2));
+    return { interval: 0, angle: 0, textAnchor: 'middle', height: 24, tickMargin: 6, maxChars: null, padding: { left: pad, right: pad } };
   }
 
   // 기울였을 때 이웃과 부딪히지 않으려면 칸 폭이 (글자 높이 / sin θ)보다 넓어야 한다.
@@ -96,7 +110,7 @@ export function categoricalXAxisLayout(
     maxChars = Math.max(2, chars);
   }
 
-  return { interval: 0, angle, textAnchor: 'end', height: Math.max(28, height), tickMargin, maxChars };
+  return { interval: 0, angle, textAnchor: 'end', height: Math.max(28, height), tickMargin, maxChars, padding: NO_PADDING };
 }
 
 /** 레이블을 글자 수에 맞춰 자르고 말줄임표를 붙인다. */
@@ -124,6 +138,7 @@ export function categoricalXAxisProps(
     textAnchor: layout.textAnchor,
     height: layout.height,
     tickMargin: layout.tickMargin,
+    padding: layout.padding,
     tickFormatter: (value: unknown) => truncateLabel(value, layout.maxChars),
   } as const;
 }

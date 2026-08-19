@@ -24,18 +24,31 @@ const VIEWPORTS = [
 
 const browser = await chromium.launch();
 const ctx = await browser.newContext();
+
+// 운영 화면 목록은 **배포된 스펙**에서 가져온다(인증이 필요 없고, 하위 페이지까지 전부 들어 있다).
+// 예전에는 /api/admin/pages를 썼는데 그건 최상위 6개만 주는 데다 인증이 필요해서, 운영 서버를
+// 상대로 돌리면(세션 쿠키가 secure) 조용히 빈 목록이 되어 운영 화면을 한 장도 안 보고
+// "지적 0건"을 찍었다.
+const specRes = await ctx.request.get(`${BASE}/api/runtime/spec`);
+const spec = specRes.ok() ? await specRes.json() : null;
+const runtimePaths = (spec?.pages ?? []).map((p) => `/home/${p.slug}`);
+if (runtimePaths.length === 0) {
+  console.log('⚠️  배포된 스펙을 읽지 못했습니다 — 운영 화면은 점검하지 못합니다.');
+}
+
+// 관리자 화면은 로그인이 필요하다. 세션이 안 잡히면 로그인 화면만 보고 통과해버리므로 먼저 확인한다.
 await ctx.request.post(`${BASE}/api/auth/login`, { data: { username: 'admin', password: '123456' } });
-const pagesRes = await ctx.request.get(`${BASE}/api/admin/pages`);
-const pages = (await pagesRes.json()).data ?? [];
-const paths = [
-  '/home',
-  ...pages.map((p) => `/home/${p.slug}`),
-  '/admin/builder',
-  '/admin/graph',
-  '/admin/data',
-  '/admin/validate',
-  '/admin/deploy',
-];
+const sessionRes = await ctx.request.get(`${BASE}/api/auth/session`);
+const loggedIn = sessionRes.ok() && Boolean((await sessionRes.json())?.data?.username);
+const adminPaths = ['/admin/builder', '/admin/graph', '/admin/data', '/admin/validate', '/admin/deploy'];
+if (!loggedIn) {
+  console.log(
+    '⚠️  관리자 세션을 만들지 못해 관리자 화면은 건너뜁니다' +
+      ' (운영 서버는 세션 쿠키가 secure라 http로는 로그인되지 않는다 — 개발 서버를 상대로 돌리세요).'
+  );
+}
+
+const paths = ['/home', ...runtimePaths, ...(loggedIn ? adminPaths : [])];
 
 let total = 0;
 for (const vp of VIEWPORTS) {

@@ -86,3 +86,35 @@ describe('y축 이름', () => {
     expect(yAxisLabelProps('  건수  ').label?.value).toBe('건수');
   });
 });
+
+/**
+ * 양 끝 레이블 잘림 방지.
+ *
+ * 가로쓰기 레이블은 눈금 위에 가운데 정렬되므로 첫/마지막은 절반이 축 밖으로 나간다.
+ * 실제로 4개월짜리 추이에서 '2026-05'가 '26-05'로 잘려 보였다(2026-08-19).
+ */
+describe('양 끝 여백', () => {
+  it('가로쓰기면 가장 긴 레이블의 절반만큼 좌우를 비운다', () => {
+    const layout = categoricalXAxisLayout(['2026-05', '2026-06', '2026-07', '2026-08']);
+    expect(layout.angle).toBe(0);
+    expect(layout.padding.left).toBeGreaterThan(0);
+    expect(layout.padding.left).toBe(layout.padding.right);
+    expect(layout.padding.left).toBeGreaterThanOrEqual(Math.floor(estimateTextWidth('2026-05') / 2));
+  });
+
+  it('기울인 축은 오른쪽 끝 정렬이라 여백이 필요 없다', () => {
+    const many = Array.from({ length: 20 }, (_, i) => `아주 긴 항목 이름 ${i}`);
+    const layout = categoricalXAxisLayout(many);
+    expect(layout.angle).toBeLessThan(0);
+    expect(layout.padding).toEqual({ left: 0, right: 0 });
+  });
+
+  it('레이블이 아무리 길어도 여백이 그림을 잡아먹지 않는다', () => {
+    const layout = categoricalXAxisLayout(['아주 아주 아주 긴 단 하나의 항목 이름']);
+    expect(layout.padding.left).toBeLessThanOrEqual(40);
+  });
+
+  it('XAxis props에 그대로 실려 나간다', () => {
+    expect(categoricalXAxisProps(['2026-05', '2026-06']).padding.left).toBeGreaterThan(0);
+  });
+});
