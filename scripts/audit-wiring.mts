@@ -96,6 +96,32 @@ for (const page of spec.pages) {
   }
 }
 
+// ── 1-b) 선택을 켰는데 실제로 고를 수 없는 표 ────────────────────────────────
+// selectFieldId는 **fieldId**여야 한다(컬럼명을 적으면 조회 결과에서 컬럼을 못 찾아 조용히
+// 정적인 표가 된다 — 눌러도 아무 일이 없다). 그 필드가 바인딩의 select에 들어 있는지도 본다.
+for (const page of spec.pages) {
+  for (const node of page.nodes) {
+    if (node.type !== 'data-table') continue;
+    const param = String(node.props.selectParam ?? '');
+    const fieldId = String(node.props.selectFieldId ?? '');
+    if (param === '' && fieldId === '') continue;
+    if (param === '' || fieldId === '') {
+      note(page.slug, '선택 설정이 반쪽', `${node.props.title} — param="${param}" fieldId="${fieldId}"`);
+      continue;
+    }
+    const entity = spec.entities.find((e) => e.id === node.binding?.entityId);
+    const field = entity?.fields.find((f) => f.id === fieldId);
+    if (!field) {
+      note(page.slug, '선택 필드가 fieldId가 아님(행을 눌러도 동작하지 않음)', `${node.props.title} — "${fieldId}"`);
+      continue;
+    }
+    const selected = ((node.binding as { select?: string[] } | null)?.select ?? []).includes(fieldId);
+    if (!selected) {
+      note(page.slug, '선택 필드가 조회 목록에 없음', `${node.props.title} — ${field.columnName}`);
+    }
+  }
+}
+
 // ── 2) 액션이 다른 페이지의 입력을 가리키는지 ─────────────────────────────────
 for (const action of spec.actions) {
   const refs = referencedNodes(action.config);
@@ -146,7 +172,14 @@ for (const page of spec.pages) {
   // 바인딩이 주소 파라미터를 참조하는데 그 값을 만드는 컴포넌트가 페이지에 있는지
   const producers = new Set<string>();
   for (const node of page.nodes) {
-    if (node.type === 'data-table' && node.props.selectParam) producers.add(String(node.props.selectParam));
+    // 다른 화면으로 보내는 표(selectSlug)는 **그 화면**의 생산자다 — 여기서는 값을 만들지 않는다.
+    if (node.type === 'data-table' && node.props.selectParam && !node.props.selectSlug) {
+      producers.add(String(node.props.selectParam));
+    }
+    // 누를 수 있는 목록·카드도 같은 규칙으로 파라미터를 만든다.
+    if (node.props.clickable && !node.props.linkSlug && node.props.linkParam) {
+      producers.add(String(node.props.linkParam));
+    }
     if (node.type === 'status-filter' && node.props.param) producers.add(String(node.props.param));
     if (node.type === 'search-filter' && node.props.param) producers.add(String(node.props.param));
     if (node.type === 'select-filter' && node.props.param) producers.add(String(node.props.param));

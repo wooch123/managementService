@@ -1306,15 +1306,18 @@ function requestHub(reqPriority: string[]): PagePlan {
         },
       },
       {
+        // 앞서 여기에 "같은 FAR의 다른 의뢰"를 뒀는데, 주소에 남는 선택값은 의뢰번호뿐이라
+        // FAR로 걸 조건을 만들 수 없어 **영원히 비는 목록**이었다(배선 점검이 잡았다).
+        // 값이 실제로 있는 것으로 바꾼다 — 담당이 아직 없는 긴급 건.
         type: 'list-panel',
         col: 9,
         span: 4,
         row: 45,
         rowSpan: 10,
         props: {
-          title: '같은 FAR의 다른 의뢰',
-          subtitle: '누르면 그 의뢰가 선택됩니다',
-          emptyText: '선택한 의뢰가 없습니다',
+          title: '담당 미지정 · 긴급',
+          subtitle: '누르면 큐에서 선택됩니다',
+          emptyText: '미배정 긴급 건이 없습니다',
           maxItems: 5,
           badgeSuffix: '',
           clickable: true,
@@ -1323,9 +1326,12 @@ function requestHub(reqPriority: string[]): PagePlan {
         bind: {
           mode: 'list',
           table: 'analysis_requests',
-          select: ['request_no', 'request_type', 'requester', 'req_status'],
-          filters: [{ col: 'far_no', op: 'eq', source: 'query', ref: 'far', whenMissing: 'empty' }],
-          sort: [['request_date', 'desc']],
+          select: ['request_no', 'request_type', 'requester', 'due_date', 'priority'],
+          filters: [
+            { col: 'priority', op: 'eq', source: 'fixed', value: '긴급' },
+            { col: 'req_status', op: 'in', source: 'fixed', value: ['접수', '보류'] },
+          ],
+          sort: [['due_date', 'asc']],
           pageSize: 5,
         },
       },

@@ -61,7 +61,12 @@ test.describe('컴포넌트 카탈로그 + 캔버스 빌더 (SPEC.md §8.1.3, P3
     await page.goto(`/admin/builder?pageId=${temp.id}`);
     await expect(page.getByText('빈 페이지입니다')).toBeVisible();
 
-    const cardHandle = page.locator('text=카드').locator('xpath=ancestor::div[contains(@class,"cursor-grab")]').first();
+    // 정확히 '카드'인 항목을 집는다 — 부분 일치로 찾으면 '문서 카드'·'입력 폼 카드'처럼
+    // 이름에 '카드'가 든 다른 컴포넌트가 먼저 잡혀 엉뚱한 타입이 놓인다.
+    const cardHandle = page
+      .getByText('카드', { exact: true })
+      .locator('xpath=ancestor::div[contains(@class,"cursor-grab")]')
+      .first();
     const canvasDropTarget = page.locator('[style*="grid-template-columns"]').first();
 
     const cardBox = await cardHandle.boundingBox();

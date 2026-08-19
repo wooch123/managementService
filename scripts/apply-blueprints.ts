@@ -162,6 +162,11 @@ async function main() {
     const props = { ...meta.defaultProps, ...(node.props ?? {}) };
     if (node.type === 'data-table' && node.bind) {
       props.columns = tableColumns(schema, node.bind, node.headers);
+      // 설계에는 읽기 쉬운 **컬럼명**을 적지만 런타임은 **fieldId**로 조회 결과의 컬럼을 찾는다.
+      // 그대로 두면 행을 눌러도 아무 일이 없다(선택 컬럼을 못 찾아 정적인 표로 물러난다).
+      if (props.selectFieldId && node.bind.mode === 'list') {
+        props.selectFieldId = fieldOf(schema, node.bind.table, String(props.selectFieldId)).id;
+      }
     }
     const created = await prisma.componentNode.create({
       data: {

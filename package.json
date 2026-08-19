@@ -22,6 +22,8 @@
     "db:optimize": "tsx scripts/optimize-indexes.ts",
     "validate": "tsx scripts/validate-draft.mts",
     "audit:wiring": "tsx scripts/audit-wiring.mts",
+    "verify:actions": "node scripts/verify-actions.mjs",
+    "verify:screens": "node scripts/verify-screens.mjs",
     "db:sync-schema": "tsx scripts/sync-schema.mts",
     "deploy:draft": "tsx scripts/deploy-draft.mts"
   },
