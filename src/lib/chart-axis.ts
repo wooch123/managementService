@@ -98,19 +98,32 @@ export function categoricalXAxisLayout(
   const tickMargin = 8;
   const needed = widest * Math.sin(rad) + fontSize + tickMargin;
 
+  const longest = texts.reduce((a, b) => (estimateTextWidth(b, fontSize) > estimateTextWidth(a, fontSize) ? b : a));
   let maxChars: number | null = null;
   let height = Math.ceil(needed);
   if (needed > maxHeight) {
     height = maxHeight;
     const allowedWidth = (maxHeight - fontSize - tickMargin) / Math.sin(rad);
     // 가장 긴 레이블을 기준으로 허용 폭에 맞는 글자 수를 역산한다(말줄임표 한 칸 포함).
-    const longest = texts.reduce((a, b) => (estimateTextWidth(b, fontSize) > estimateTextWidth(a, fontSize) ? b : a));
     let chars = longest.length;
     while (chars > 2 && estimateTextWidth(`${longest.slice(0, chars)}…`, fontSize) > allowedWidth) chars -= 1;
     maxChars = Math.max(2, chars);
   }
 
-  return { interval: 0, angle, textAnchor: 'end', height: Math.max(28, height), tickMargin, maxChars, padding: NO_PADDING };
+  // 기울인 글자는 눈금에서 **왼쪽 위로** 뻗으므로(오른쪽 끝 정렬) 첫 레이블의 앞부분이 잘린다.
+  // 실제로 'Data Retention'이 'ention'으로, '2026-W20'이 '0'으로 보였다. 뻗는 만큼 왼쪽을 비운다.
+  const rendered = maxChars === null ? longest : `${longest.slice(0, maxChars)}…`;
+  const leftPad = Math.min(DEFAULTS.maxEdgePad, Math.ceil(estimateTextWidth(rendered, fontSize) * Math.cos(rad)));
+
+  return {
+    interval: 0,
+    angle,
+    textAnchor: 'end',
+    height: Math.max(28, height),
+    tickMargin,
+    maxChars,
+    padding: { left: leftPad, right: 0 },
+  };
 }
 
 /** 레이블을 글자 수에 맞춰 자르고 말줄임표를 붙인다. */

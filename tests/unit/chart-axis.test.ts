@@ -102,11 +102,19 @@ describe('양 끝 여백', () => {
     expect(layout.padding.left).toBeGreaterThanOrEqual(Math.floor(estimateTextWidth('2026-05') / 2));
   });
 
-  it('기울인 축은 오른쪽 끝 정렬이라 여백이 필요 없다', () => {
+  it('기울인 축은 왼쪽 위로 뻗으므로 왼쪽만 비운다', () => {
     const many = Array.from({ length: 20 }, (_, i) => `아주 긴 항목 이름 ${i}`);
     const layout = categoricalXAxisLayout(many);
     expect(layout.angle).toBeLessThan(0);
-    expect(layout.padding).toEqual({ left: 0, right: 0 });
+    expect(layout.padding.left).toBeGreaterThan(0);
+    expect(layout.padding.right).toBe(0);
+  });
+
+  it('말줄임된 레이블은 잘린 뒤 폭만큼만 비운다', () => {
+    const long = Array.from({ length: 12 }, (_, i) => `아주 아주 아주 긴 항목 이름입니다 ${i}`);
+    const layout = categoricalXAxisLayout(long);
+    expect(layout.maxChars).not.toBeNull();
+    expect(layout.padding.left).toBeLessThanOrEqual(40);
   });
 
   it('레이블이 아무리 길어도 여백이 그림을 잡아먹지 않는다', () => {

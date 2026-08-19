@@ -13,7 +13,7 @@
       "interpreter": "node",
       "env": {
         "NODE_ENV": "production",
-        "NEXT_DIST_DIR": ".next-b"
+        "NEXT_DIST_DIR": ".next-a"
       },
       "autorestart": true,
       "max_restarts": 20,
