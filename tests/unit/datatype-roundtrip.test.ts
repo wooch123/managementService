@@ -37,6 +37,12 @@ describe('§6.2 데이터 타입 왕복 변환 (저장 → 조회)', () => {
     expect(fromStorageValue('DATE', stored)).toBe('2026-08-18');
   });
 
+  it("DATE 칸에 일시가 들어오면 날짜만 남긴다('현재 시각' 값 소스)", () => {
+    // 그대로 저장하면 같은 컬럼에 'YYYY-MM-DD'와 일시가 섞여 기간 조건과 정렬이 어긋난다 —
+    // 문자열 비교라 '2026-08-18T…'는 '2026-08-18'보다 크다.
+    expect(toStorageValue('DATE', '2026-08-18T22:38:44.039Z')).toBe('2026-08-18');
+  });
+
   it('DATETIME — ISO 8601 UTC로 정규화된다', () => {
     const stored = toStorageValue('DATETIME', '2026-08-18T03:00:00.000Z');
     expect(stored).toBe('2026-08-18T03:00:00.000Z');

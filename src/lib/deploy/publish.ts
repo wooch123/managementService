@@ -97,7 +97,15 @@ export async function publish(opts: {
       return rev;
     });
 
-    revalidateTag('published-spec');
+    // 캐시 무효화는 **트랜잭션이 끝난 뒤의 뒷정리**다. 여기서 실패한다고 배포를 되돌리면
+    // meta.db는 이미 커밋된 리비전을 갖고 app.db만 예전으로 복원돼 둘이 어긋난다.
+    // 게다가 활성 리비전 포인터는 캐시하지 않고 매번 읽으므로(spec-cache.ts), 무효화가 없어도
+    // 새 리비전은 새 캐시 키라 곧바로 보인다 — 실패를 남기되 배포는 성공으로 끝낸다.
+    try {
+      revalidateTag('published-spec');
+    } catch (e) {
+      console.warn('[deploy] 스펙 캐시 무효화 실패(배포 자체는 완료됨):', e);
+    }
     return { ok: true, revisionNo, revisionId: revision.id };
   } catch (e) {
     // Prisma $transaction은 실패 시 meta.db 쪽(Revision/Deployment)을 자동 롤백한다 — 여기서는

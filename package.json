@@ -20,7 +20,9 @@
     "theme:gen": "tsx scripts/generate-theme-css.ts",
     "audit:ui": "node scripts/audit-ui.mjs",
     "db:optimize": "tsx scripts/optimize-indexes.ts",
-    "validate": "tsx scripts/validate-draft.mts"
+    "validate": "tsx scripts/validate-draft.mts",
+    "db:sync-schema": "tsx scripts/sync-schema.mts",
+    "deploy:draft": "tsx scripts/deploy-draft.mts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

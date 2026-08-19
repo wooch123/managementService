@@ -1469,7 +1469,7 @@ export function buildActions(): ActionPlan[] {
       kind: 'CREATE',
       table: 'tips',
       values: {
-        post_no: { from: 'sequence', prefix: 'TIP-', digits: 6 },
+        post_no: { from: 'sequence', prefix: 'TIP-', digits: 3 },
         title: { from: 'component', node: 'tip-title' },
         category: { from: 'component', node: 'tip-category' },
         author: { from: 'component', node: 'tip-author' },

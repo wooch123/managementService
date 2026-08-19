@@ -68,6 +68,17 @@ function nextSequenceValue(entity: ResolvedEntity, fieldId: string, prefix: stri
   return `${prefix}${String(next).padStart(digits, '0')}`;
 }
 
+/**
+ * 갱신/삭제 대상 키를 확인한다. 키가 비면 WHERE가 아무 행도 맞추지 못하거나(문자열 'undefined')
+ * 최악의 경우 의도치 않은 행을 건드린다 — 조용히 0건 처리하고 "저장됨"이라 알리지 않는다.
+ */
+function requireKey(value: unknown): string {
+  if (value === null || value === undefined || value === '') {
+    throw new Error('갱신할 대상이 지정되지 않았습니다. 목록에서 항목을 먼저 선택하세요.');
+  }
+  return String(value);
+}
+
 /** 값 맵 해석. `sequence`처럼 대상 테이블을 알아야 하는 소스는 entity가 주어질 때만 채워진다. */
 function resolveFieldMap(
   fieldMap: Record<string, ValueSource>,
@@ -207,13 +218,12 @@ async function runUpdate(
   spec: PublishedSpec
 ): Promise<ActionResult> {
   const entity = findPublishedEntity(spec, config.entityId);
-  const key = resolveValueSource(config.keySource, context);
-  // 키가 비면 WHERE가 아무 행도 맞추지 못하거나(문자열 'undefined') 최악의 경우 의도치 않은
-  // 행을 건드린다 — 조용히 0건 갱신하고 "저장됨"이라 알리지 않고 분명히 실패시킨다.
-  if (key === null || key === undefined || key === '') {
-    return { ok: false, error: '갱신할 대상이 지정되지 않았습니다. 목록에서 항목을 먼저 선택하세요.', effects: [] };
+  let rowKey: string;
+  try {
+    rowKey = requireKey(resolveValueSource(config.keySource, context));
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : '대상이 지정되지 않았습니다.', effects: [] };
   }
-  const rowKey = String(key);
   const keyColumn = config.keyFieldId ? resolveField(entity, config.keyFieldId).columnName : 'id';
   const values = toColumnValues(entity, resolveFieldMap(config.fieldMap, context, entity));
   const db = getAppDb();
@@ -319,7 +329,9 @@ async function runComposite(
       const cfg = step.config;
       if (cfg.kind === 'CREATE') {
         const entity = entityCache.get(cfg.entityId)!;
-        const values = toColumnValues(entity, resolveFieldMap(cfg.fieldMap, context));
+        // entity를 넘겨야 자동 번호(sequence)가 대상 표를 보고 다음 번호를 만든다 — 빠뜨리면
+        // 복합 실행 안의 저장만 번호가 비어 나간다(단독 CREATE와 동작이 달라진다).
+        const values = toColumnValues(entity, resolveFieldMap(cfg.fieldMap, context, entity));
         const id = nanoid();
         const now = new Date().toISOString();
         const columns = ['id', 'created_at', 'updated_at', ...Object.keys(values)];
@@ -329,21 +341,24 @@ async function runComposite(
         lastData = { id };
       } else if (cfg.kind === 'UPDATE') {
         const entity = entityCache.get(cfg.entityId)!;
-        const rowId = String(resolveValueSource(cfg.keySource, context));
-        const values = toColumnValues(entity, resolveFieldMap(cfg.fieldMap, context));
+        // 단독 UPDATE와 같은 규칙을 쓴다 — 업무 키(keyFieldId)와 빈 키 방어. 예전에는 여기만
+        // 내부 id로 찾아서, 복합 실행 안의 상태 반영이 조용히 0건 갱신으로 끝났다.
+        const rowKey = requireKey(resolveValueSource(cfg.keySource, context));
+        const keyColumn = cfg.keyFieldId ? resolveField(entity, cfg.keyFieldId).columnName : 'id';
+        const values = toColumnValues(entity, resolveFieldMap(cfg.fieldMap, context, entity));
         const now = new Date().toISOString();
         const setClauses = [...Object.keys(values).map((c) => `${quoteIdent(c)} = ?`), `"updated_at" = ?`];
-        db.prepare(`UPDATE ${quoteIdent(entity.tableName)} SET ${setClauses.join(', ')} WHERE "id" = ?`).run(
-          ...Object.values(values),
-          now,
-          rowId
-        );
-        lastData = { id: rowId };
+        const info = db
+          .prepare(`UPDATE ${quoteIdent(entity.tableName)} SET ${setClauses.join(', ')} WHERE ${quoteIdent(keyColumn)} = ?`)
+          .run(...Object.values(values), now, rowKey);
+        if (info.changes === 0) throw new Error(`대상을 찾지 못했습니다: ${rowKey}`);
+        lastData = { id: rowKey };
       } else if (cfg.kind === 'DELETE') {
         const entity = entityCache.get(cfg.entityId)!;
-        const rowId = String(resolveValueSource(cfg.keySource, context));
-        db.prepare(`DELETE FROM ${quoteIdent(entity.tableName)} WHERE "id" = ?`).run(rowId);
-        lastData = { id: rowId };
+        const rowKey = requireKey(resolveValueSource(cfg.keySource, context));
+        const keyColumn = cfg.keyFieldId ? resolveField(entity, cfg.keyFieldId).columnName : 'id';
+        db.prepare(`DELETE FROM ${quoteIdent(entity.tableName)} WHERE ${quoteIdent(keyColumn)} = ?`).run(rowKey);
+        lastData = { id: rowKey };
       } else if (cfg.kind === 'TOAST') {
         effects.push({ type: 'toast', variant: cfg.variant, message: cfg.message });
       } else if (config.stopOnError) {
@@ -359,7 +374,16 @@ async function runComposite(
     return { ok: false, error: err instanceof Error ? err.message : '트랜잭션 실패', effects: [] };
   }
 
-  return { ok: true, data: lastData, effects: [...effects, { type: 'toast', variant: 'success', message: '완료되었습니다' }] };
+  return {
+    ok: true,
+    data: lastData,
+    effects: [
+      ...effects,
+      { type: 'toast', variant: 'success', message: '완료되었습니다' },
+      // 단독 저장과 마찬가지로 화면을 다시 그린다 — 방금 남긴 이력이 목록에 보여야 한다.
+      { type: 'refresh', nodeId: '' },
+    ],
+  };
 }
 
 export function readActionLogTail(limit = 50): unknown[] {
