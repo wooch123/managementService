@@ -512,10 +512,12 @@ export function Board({
                                 key={a.id}
                                 type="button"
                                 onClick={() => setLightbox(a)}
-                                className="overflow-hidden rounded-md border bg-background"
-                                title={a.name}
+                                className="max-w-full overflow-hidden rounded-md border bg-background"
+                                title={`${a.name}${a.width && a.height ? ` (${a.width}×${a.height})` : ''}`}
                               >
-                                {/* 업로드된 사용자 이미지라 next/image 최적화 대상이 아니다(런타임 생성 경로). */}
+                                {/* 업로드된 사용자 이미지라 next/image 최적화 대상이 아니다(런타임 생성 경로).
+                                    잘라내지 않는다 — 원본 비율 그대로 보이고, 폭이 모자랄 때만 비율을 지키며 줄어든다.
+                                    aspect-ratio를 미리 주면 이미지가 도착하기 전에도 자리를 잡아 화면이 덜 흔들린다. */}
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                   src={a.url}
@@ -523,7 +525,12 @@ export function Board({
                                   width={a.width ?? undefined}
                                   height={a.height ?? undefined}
                                   loading="lazy"
-                                  className="max-h-56 w-auto max-w-[min(100%,20rem)] object-contain"
+                                  onLoad={() => {
+                                    // 이미지가 늦게 자리를 차지하면 높이가 바뀐다 — 맨 아래를 보고 있었다면 따라 내려간다.
+                                    if (atBottomRef.current) scrollToBottom();
+                                  }}
+                                  className="h-auto max-h-96 w-auto max-w-full"
+                                  style={a.width && a.height ? { aspectRatio: `${a.width} / ${a.height}` } : undefined}
                                 />
                               </button>
                             ))}
@@ -570,8 +577,15 @@ export function Board({
             <div className="flex flex-wrap items-center gap-2">
               {pending.map((p) => (
                 <div key={p.id} className="relative">
+                  {/* 보내기 전 미리보기도 잘라내지 않는다 — 붙여넣은 그림이 실제로 어떤 비율인지
+                      여기서 바로 보여야 잘못 붙여넣은 것을 알아챈다. */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={p.url} alt={p.name} className="size-16 rounded border object-cover" />
+                  <img
+                    src={p.url}
+                    alt={p.name}
+                    title={`${p.name}${p.width && p.height ? ` (${p.width}×${p.height})` : ''}`}
+                    className="h-16 w-auto max-w-32 rounded border bg-muted/30 object-contain"
+                  />
                   <Button
                     variant="secondary"
                     size="icon-sm"
@@ -663,14 +677,31 @@ export function Board({
 
       <GalleryDialog open={galleryOpen} onOpenChange={setGalleryOpen} boardKey={boardKey} onJump={(id) => void jumpTo(id)} />
 
+      {/* 눌러서 크게 보기 — **원본 크기 그대로**. 다만 화면 폭을 넘지는 않게 하고(넘으면 비율을
+          지키며 줄인다), 세로로 긴 그림은 줄이지 않고 안에서 스크롤한다. */}
       <Dialog open={Boolean(lightbox)} onOpenChange={(o) => !o && setLightbox(null)}>
-        <DialogContent className="max-w-[min(92vw,64rem)]">
+        <DialogContent className="max-w-[96vw] p-3 sm:max-w-[96vw]">
           <DialogHeader>
-            <DialogTitle className="truncate text-sm">{lightbox?.name}</DialogTitle>
+            <DialogTitle className="truncate text-sm">
+              {lightbox?.name}
+              {lightbox?.width && lightbox?.height && (
+                <span className="ml-2 font-normal text-muted-foreground">
+                  원본 {lightbox.width} × {lightbox.height}
+                </span>
+              )}
+            </DialogTitle>
           </DialogHeader>
           {lightbox && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={lightbox.url} alt={lightbox.name} className="max-h-[70vh] w-full object-contain" />
+            <div className="max-h-[80vh] overflow-auto">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={lightbox.url}
+                alt={lightbox.name}
+                width={lightbox.width ?? undefined}
+                height={lightbox.height ?? undefined}
+                className="h-auto w-auto max-w-full"
+              />
+            </div>
           )}
         </DialogContent>
       </Dialog>
@@ -737,8 +768,9 @@ function GalleryDialog({
                 className="group/gal relative overflow-hidden rounded-md border hover:ring-2 hover:ring-primary"
                 title={`${it.author} · ${new Date(it.createdAt).toLocaleString('ko-KR')}`}
               >
+                {/* 격자는 칸 크기를 맞추되 그림은 잘라내지 않는다 — 비율이 보여야 어떤 그림인지 안다. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={it.url} alt={it.name} loading="lazy" className="aspect-square w-full object-cover" />
+                <img src={it.url} alt={it.name} loading="lazy" className="aspect-square w-full bg-muted/40 object-contain" />
                 <span className="absolute inset-x-0 bottom-0 truncate bg-background/85 px-1 py-0.5 text-left text-[10px] text-muted-foreground">
                   {it.author}
                 </span>
