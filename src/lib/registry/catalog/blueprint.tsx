@@ -6,6 +6,7 @@ import { statusBadgeClass } from '@/lib/status-tone';
 import { toLabelValueSeries } from '@/lib/chart-series';
 import { toRecordRows } from '@/lib/record-view';
 import { SearchFilter, SearchFilterPreview, SelectFilter, SelectFilterPreview } from '@/components/runtime/QueryFilters';
+import { SelectLink } from '@/components/runtime/SelectLink';
 import { defineComponent, type ComponentDef } from '@/lib/registry/types';
 
 /**
@@ -76,6 +77,13 @@ export const blueprintComponents = [
       targetLabel: z.string().default('목표'),
       /** 목표를 밑도는 것이 좋은 지표인지(TAT·불량률은 true) */
       lowerIsBetter: z.boolean().default(false),
+      /**
+       * 누르면 그 조건으로 좁힌 목록으로 간다(청사진 ① "KPI를 필터 결과와 직접 연결").
+       * 숫자만 보여 주면 "그래서 그 216건이 무엇인가"를 다시 찾아야 한다.
+       */
+      linkSlug: z.string().default(''),
+      linkParam: z.string().default(''),
+      linkValue: z.string().default(''),
     }),
     defaultProps: {
       title: '',
@@ -85,6 +93,9 @@ export const blueprintComponents = [
       target: null,
       targetLabel: '목표',
       lowerIsBetter: false,
+      linkSlug: '',
+      linkParam: '',
+      linkValue: '',
     },
     defaultGrid: { span: 3, rowSpan: 7 },
     render: ({ props, data }) => {
@@ -103,9 +114,14 @@ export const blueprintComponents = [
       const gapIsGood = gap === null ? null : props.lowerIsBetter ? gap <= 0 : gap >= 0;
       const secondaryIsGood = kpi.secondary === null ? null : props.secondaryHigherIsBetter ? kpi.secondary > 0 : kpi.secondary === 0;
 
-      return (
+      const body = (
         <div className="flex h-full flex-col justify-center gap-1.5">
-          {props.title && <span className="text-sm font-medium text-muted-foreground">{props.title}</span>}
+          {props.title && (
+            <span className="flex items-center gap-1 text-sm font-medium text-muted-foreground">
+              {props.title}
+              {props.linkParam && <ArrowRight className="size-3 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden />}
+            </span>
+          )}
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <span className="text-3xl font-semibold text-foreground tabular-nums">
               {formatNumber(kpi.value)}
@@ -148,6 +164,20 @@ export const blueprintComponents = [
             </p>
           )}
         </div>
+      );
+
+      // 누를 수 있는 지표는 "그 숫자가 무엇인지"로 데려간다. 링크 설정이 없으면 지금까지처럼 정적이다.
+      return props.linkParam ? (
+        <SelectLink
+          slug={props.linkSlug || undefined}
+          param={props.linkParam}
+          value={props.linkValue}
+          className="group h-full rounded-sm focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+        >
+          {body}
+        </SelectLink>
+      ) : (
+        body
       );
     },
   }),
@@ -498,8 +528,22 @@ export const blueprintComponents = [
       /** 목록 옆 '전체 보기'가 이동할 페이지 slug(비우면 표시하지 않는다) */
       moreSlug: z.string().default(''),
       moreLabel: z.string().default('전체 보기'),
+      /** 한 줄을 누르면 그 항목을 고른다 */
+      linkSlug: z.string().default(''),
+      linkParam: z.string().default('sel'),
+      clickable: z.boolean().default(false),
     }),
-    defaultProps: { title: '', subtitle: '', emptyText: '표시할 항목이 없습니다', maxItems: 10, moreSlug: '', moreLabel: '전체 보기' },
+    defaultProps: {
+      title: '',
+      subtitle: '',
+      emptyText: '표시할 항목이 없습니다',
+      maxItems: 10,
+      moreSlug: '',
+      moreLabel: '전체 보기',
+      linkSlug: '',
+      linkParam: 'sel',
+      clickable: false,
+    },
     defaultGrid: { span: 6, rowSpan: 20 },
     render: ({ props, data }) => {
       // 규약은 다른 레코드 컴포넌트와 같다 — select 순서: 제목 · (부가정보…) · 상태 · 수치
@@ -531,24 +575,43 @@ export const blueprintComponents = [
             </div>
           ) : (
             <ul className="min-h-0 flex-1 divide-y overflow-y-auto">
-              {rows.map((row) => (
-                <li key={row.id} className="flex items-center justify-between gap-3 py-2.5">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium" title={row.title}>
-                      {row.title}
-                    </p>
-                    {row.meta && (
-                      <p className="truncate text-xs text-muted-foreground" title={row.meta}>
-                        {row.meta}
-                      </p>
+              {rows.map((row) => {
+                const body = (
+                  <span className="flex items-center justify-between gap-3">
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium" title={row.title}>
+                        {row.title}
+                      </span>
+                      {row.meta && (
+                        <span className="block truncate text-xs text-muted-foreground" title={row.meta}>
+                          {row.meta}
+                        </span>
+                      )}
+                    </span>
+                    <span className="flex shrink-0 items-center gap-2">
+                      {row.status && <span className={statusBadgeClass(row.status)}>{row.status}</span>}
+                      {row.metric && <span className="text-xs font-medium tabular-nums text-muted-foreground">{row.metric}</span>}
+                    </span>
+                  </span>
+                );
+                return (
+                  <li key={row.id} className="py-2.5">
+                    {props.clickable && row.title !== '—' ? (
+                      <SelectLink
+                        slug={props.linkSlug || undefined}
+                        param={props.linkParam}
+                        value={row.title}
+                        className="rounded-sm hover:bg-muted/60"
+                        activeClassName="bg-primary/10"
+                      >
+                        {body}
+                      </SelectLink>
+                    ) : (
+                      body
                     )}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    {row.status && <span className={statusBadgeClass(row.status)}>{row.status}</span>}
-                    {row.metric && <span className="text-xs font-medium tabular-nums text-muted-foreground">{row.metric}</span>}
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

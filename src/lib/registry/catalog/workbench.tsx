@@ -6,6 +6,7 @@ import { statusBadgeClass } from '@/lib/status-tone';
 import { toRecordRow, toRecordRows, type RecordField, type RecordRow } from '@/lib/record-view';
 import { toLabelValueSeries } from '@/lib/chart-series';
 import { StatusFilter, StatusFilterPreview } from '@/components/runtime/StatusFilter';
+import { SelectLink } from '@/components/runtime/SelectLink';
 import { defineComponent, type ComponentDef } from '@/lib/registry/types';
 
 /**
@@ -240,8 +241,25 @@ export const workbenchComponents = [
       maxItems: z.number().int().min(1).max(50).default(8),
       /** 오른쪽 배지 뒤에 붙일 단위(예: '일') */
       badgeSuffix: z.string().default(''),
+      /**
+       * 한 줄을 누르면 어디로 갈지. 목록은 읽을거리가 아니라 조치의 입구다 —
+       * 비우면 지금 화면에서 그 항목을 고르고, 슬러그를 주면 그 화면으로 데려간다.
+       */
+      linkSlug: z.string().default(''),
+      linkParam: z.string().default('sel'),
+      /** 누를 수 있게 할지(첫 필드 값이 파라미터로 나간다) */
+      clickable: z.boolean().default(false),
     }),
-    defaultProps: { title: '', subtitle: '', emptyText: '표시할 항목이 없습니다', maxItems: 8, badgeSuffix: '' },
+    defaultProps: {
+      title: '',
+      subtitle: '',
+      emptyText: '표시할 항목이 없습니다',
+      maxItems: 8,
+      badgeSuffix: '',
+      linkSlug: '',
+      linkParam: 'sel',
+      clickable: false,
+    },
     defaultGrid: { span: 4, rowSpan: 20 },
     render: ({ props, data }) => {
       const rows = data === undefined ? SAMPLE_ROWS : toRecordRows(data, props.maxItems);
@@ -259,23 +277,40 @@ export const workbenchComponents = [
                 // 오른쪽 배지는 "마지막에 고른 필드"다 — 관리자가 select 맨 뒤에 상태/수치를 두면 된다.
                 const badge = rest.length > 0 ? rest[rest.length - 1] : null;
                 const meta = rest.slice(0, Math.max(0, rest.length - 1)).filter((f) => !f.isEmpty);
-                return (
-                  <li key={row.id} className="flex items-center justify-between gap-3 py-2">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium" title={head?.text}>
+                const body = (
+                  <span className="flex items-center justify-between gap-3">
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium" title={head?.text}>
                         {head?.text ?? '—'}
-                      </p>
+                      </span>
                       {meta.length > 0 && (
-                        <p className="truncate text-xs text-muted-foreground" title={meta.map((f) => f.text).join(' · ')}>
+                        <span className="block truncate text-xs text-muted-foreground" title={meta.map((f) => f.text).join(' · ')}>
                           {meta.map((f) => f.text).join(' · ')}
-                        </p>
+                        </span>
                       )}
-                    </div>
+                    </span>
                     {badge && !badge.isEmpty && (
                       <span className={statusBadgeClass(badge.isNumeric ? '' : badge.text)}>
                         {badge.text}
                         {props.badgeSuffix}
                       </span>
+                    )}
+                  </span>
+                );
+                return (
+                  <li key={row.id} className="py-2">
+                    {props.clickable && head && !head.isEmpty ? (
+                      <SelectLink
+                        slug={props.linkSlug || undefined}
+                        param={props.linkParam}
+                        value={head.text}
+                        className="rounded-sm hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+                        activeClassName="bg-primary/10"
+                      >
+                        {body}
+                      </SelectLink>
+                    ) : (
+                      body
                     )}
                   </li>
                 );
@@ -302,8 +337,21 @@ export const workbenchComponents = [
       emptyText: z.string().default('표시할 문서가 없습니다'),
       columns: z.number().int().min(1).max(4).default(3),
       maxItems: z.number().int().min(1).max(24).default(6),
+      /** 카드를 누르면 그 문서를 고른다(비우면 지금 화면에서 선택) */
+      linkSlug: z.string().default(''),
+      linkParam: z.string().default('sel'),
+      clickable: z.boolean().default(false),
     }),
-    defaultProps: { title: '', subtitle: '', emptyText: '표시할 문서가 없습니다', columns: 3, maxItems: 6 },
+    defaultProps: {
+      title: '',
+      subtitle: '',
+      emptyText: '표시할 문서가 없습니다',
+      columns: 3,
+      maxItems: 6,
+      linkSlug: '',
+      linkParam: 'sel',
+      clickable: false,
+    },
     defaultGrid: { span: 12, rowSpan: 22 },
     render: ({ props, data }) => {
       const rows = data === undefined ? SAMPLE_ROWS : toRecordRows(data, props.maxItems);
@@ -325,17 +373,34 @@ export const workbenchComponents = [
                 const category = rest.find((f) => f.isEnum);
                 const body = rest.find((f) => !f.isEnum && !f.isDate && !f.isNumeric && !f.isEmpty);
                 const metas = rest.filter((f) => f !== category && f !== body && !f.isEmpty);
-                return (
-                  <article key={row.id} className="flex flex-col gap-1.5 rounded-lg border p-3">
-                    <div className="flex flex-wrap items-center gap-2">
+                const card = (
+                  <span className="flex h-full flex-col gap-1.5 rounded-lg border p-3 text-left">
+                    <span className="flex flex-wrap items-center gap-2">
                       {category && !category.isEmpty && <span className={statusBadgeClass(category.text)}>{category.text}</span>}
-                    </div>
-                    <h4 className="text-sm font-semibold break-words">{head?.text ?? '—'}</h4>
-                    {body && <p className="line-clamp-3 text-xs break-words text-muted-foreground">{body.text}</p>}
+                    </span>
+                    <span className="block text-sm font-semibold break-words">{head?.text ?? '—'}</span>
+                    {body && <span className="line-clamp-3 block text-xs break-words text-muted-foreground">{body.text}</span>}
                     {metas.length > 0 && (
-                      <p className="mt-auto text-[11px] text-muted-foreground">
+                      <span className="mt-auto block text-[11px] text-muted-foreground">
                         {metas.map((f) => `${f.label} ${f.text}`).join(' · ')}
-                      </p>
+                      </span>
+                    )}
+                  </span>
+                );
+                return (
+                  <article key={row.id} className="h-full">
+                    {props.clickable && head && !head.isEmpty ? (
+                      <SelectLink
+                        slug={props.linkSlug || undefined}
+                        param={props.linkParam}
+                        value={head.text}
+                        className="h-full transition-colors hover:bg-muted/50"
+                        activeClassName="ring-2 ring-primary/40"
+                      >
+                        {card}
+                      </SelectLink>
+                    ) : (
+                      card
                     )}
                   </article>
                 );

@@ -48,6 +48,17 @@ const title = (row: number, text: string, description: string, actions: NodePlan
   children: actions,
 });
 
+/** 페이지 머리 오른쪽의 이동 버튼 — 청사진 pageHead의 주요 행동 자리 */
+const goButton = (label: string, actionKey: string): NodePlan => ({
+  type: 'button',
+  col: 1,
+  span: 2,
+  row: 1,
+  rowSpan: 3,
+  props: { label, variant: 'outline', size: 'default' },
+  on: { onClick: actionKey },
+});
+
 /** 폼 카드 안에 들어가는 버튼(좌표 없음) */
 const formButton = (label: string, actionKey: string, variant: 'default' | 'outline' = 'default'): NodePlan => ({
   type: 'button',
@@ -66,6 +77,8 @@ type KpiOptions = {
   secondary?: { label: string; filters: FilterPlan[]; higherIsBetter?: boolean };
   /** 목표값 — 있으면 "목표 18일 대비 +4.47일"이 붙는다 */
   target?: { value: number; label?: string; lowerIsBetter?: boolean };
+  /** 누르면 갈 곳 — 청사진 ① "KPI를 필터 결과와 직접 연결" */
+  link?: { slug?: string; param: string; value?: string };
 };
 
 /**
@@ -95,6 +108,9 @@ const kpi = (
     target: options.target?.value ?? null,
     targetLabel: options.target?.label ?? '목표',
     lowerIsBetter: options.target?.lowerIsBetter ?? false,
+    linkSlug: options.link?.slug ?? '',
+    linkParam: options.link?.param ?? '',
+    linkValue: options.link?.value ?? '',
   },
   bind: {
     mode: 'aggregate',
@@ -174,13 +190,15 @@ function claimDashboard(): PagePlan {
     title: 'Claim 종합 현황',
     nodes: [
       title(1, 'eMMC · UFS Claim 통합 현황', '고른 기간의 접수 건을 대상으로, 지연 위험을 먼저 보여줍니다.', [
+        goButton('피드백 남기기', 'act-go-feedback'),
         { type: 'button', col: 1, span: 2, row: 1, rowSpan: 3, props: { label: 'CSV 내보내기', variant: 'outline', size: 'default' }, on: { onClick: 'act-claim-export' } },
       ]),
       { type: 'date-range-filter', col: 1, span: 12, row: 5, rowSpan: 3, props: { title: '조회 기간', defaultPreset: '3m', showPresets: true, showCustom: true } },
-      kpi(1, 8, '총 접수 Claim', 'claims', 'count', p, { compare: true }),
+      kpi(1, 8, '총 접수 Claim', 'claims', 'count', p, { compare: true, link: { slug: 'claim-analysis', param: 'status', value: '' } }),
       // 청사진의 지표는 늘 한 줄이 더 있다 — "216건 / 지연 위험 38건"의 뒷부분이 이것이다.
       kpi(4, 8, '분석 진행 중', 'claims', 'count', [{ col: 'claim_status', op: 'in', source: 'fixed', value: ['접수', '배정', '분석중'] }, ...p], {
         compare: true,
+        link: { slug: 'claim-analysis', param: 'status', value: '분석중' },
         secondary: {
           label: '지연 위험',
           filters: [
@@ -190,9 +208,15 @@ function claimDashboard(): PagePlan {
           ],
         },
       }),
-      kpi(7, 8, '평균 TAT', 'claims', 'avg', p, { unit: '일', compare: true, target: { value: 18, label: '목표', lowerIsBetter: true } }, 'tat_days'),
+      kpi(7, 8, '평균 TAT', 'claims', 'avg', p, {
+        unit: '일',
+        compare: true,
+        target: { value: 18, label: '목표', lowerIsBetter: true },
+        link: { slug: 'claim-analysis', param: 'status', value: '보류' },
+      }, 'tat_days'),
       kpi(10, 8, '개발실 인계', 'claims', 'count', [{ col: 'dev_transfer', op: 'eq', source: 'fixed', value: 'Y' }, ...p], {
         compare: true,
+        link: { slug: 'requests', param: 'priority', value: '' },
         secondary: { label: '미인계', filters: [{ col: 'dev_transfer', op: 'eq', source: 'fixed', value: 'N' }, ...p], higherIsBetter: true },
       }),
       {
@@ -211,7 +235,16 @@ function claimDashboard(): PagePlan {
         span: 5,
         row: 15,
         rowSpan: 14,
-        props: { title: '지연 우선 대응', subtitle: 'TAT 20일 초과 · 오래된 순', emptyText: '지연 건이 없습니다', maxItems: 8, badgeSuffix: '일' },
+        props: {
+          title: '지연 우선 대응',
+          subtitle: 'TAT 20일 초과 · 오래된 순 (누르면 분석 화면에서 열립니다)',
+          emptyText: '지연 건이 없습니다',
+          maxItems: 8,
+          badgeSuffix: '일',
+          clickable: true,
+          linkSlug: 'claim-analysis',
+          linkParam: 'sel',
+        },
         bind: {
           mode: 'list',
           table: 'claims',
@@ -273,7 +306,8 @@ function claimDashboard(): PagePlan {
         span: 12,
         row: 45,
         rowSpan: 24,
-        props: { title: '최근 접수 Claim', showSearch: false, showExport: false, selectable: false, density: 'default', emptyText: '조건에 맞는 Claim이 없습니다', selectParam: '', selectFieldId: '' },
+        // 청사진 01: "행 선택 후 배정·리포트·의뢰 작업으로 바로 이동"
+        props: { title: '최근 접수 Claim — 행을 누르면 분석 화면에서 열립니다', showSearch: false, showExport: false, selectable: false, density: 'default', emptyText: '조건에 맞는 Claim이 없습니다', selectParam: 'sel', selectFieldId: 'far_no', selectSlug: 'claim-analysis' },
         bind: {
           mode: 'list',
           table: 'claims',
@@ -297,7 +331,9 @@ function claimAnalysis(claimStatus: string[]): PagePlan {
     slug: 'claim-analysis',
     title: 'Claim 분석',
     nodes: [
-      title(1, 'Claim 분석 워크벤치', '목록에서 고르면 상세·FA 이력·후속 작업이 같은 화면에서 이어집니다.'),
+      title(1, 'Claim 분석 워크벤치', '목록에서 고르면 상세·FA 이력·후속 작업이 같은 화면에서 이어집니다.', [
+        goButton('FA 배정 화면', 'act-go-fa-assign'),
+      ]),
       {
         // 청사진 02의 세그먼트는 필터이자 지표다 — "전체 3,334 · 미배정 805 · 분석중 842".
         // 그래서 이 화면에는 따로 지표 타일 줄을 두지 않는다.
@@ -389,7 +425,16 @@ function claimAnalysis(claimStatus: string[]): PagePlan {
         span: 6,
         row: 39,
         rowSpan: 12,
-        props: { title: '이 Claim의 분석 의뢰', subtitle: '개발실·Auto·DRAM·pFA', emptyText: '연결된 의뢰가 없습니다', maxItems: 6, badgeSuffix: '' },
+        props: {
+          title: '이 Claim의 분석 의뢰',
+          subtitle: '개발실·Auto·DRAM·pFA (누르면 의뢰 허브에서 열립니다)',
+          emptyText: '연결된 의뢰가 없습니다',
+          maxItems: 6,
+          badgeSuffix: '',
+          clickable: true,
+          linkSlug: 'requests',
+          linkParam: 'q',
+        },
         bind: {
           mode: 'list',
           table: 'analysis_requests',
@@ -405,7 +450,16 @@ function claimAnalysis(claimStatus: string[]): PagePlan {
         span: 6,
         row: 39,
         rowSpan: 12,
-        props: { title: '이 Claim의 Reball 의뢰', subtitle: '반출~반입 일정', emptyText: '연결된 Reball 의뢰가 없습니다', maxItems: 6, badgeSuffix: '' },
+        props: {
+          title: '이 Claim의 Reball 의뢰',
+          subtitle: '반출~반입 일정 (누르면 작업 현황에서 열립니다)',
+          emptyText: '연결된 Reball 의뢰가 없습니다',
+          maxItems: 6,
+          badgeSuffix: '',
+          clickable: true,
+          linkSlug: 'reball-status',
+          linkParam: 'sel',
+        },
         bind: {
           mode: 'list',
           table: 'reball_requests',
@@ -446,7 +500,9 @@ function faAssign(priority: string[]): PagePlan {
     slug: 'fa-assign',
     title: 'FA Assign',
     nodes: [
-      title(1, 'FA 담당자 배정', '미배정 Claim을 고르면 식별정보가 연결됩니다. 배정번호(ASG-)는 저장할 때 자동으로 만들어집니다.'),
+      title(1, 'FA 담당자 배정', '미배정 Claim을 고르면 식별정보가 연결됩니다. 배정번호(ASG-)는 저장할 때 자동으로 만들어집니다.', [
+        goButton('FA 현황 보기', 'act-go-fa-status'),
+      ]),
       {
         type: 'data-table',
         col: 1,
@@ -505,7 +561,7 @@ function faAssign(priority: string[]): PagePlan {
         span: 12,
         row: 41,
         rowSpan: 22,
-        props: { title: '오늘 배정 이력', showSearch: true, showExport: false, selectable: false, density: 'default', emptyText: '배정 이력이 없습니다', selectParam: '', selectFieldId: '' },
+        props: { title: '최근 배정 이력 — 행을 누르면 FA 현황에서 열립니다', showSearch: true, showExport: false, selectable: false, density: 'default', emptyText: '배정 이력이 없습니다', selectParam: 'sel', selectFieldId: 'far_no', selectSlug: 'fa-status' },
         bind: {
           mode: 'list',
           table: 'fa_assignments',
@@ -525,7 +581,9 @@ function faStatus(status: string[], priority: string[]): PagePlan {
     slug: 'fa-status',
     title: 'FA 현황',
     nodes: [
-      title(1, 'FA 진행 현황', '담당자 부하와 마감, 인수인계 경위를 같은 맥락에서 확인합니다.'),
+      title(1, 'FA 진행 현황', '담당자 부하와 마감, 인수인계 경위를 같은 맥락에서 확인합니다.', [
+        goButton('Tech Report 작성', 'act-go-techreport'),
+      ]),
       {
         type: 'status-filter',
         col: 1,
@@ -541,6 +599,7 @@ function faStatus(status: string[], priority: string[]): PagePlan {
         bind: { mode: 'group', table: 'fa_assignments', groupField: 'fa_status', fn: 'count', filters: [], orderBy: 'value', limit: 20 },
       },
       kpi(1, 8, '분석중', 'fa_assignments', 'count', [{ col: 'fa_status', op: 'eq', source: 'fixed', value: '분석중' }], {
+        link: { param: 'fastatus', value: '분석중' },
         // 청사진 04의 "지연 위험 37건" — 오늘을 서버가 넣어 주므로 설계에 날짜를 박지 않는다.
         secondary: {
           label: '마감 지남',
@@ -550,9 +609,14 @@ function faStatus(status: string[], priority: string[]): PagePlan {
           ],
         },
       }),
-      kpi(4, 8, '보고완료', 'fa_assignments', 'count', [{ col: 'fa_status', op: 'eq', source: 'fixed', value: '보고완료' }]),
-      kpi(7, 8, '보류 — 확인 필요', 'fa_assignments', 'count', [{ col: 'fa_status', op: 'eq', source: 'fixed', value: '보류' }]),
+      kpi(4, 8, '보고완료', 'fa_assignments', 'count', [{ col: 'fa_status', op: 'eq', source: 'fixed', value: '보고완료' }], {
+        link: { param: 'fastatus', value: '보고완료' },
+      }),
+      kpi(7, 8, '보류 — 확인 필요', 'fa_assignments', 'count', [{ col: 'fa_status', op: 'eq', source: 'fixed', value: '보류' }], {
+        link: { param: 'fastatus', value: '보류' },
+      }),
       kpi(10, 8, '인수인계', 'fa_assignments', 'count', [{ col: 'assign_type', op: 'eq', source: 'fixed', value: '인수인계' }], {
+        link: { param: 'q', value: '인수인계' },
         secondary: { label: '그중 긴급', filters: [{ col: 'assign_type', op: 'eq', source: 'fixed', value: '인수인계' }, { col: 'priority', op: 'eq', source: 'fixed', value: '긴급' }] },
       }),
       {
@@ -656,7 +720,9 @@ function faTechReport(failModes: string[]): PagePlan {
     slug: 'fa-tech-report',
     title: 'FA Tech Report',
     nodes: [
-      title(1, 'FA Tech Report', '대상 Claim을 고르면 식별정보가 연결됩니다. 리포트번호(FTR-)는 저장할 때 자동으로 만들어집니다.'),
+      title(1, 'FA Tech Report', '대상 Claim을 고르면 식별정보가 연결됩니다. 리포트번호(FTR-)는 저장할 때 자동으로 만들어집니다.', [
+        goButton('분석 Tip 보기', 'act-go-tips'),
+      ]),
       {
         type: 'data-table',
         col: 1,
@@ -737,7 +803,7 @@ function faTechReport(failModes: string[]): PagePlan {
         span: 12,
         row: 56,
         rowSpan: 22,
-        props: { title: '최근 작성 보고서', showSearch: true, showExport: false, selectable: false, density: 'default', emptyText: '작성된 보고서가 없습니다', selectParam: '', selectFieldId: '' },
+        props: { title: '최근 작성 보고서 — 행을 누르면 그 Claim이 위에서 선택됩니다', showSearch: true, showExport: false, selectable: false, density: 'default', emptyText: '작성된 보고서가 없습니다', selectParam: 'sel', selectFieldId: 'far_no' },
         bind: {
           mode: 'list',
           table: 'fa_tech_reports',
@@ -757,12 +823,16 @@ function reballDashboard(): PagePlan {
     slug: 'reball',
     title: 'Reball 현황',
     nodes: [
-      title(1, 'Reball 운영 현황', '단계별 병목과 다가오는 반입 일정을 먼저 봅니다.'),
+      title(1, 'Reball 운영 현황', '단계별 병목과 다가오는 반입 일정을 먼저 봅니다.', [
+        goButton('새 의뢰 작성', 'act-go-reball-request'),
+      ]),
       kpi(1, 5, '전체 의뢰', 'reball_requests', 'count', [], {
+        link: { slug: 'reball-status', param: 'rbstatus', value: '' },
         secondary: { label: '취소', filters: [{ col: 'reball_status', op: 'eq', source: 'fixed', value: '취소' }] },
       }),
       // 청사진 06의 "반입 지연 41건" — 반입 예정일이 오늘보다 이른데 아직 안 끝난 것.
       kpi(4, 5, '진행중', 'reball_requests', 'count', [{ col: 'reball_status', op: 'in', source: 'fixed', value: ['의뢰', '반출', '작업중', '반입'] }], {
+        link: { slug: 'reball-status', param: 'rbstatus', value: '작업중' },
         secondary: {
           label: '반입 지연',
           filters: [
@@ -771,7 +841,9 @@ function reballDashboard(): PagePlan {
           ],
         },
       }),
-      kpi(7, 5, '완료', 'reball_requests', 'count', [{ col: 'reball_status', op: 'eq', source: 'fixed', value: '완료' }]),
+      kpi(7, 5, '완료', 'reball_requests', 'count', [{ col: 'reball_status', op: 'eq', source: 'fixed', value: '완료' }], {
+        link: { slug: 'reball-status', param: 'rbstatus', value: '완료' },
+      }),
       kpi(10, 5, '총 수량', 'reball_requests', 'sum', [], { unit: 'ea' }, 'qty'),
       {
         // 막대 차트로 흉내 내면 값이 큰 순서로 늘어서 흐름이 사라진다 — 단계는 진행 순서대로 봐야
@@ -790,7 +862,16 @@ function reballDashboard(): PagePlan {
         span: 4,
         row: 12,
         rowSpan: 14,
-        props: { title: '다가오는 반입 일정', subtitle: '진행 중 · 반입 예정일 순', emptyText: '예정된 일정이 없습니다', maxItems: 8, badgeSuffix: '' },
+        props: {
+          title: '다가오는 반입 일정',
+          subtitle: '진행 중 · 반입 예정일 순 (누르면 작업 현황에서 열립니다)',
+          emptyText: '예정된 일정이 없습니다',
+          maxItems: 8,
+          badgeSuffix: '',
+          clickable: true,
+          linkSlug: 'reball-status',
+          linkParam: 'sel',
+        },
         bind: {
           mode: 'list',
           table: 'reball_requests',
@@ -815,7 +896,7 @@ function reballDashboard(): PagePlan {
         span: 12,
         row: 26,
         rowSpan: 24,
-        props: { title: 'Reball 전체 의뢰', showSearch: true, showExport: false, selectable: false, density: 'default', emptyText: '의뢰가 없습니다', selectParam: '', selectFieldId: '' },
+        props: { title: 'Reball 전체 의뢰 — 행을 누르면 작업 현황에서 열립니다', showSearch: true, showExport: false, selectable: false, density: 'default', emptyText: '의뢰가 없습니다', selectParam: 'sel', selectFieldId: 'request_no', selectSlug: 'reball-status' },
         bind: {
           mode: 'list',
           table: 'reball_requests',
@@ -835,7 +916,9 @@ function reballRequest(packages: string[]): PagePlan {
     slug: 'reball-request',
     title: 'Reball 의뢰서',
     nodes: [
-      title(1, 'Reball 의뢰서', 'Claim을 고르면 의뢰자·식별정보가 연결됩니다. 의뢰번호(RB-)는 저장할 때 자동으로 만들어집니다.'),
+      title(1, 'Reball 의뢰서', 'Claim을 고르면 의뢰자·식별정보가 연결됩니다. 의뢰번호(RB-)는 저장할 때 자동으로 만들어집니다.', [
+        goButton('작업 현황 보기', 'act-go-reball-status'),
+      ]),
       { type: 'stepper', col: 1, span: 12, row: 5, rowSpan: 3, props: { steps: ['Claim 선택', '샘플 정보', '일정 확인'], current: 1 } },
       {
         type: 'data-table',
@@ -876,7 +959,16 @@ function reballRequest(packages: string[]): PagePlan {
         span: 5,
         row: 18,
         rowSpan: 10,
-        props: { title: '이 FAR의 기존 의뢰', subtitle: '중복 의뢰 확인', emptyText: '기존 의뢰가 없습니다', maxItems: 5, badgeSuffix: '' },
+        props: {
+          title: '이 FAR의 기존 의뢰',
+          subtitle: '중복 의뢰 확인 (누르면 작업 현황에서 열립니다)',
+          emptyText: '기존 의뢰가 없습니다',
+          maxItems: 5,
+          badgeSuffix: '',
+          clickable: true,
+          linkSlug: 'reball-status',
+          linkParam: 'sel',
+        },
         bind: {
           mode: 'list',
           table: 'reball_requests',
@@ -923,7 +1015,7 @@ function reballRequest(packages: string[]): PagePlan {
         span: 12,
         row: 54,
         rowSpan: 22,
-        props: { title: '최근 의뢰', showSearch: true, showExport: false, selectable: false, density: 'default', emptyText: '의뢰가 없습니다', selectParam: '', selectFieldId: '' },
+        props: { title: '최근 의뢰 — 행을 누르면 작업 현황에서 열립니다', showSearch: true, showExport: false, selectable: false, density: 'default', emptyText: '의뢰가 없습니다', selectParam: 'sel', selectFieldId: 'request_no', selectSlug: 'reball-status' },
         bind: {
           mode: 'list',
           table: 'reball_requests',
@@ -946,7 +1038,9 @@ function reballStatus(): PagePlan {
     slug: 'reball-status',
     title: 'Reball 작업 현황',
     nodes: [
-      title(1, 'Reball 작업 현황', '일정과 상태 변경 사유를 한 작업 맥락에서 확인합니다.'),
+      title(1, 'Reball 작업 현황', '일정과 상태 변경 사유를 한 작업 맥락에서 확인합니다.', [
+        goButton('운영 현황 보기', 'act-go-reball'),
+      ]),
       {
         type: 'status-filter',
         col: 1,
@@ -1051,7 +1145,7 @@ function reballStatus(): PagePlan {
         span: 12,
         row: 70,
         rowSpan: 22,
-        props: { title: '전체 진행 업데이트 이력', showSearch: true, showExport: false, selectable: false, density: 'default', emptyText: '이력이 없습니다', selectParam: '', selectFieldId: '' },
+        props: { title: '전체 진행 업데이트 이력 — 행을 누르면 그 의뢰가 위에서 선택됩니다', showSearch: true, showExport: false, selectable: false, density: 'default', emptyText: '이력이 없습니다', selectParam: 'sel', selectFieldId: 'request_no' },
         bind: {
           mode: 'list',
           table: 'reball_updates',
@@ -1071,11 +1165,15 @@ function requestHub(reqPriority: string[]): PagePlan {
     slug: 'requests',
     title: '의뢰서 허브',
     nodes: [
-      title(1, '분석 의뢰 허브', '유형별 진입과 우선 처리 대상을 한 화면에서 판단합니다.'),
+      title(1, '분석 의뢰 허브', '유형별 진입과 우선 처리 대상을 한 화면에서 판단합니다.', [
+        goButton('Claim 분석으로', 'act-go-claim-analysis'),
+      ]),
       kpi(1, 5, '전체 의뢰', 'analysis_requests', 'count', [], {
+        link: { param: 'priority', value: '' },
         secondary: { label: '오늘 접수', filters: [{ col: 'request_date', op: 'eq', source: 'query', ref: 'today' }], higherIsBetter: true },
       }),
       kpi(4, 5, '진행중', 'analysis_requests', 'count', [{ col: 'req_status', op: 'eq', source: 'fixed', value: '진행중' }], {
+        link: { param: 'priority', value: '높음' },
         secondary: {
           label: '요청일 지남',
           filters: [
@@ -1084,11 +1182,14 @@ function requestHub(reqPriority: string[]): PagePlan {
           ],
         },
       }),
-      kpi(7, 5, '완료', 'analysis_requests', 'count', [{ col: 'req_status', op: 'eq', source: 'fixed', value: '완료' }]),
+      kpi(7, 5, '완료', 'analysis_requests', 'count', [{ col: 'req_status', op: 'eq', source: 'fixed', value: '완료' }], {
+        link: { param: 'priority', value: '보통' },
+      }),
       kpi(10, 5, '긴급 · 미완료', 'analysis_requests', 'count', [
         { col: 'priority', op: 'eq', source: 'fixed', value: '긴급' },
         { col: 'req_status', op: 'in', source: 'fixed', value: ['접수', '진행중', '보류'] },
       ], {
+        link: { param: 'priority', value: '긴급' },
         secondary: {
           label: '미배정',
           filters: [
@@ -1170,10 +1271,10 @@ function requestHub(reqPriority: string[]): PagePlan {
       {
         type: 'data-table',
         col: 1,
-        span: 12,
+        span: 8,
         row: 29,
         rowSpan: 26,
-        props: { title: '통합 우선 처리 큐 — 완료 요청일 순', showSearch: false, showExport: false, selectable: false, density: 'default', emptyText: '처리할 의뢰가 없습니다', selectParam: '', selectFieldId: '' },
+        props: { title: '통합 우선 처리 큐 — 완료 요청일 순', showSearch: false, showExport: false, selectable: false, density: 'default', emptyText: '처리할 의뢰가 없습니다', selectParam: 'sel', selectFieldId: 'request_no' },
         bind: {
           mode: 'list',
           table: 'analysis_requests',
@@ -1186,6 +1287,46 @@ function requestHub(reqPriority: string[]): PagePlan {
           ],
           sort: [['due_date', 'asc']],
           pageSize: 60,
+        },
+      },
+      {
+        type: 'record-detail',
+        col: 9,
+        span: 4,
+        row: 29,
+        rowSpan: 16,
+        props: { title: '선택 의뢰', emptyText: '왼쪽 큐에서 의뢰를 선택하세요', subtitleCount: 2 },
+        bind: {
+          mode: 'list',
+          table: 'analysis_requests',
+          select: ['request_no', 'request_type', 'req_status', 'far_no', 'requester', 'handler', 'priority', 'request_date', 'due_date', 'content'],
+          filters: [selected('request_no')],
+          sort: [['request_date', 'desc']],
+          pageSize: 1,
+        },
+      },
+      {
+        type: 'list-panel',
+        col: 9,
+        span: 4,
+        row: 45,
+        rowSpan: 10,
+        props: {
+          title: '같은 FAR의 다른 의뢰',
+          subtitle: '누르면 그 의뢰가 선택됩니다',
+          emptyText: '선택한 의뢰가 없습니다',
+          maxItems: 5,
+          badgeSuffix: '',
+          clickable: true,
+          linkParam: 'sel',
+        },
+        bind: {
+          mode: 'list',
+          table: 'analysis_requests',
+          select: ['request_no', 'request_type', 'requester', 'req_status'],
+          filters: [{ col: 'far_no', op: 'eq', source: 'query', ref: 'far', whenMissing: 'empty' }],
+          sort: [['request_date', 'desc']],
+          pageSize: 5,
         },
       },
     ],
@@ -1338,9 +1479,10 @@ function requestPage(type: RequestType, reqStatus: string[], reqPriority: string
     slug: type.slug,
     title: type.pageTitle,
     nodes: [
-      title(1, type.headline, type.description),
-      kpi(1, 5, '의뢰 건수', 'analysis_requests', 'count', [typeFilter]),
+      title(1, type.headline, type.description, [goButton('의뢰 허브로', 'act-go-requests')]),
+      kpi(1, 5, '의뢰 건수', 'analysis_requests', 'count', [typeFilter], { link: { param: 'rstatus', value: '' } }),
       kpi(4, 5, '진행중', 'analysis_requests', 'count', [typeFilter, { col: 'req_status', op: 'eq', source: 'fixed', value: '진행중' }], {
+        link: { param: 'rstatus', value: '진행중' },
         secondary: {
           label: '요청일 지남',
           filters: [
@@ -1351,9 +1493,11 @@ function requestPage(type: RequestType, reqStatus: string[], reqPriority: string
         },
       }),
       kpi(7, 5, '완료', 'analysis_requests', 'count', [typeFilter, { col: 'req_status', op: 'eq', source: 'fixed', value: '완료' }], {
+        link: { param: 'rstatus', value: '완료' },
         secondary: { label: '반려', filters: [typeFilter, { col: 'req_status', op: 'eq', source: 'fixed', value: '반려' }] },
       }),
       kpi(10, 5, '긴급', 'analysis_requests', 'count', [typeFilter, { col: 'priority', op: 'eq', source: 'fixed', value: '긴급' }], {
+        link: { param: 'rstatus', value: '보류' },
         secondary: { label: '보류', filters: [typeFilter, { col: 'req_status', op: 'eq', source: 'fixed', value: '보류' }] },
       }),
       {
@@ -1481,7 +1625,9 @@ function tips(categories: string[]): PagePlan {
     slug: 'tips',
     title: '분석 Tip 게시판',
     nodes: [
-      title(1, '분석 Tip 라이브러리', '현장 노하우를 검색·재사용 가능한 지식으로 쌓습니다.'),
+      title(1, '분석 Tip 라이브러리', '현장 노하우를 검색·재사용 가능한 지식으로 쌓습니다.', [
+        goButton('피드백 남기기', 'act-go-feedback'),
+      ]),
       {
         type: 'status-filter',
         col: 1,
@@ -1505,11 +1651,13 @@ function tips(categories: string[]): PagePlan {
         props: { label: 'Tip 검색', placeholder: '장비 · 증상 · Fail Mode', param: 'q' },
       },
       kpi(1, 8, '전체 글', 'tips', 'count', [], {
+        link: { param: 'cat', value: '' },
         secondary: { label: '고정 가이드', filters: [{ col: 'is_pinned', op: 'eq', source: 'fixed', value: 'Y' }], higherIsBetter: true },
       }),
       kpi(4, 8, '누적 조회', 'tips', 'sum', [], { unit: '회' }, 'views'),
       kpi(7, 8, '도움됨', 'tips', 'sum', [], { unit: '회' }, 'helpful'),
       kpi(10, 8, '분석 기법', 'tips', 'count', [{ col: 'category', op: 'eq', source: 'fixed', value: '분석 기법' }], {
+        link: { param: 'cat', value: '분석 기법' },
         secondary: { label: '장비 사용', filters: [{ col: 'category', op: 'eq', source: 'fixed', value: '장비 사용' }], higherIsBetter: true },
       }),
       {
@@ -1518,7 +1666,15 @@ function tips(categories: string[]): PagePlan {
         span: 12,
         row: 15,
         rowSpan: 20,
-        props: { title: '고정된 핵심 가이드', subtitle: '반복 문의가 많은 표준 절차', emptyText: '고정된 글이 없습니다', columns: 3, maxItems: 3 },
+        props: {
+          title: '고정된 핵심 가이드',
+          subtitle: '반복 문의가 많은 표준 절차 (누르면 아래에서 본문이 열립니다)',
+          emptyText: '고정된 글이 없습니다',
+          columns: 3,
+          maxItems: 3,
+          clickable: true,
+          linkParam: 'sel',
+        },
         bind: {
           mode: 'list',
           table: 'tips',
@@ -1538,7 +1694,15 @@ function tips(categories: string[]): PagePlan {
         span: 7,
         row: 35,
         rowSpan: 20,
-        props: { title: '최근 업데이트', subtitle: '새로 쓰거나 고친 글', emptyText: '글이 없습니다', columns: 2, maxItems: 6 },
+        props: {
+          title: '최근 업데이트',
+          subtitle: '새로 쓰거나 고친 글 (누르면 아래에서 본문이 열립니다)',
+          emptyText: '글이 없습니다',
+          columns: 2,
+          maxItems: 6,
+          clickable: true,
+          linkParam: 'sel',
+        },
         bind: {
           mode: 'list',
           table: 'tips',
@@ -1554,7 +1718,15 @@ function tips(categories: string[]): PagePlan {
         span: 5,
         row: 35,
         rowSpan: 20,
-        props: { title: '많이 본 Tip', subtitle: '조회수 순', emptyText: '글이 없습니다', maxItems: 8, badgeSuffix: '회' },
+        props: {
+          title: '많이 본 Tip',
+          subtitle: '조회수 순 (누르면 아래에서 본문이 열립니다)',
+          emptyText: '글이 없습니다',
+          maxItems: 8,
+          badgeSuffix: '회',
+          clickable: true,
+          linkParam: 'sel',
+        },
         bind: {
           mode: 'list',
           table: 'tips',
@@ -1565,10 +1737,26 @@ function tips(categories: string[]): PagePlan {
         },
       },
       {
-        type: 'form-card',
+        type: 'record-detail',
         col: 1,
         span: 12,
         row: 55,
+        rowSpan: 14,
+        props: { title: '선택한 Tip', emptyText: '위에서 Tip을 고르면 본문이 여기에 열립니다', subtitleCount: 2 },
+        bind: {
+          mode: 'list',
+          table: 'tips',
+          select: ['title', 'category', 'author', 'created_date', 'updated_date', 'tags', 'views', 'helpful', 'content'],
+          filters: [selected('title')],
+          sort: [['updated_date', 'desc']],
+          pageSize: 1,
+        },
+      },
+      {
+        type: 'form-card',
+        col: 1,
+        span: 12,
+        row: 69,
         rowSpan: 20,
         props: {
           title: '새 Tip 작성',
@@ -1585,7 +1773,7 @@ function tips(categories: string[]): PagePlan {
           formButton('Tip 등록', 'act-tip-create'),
         ],
       },
-      { type: 'live-chat', col: 1, span: 12, row: 75, rowSpan: 24, props: { title: '실시간 질문', room: 'tips', placeholder: '메시지를 입력하고 Enter' } },
+      { type: 'live-chat', col: 1, span: 12, row: 89, rowSpan: 24, props: { title: '실시간 질문', room: 'tips', placeholder: '메시지를 입력하고 Enter' } },
     ],
   };
 }
@@ -1610,7 +1798,9 @@ function feedback(): PagePlan {
     title: '피드백 게시판',
     icon: 'message-square',
     nodes: [
-      title(1, '제품 피드백', '개선 요청과 불편을 자유롭게 남겨 주세요. 화면·재현 조건·스크린샷이 함께 있으면 훨씬 빨리 반영됩니다.'),
+      title(1, '제품 피드백', '개선 요청과 불편을 자유롭게 남겨 주세요. 화면·재현 조건·스크린샷이 함께 있으면 훨씬 빨리 반영됩니다.', [
+        goButton('분석 Tip 보기', 'act-go-tips'),
+      ]),
       {
         type: 'board',
         col: 1,
@@ -1723,6 +1913,15 @@ export function buildActions(): ActionPlan[] {
       values: { claim_status: { from: 'component', node: 'claim-status' } },
     },
     { key: 'act-go-techreport', name: 'Tech Report 화면으로', desc: 'FA Tech Report 작성 화면으로 이동한다', kind: 'NAVIGATE', pageSlug: 'fa-tech-report' },
+    { key: 'act-go-claim-analysis', name: 'Claim 분석 화면으로', desc: 'Claim 분석 워크벤치로 이동한다', kind: 'NAVIGATE', pageSlug: 'claim-analysis' },
+    { key: 'act-go-fa-assign', name: 'FA 배정 화면으로', desc: 'FA 담당자 배정 화면으로 이동한다', kind: 'NAVIGATE', pageSlug: 'fa-assign' },
+    { key: 'act-go-fa-status', name: 'FA 현황 화면으로', desc: 'FA 진행 현황으로 이동한다', kind: 'NAVIGATE', pageSlug: 'fa-status' },
+    { key: 'act-go-reball', name: 'Reball 현황 화면으로', desc: 'Reball 운영 현황으로 이동한다', kind: 'NAVIGATE', pageSlug: 'reball' },
+    { key: 'act-go-reball-request', name: 'Reball 의뢰서 화면으로', desc: 'Reball 의뢰서 작성으로 이동한다', kind: 'NAVIGATE', pageSlug: 'reball-request' },
+    { key: 'act-go-reball-status', name: 'Reball 작업 현황으로', desc: 'Reball 작업 현황으로 이동한다', kind: 'NAVIGATE', pageSlug: 'reball-status' },
+    { key: 'act-go-requests', name: '의뢰 허브로', desc: '분석 의뢰 허브로 이동한다', kind: 'NAVIGATE', pageSlug: 'requests' },
+    { key: 'act-go-tips', name: '분석 Tip 화면으로', desc: '분석 Tip 라이브러리로 이동한다', kind: 'NAVIGATE', pageSlug: 'tips' },
+    { key: 'act-go-feedback', name: '피드백 화면으로', desc: '피드백 게시판으로 이동한다', kind: 'NAVIGATE', pageSlug: 'feedback' },
     {
       key: 'act-claim-export',
       name: 'Claim CSV 내보내기',

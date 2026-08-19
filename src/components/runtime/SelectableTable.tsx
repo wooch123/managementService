@@ -28,6 +28,7 @@ export function SelectableTable<TData extends Record<string, unknown>>({
   showSearch,
   param,
   column,
+  slug,
 }: {
   columns: ColumnDef<TData, unknown>[];
   data: TData[];
@@ -37,15 +38,26 @@ export function SelectableTable<TData extends Record<string, unknown>>({
   param: string;
   /** 선택값으로 쓸 컬럼명(예: 'far_no') — 표시용 이름이 아니라 실제 DB 컬럼명이다. */
   column: string;
+  /**
+   * 행을 누르면 갈 **다른 화면**. 비우면 지금 화면에서 고른다.
+   *
+   * 청사진 01의 "행 선택 후 배정·리포트·의뢰 작업으로 바로 이동" — 상세 패널이 없는 화면에서는
+   * 행을 눌러도 아무 일이 없는데, 그 목록은 대개 "여기서 무언가를 하려고" 보는 것이다.
+   */
+  slug?: string;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [, startTransition] = useTransition();
-  const current = searchParams.get(param) ?? '';
+  const current = slug ? '' : (searchParams.get(param) ?? '');
 
   function select(row: TData) {
     const value = row[column];
     if (value === null || value === undefined) return;
+    if (slug) {
+      startTransition(() => router.push(`/home/${slug}?${param}=${encodeURIComponent(String(value))}`));
+      return;
+    }
     const next = new URLSearchParams(searchParams.toString());
     // 같은 행을 다시 누르면 선택을 푼다 — 상세 패널을 닫는 방법이 따로 없으면
     // 한 번 고른 뒤에는 목록만 보는 상태로 돌아갈 수 없다.

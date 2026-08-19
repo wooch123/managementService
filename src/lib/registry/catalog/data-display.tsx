@@ -244,6 +244,12 @@ export const dataDisplayComponents = [
       selectParam: z.string().default(''),
       /** 선택값으로 쓸 필드(대개 FAR No·의뢰번호 같은 업무 키) */
       selectFieldId: z.string().default(''),
+      /**
+       * 행을 누르면 갈 다른 화면(비우면 지금 화면에서 고른다).
+       * 상세 패널이 없는 목록에서 행을 눌러도 아무 일이 없으면, 그 목록은 읽을 수만 있고
+       * 아무 데도 이어지지 않는다 — 청사진 01의 "행 선택 후 바로 이동"이 이 자리다.
+       */
+      selectSlug: z.string().default(''),
     }),
     defaultProps: {
       title: '',
@@ -255,6 +261,7 @@ export const dataDisplayComponents = [
       emptyText: '데이터가 없습니다',
       selectParam: '',
       selectFieldId: '',
+      selectSlug: '',
     },
     defaultGrid: { span: 12, rowSpan: 40 },
     render: ({ props, data }) => {
@@ -293,6 +300,7 @@ export const dataDisplayComponents = [
               showSearch={props.showSearch}
               param={props.selectParam}
               column={selectColumn}
+              slug={props.selectSlug || undefined}
             />
           ) : (
             <DataTableUi columns={columns} data={rows} emptyText={props.emptyText} showSearch={props.showSearch} />

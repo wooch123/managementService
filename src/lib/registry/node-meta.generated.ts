@@ -497,7 +497,8 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "density": "default",
       "emptyText": "데이터가 없습니다",
       "selectParam": "",
-      "selectFieldId": ""
+      "selectFieldId": "",
+      "selectSlug": ""
     },
     "bindingModes": [
       "list"
@@ -1530,7 +1531,10 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "subtitle": "",
       "emptyText": "표시할 항목이 없습니다",
       "maxItems": 8,
-      "badgeSuffix": ""
+      "badgeSuffix": "",
+      "linkSlug": "",
+      "linkParam": "sel",
+      "clickable": false
     },
     "bindingModes": [
       "list"
@@ -1549,7 +1553,10 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "subtitle": "",
       "emptyText": "표시할 문서가 없습니다",
       "columns": 3,
-      "maxItems": 6
+      "maxItems": 6,
+      "linkSlug": "",
+      "linkParam": "sel",
+      "clickable": false
     },
     "bindingModes": [
       "list"
@@ -1633,7 +1640,10 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "secondaryHigherIsBetter": false,
       "target": null,
       "targetLabel": "목표",
-      "lowerIsBetter": false
+      "lowerIsBetter": false,
+      "linkSlug": "",
+      "linkParam": "",
+      "linkValue": ""
     },
     "bindingModes": [
       "aggregate"
@@ -1785,7 +1795,10 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "emptyText": "표시할 항목이 없습니다",
       "maxItems": 10,
       "moreSlug": "",
-      "moreLabel": "전체 보기"
+      "moreLabel": "전체 보기",
+      "linkSlug": "",
+      "linkParam": "sel",
+      "clickable": false
     },
     "bindingModes": [
       "list"

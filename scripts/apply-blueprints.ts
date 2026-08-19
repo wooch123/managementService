@@ -84,6 +84,18 @@ function writesTable(plan: ActionPlan): string | null {
   return plan.kind === 'CREATE' || plan.kind === 'UPDATE' ? plan.table : null;
 }
 
+/** 이 컴포넌트가 곧바로 여는 다른 화면들(props에 적힌 slug). */
+function navigationTargets(node: NodePlan): string[] {
+  const props = (node.props ?? {}) as {
+    linkSlug?: string;
+    selectSlug?: string;
+    moreSlug?: string;
+    items?: { slug?: string }[];
+  };
+  const slugs = [props.linkSlug, props.selectSlug, props.moreSlug, ...(props.items ?? []).map((i) => i.slug)];
+  return [...new Set(slugs.filter((s): s is string => typeof s === 'string' && s !== ''))];
+}
+
 async function main() {
   const schema = await loadSchema(prisma);
   const pages = buildPages(schema);
@@ -227,8 +239,17 @@ async function main() {
   // 손으로 그리지 않고 여기서 만든다(검증 규칙 E-REL-004는 이벤트 설정과 일치할 것을 요구한다).
   const relations: { fromType: string; fromId: string; toType: string; toId: string; kind: string }[] = [];
   for (const { id, plan: node } of built) {
-    if (!node.bind) continue;
-    relations.push({ fromType: 'COMPONENT', fromId: id, toType: 'ENTITY', toId: entityOf(schema, node.bind.table).id, kind: 'READS' });
+    if (node.bind) {
+      relations.push({ fromType: 'COMPONENT', fromId: id, toType: 'ENTITY', toId: entityOf(schema, node.bind.table).id, kind: 'READS' });
+    }
+    // 화면 사이의 이동은 액션만으로 일어나지 않는다 — 목록의 한 줄, 지표 타일, 바로가기 카드가
+    // 곧바로 다른 화면을 연다(props의 slug). 관계도가 그걸 모르면 "어디서도 갈 수 없는 화면"으로
+    // 그려지고, 실제 흐름과 그림이 어긋난다.
+    for (const slug of navigationTargets(node)) {
+      const target = pageIds.get(slug);
+      if (!target) throw new Error(`이동 대상 페이지를 찾을 수 없습니다: ${slug}`);
+      relations.push({ fromType: 'COMPONENT', fromId: id, toType: 'PAGE', toId: target, kind: 'NAVIGATES' });
+    }
   }
   for (const trigger of triggers) {
     relations.push({ fromType: 'COMPONENT', fromId: trigger.nodeId, toType: 'ACTION', toId: trigger.actionId, kind: 'TRIGGERS' });
