@@ -135,8 +135,14 @@ export const IN_PAGE = () => {
       const hGap = Math.max(...heights) - Math.min(...heights);
       // 카드처럼 늘어나야 하는 요소만 높이 불일치를 본다(툴바의 아이콘/버튼은 원래 높이가 다르다).
       const cardLike = row.every((x) => x.r.width > 120 && x.r.height > 60);
+      // 같은 줄에서 시작해도 **차지하는 줄 수를 다르게 설계했으면** 높이가 다른 게 맞다.
+      // 목록 옆에 상세를 두는 배치(왼쪽 표 26줄 · 오른쪽 상세 12줄 + 그 아래 입력들)가 그렇다 —
+      // 이걸 어긋남으로 보면 2단 화면은 전부 지적당한다. 설계한 줄 수가 같을 때만 비교한다.
+      const spans = row.map((x) => getComputedStyle(x.k).gridRowEnd);
+      const sameSpan = spans.every((s) => s === spans[0]);
       if (gap > 2) push(`같은 행인데 ${edgeName}이 어긋남`, c, `${Math.round(gap)}px 차이 (${row.length}개)`);
-      else if (cardLike && hGap > 6) push('같은 행 카드 높이 불일치', c, `${Math.round(hGap)}px 차이 (${row.length}개, top=${Math.round(top)})`);
+      else if (cardLike && sameSpan && hGap > 6)
+        push('같은 행 카드 높이 불일치', c, `${Math.round(hGap)}px 차이 (${row.length}개, top=${Math.round(top)})`);
     }
 
     // 겹침
