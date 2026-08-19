@@ -609,7 +609,10 @@ export function Board({
                                 key={a.id}
                                 type="button"
                                 onClick={() => setLightbox(a)}
-                                className="max-w-full overflow-hidden rounded-md border bg-background"
+                                className="overflow-hidden rounded-md border bg-background"
+                                // 상한(15rem)과 말풍선 폭(100%) 둘 다 지켜야 한다 — 감싼 쪽에 걸어야
+                                // 그림의 고유 크기 계산과 순환이 생기지 않는다.
+                                style={{ maxWidth: 'min(15rem, 100%)' }}
                                 title={`${a.name}${a.width && a.height ? ` (${a.width}×${a.height})` : ''}`}
                               >
                                 {/* 업로드된 사용자 이미지라 next/image 최적화 대상이 아니다(런타임 생성 경로).
@@ -633,7 +636,7 @@ export function Board({
                                   // 그 내용의 상한이 다시 부모 폭을 참조해 순환이 생긴다. 브라우저는 이때 원본 폭으로
                                   // 물러나 버튼만 900px로 벌어지고 그림은 240px로 남아 빈 여백이 크게 생겼다.
                                   // 말풍선을 넘지 않게 하는 몫은 감싼 버튼(max-w-full)이 맡는다.
-                                  className="h-auto max-h-40 w-auto max-w-60"
+                                  className="h-auto max-h-40 w-auto max-w-full"
                                   style={a.width && a.height ? { aspectRatio: `${a.width} / ${a.height}` } : undefined}
                                 />
                               </button>
