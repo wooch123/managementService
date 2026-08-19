@@ -40,6 +40,25 @@ const TOP_TRIGGER = 120;
 /** 한 메시지에 붙일 수 있는 이미지 수 — 서버(POST /api/board/posts)의 상한과 같은 값이다. */
 const MAX_ATTACHMENTS = 10;
 
+/** 대화 안에서 그림이 차지할 최대 크기(원본은 눌러서 본다). */
+const THUMB_MAX_W = 240;
+const THUMB_MAX_H = 160;
+
+/**
+ * 대화에 그릴 크기를 **픽셀로 직접 계산**한다.
+ *
+ * WHY: CSS 상한(`max-width: min(15rem, 100%)`)으로 줄이면 퍼센트가 섞여, 감싼 상자의 폭을
+ * 내용에 맞춰 정하는 계산과 순환이 생긴다. 브라우저는 이때 그림의 **고유 폭**으로 물러나
+ * 1,448px짜리 그림 하나가 말풍선을 704px까지 밀어냈다(238px 그림 옆에 452px 빈자리).
+ * 고정 픽셀로 주면 순환이 없고 비율도 정확하다. 좁은 화면 대응은 `max-w-full`이 맡는데,
+ * 폭이 이미 확정돼 있어 상자 크기 계산에는 영향을 주지 않는다.
+ */
+function thumbSize(a: Attachment): { width: number; height: number } | null {
+  if (!a.width || !a.height) return null;
+  const scale = Math.min(1, THUMB_MAX_W / a.width, THUMB_MAX_H / a.height);
+  return { width: Math.round(a.width * scale), height: Math.round(a.height * scale) };
+}
+
 /** 표시용 작성자명. 설계 데이터가 아니라 방문자 로컬 UI 상태라 localStorage에 둔다(CLAUDE.md §4.2 예외). */
 function loadAuthor(): string {
   if (typeof window === 'undefined') return '';
@@ -537,8 +556,11 @@ export function Board({
                     <div
                       id={`board-msg-${m.id}`}
                       className={cn(
+                        // items-start/end를 반드시 준다: 세로 flex의 기본 정렬은 stretch라
+                        // 말풍선이 내용과 상관없이 폭 전체로 늘어난다 — 181px짜리 그림 옆에
+                        // 509px의 빈 자리가 생겼다(실측). 말풍선은 내용만큼만 차지해야 한다.
                         'group/msg flex scroll-mt-6 flex-col gap-1 rounded-md px-1 py-0.5 transition-colors',
-                        mine && 'items-end',
+                        mine ? 'items-end' : 'items-start',
                         highlightId === m.id && 'bg-primary/10 ring-1 ring-primary/40'
                       )}
                     >
@@ -604,43 +626,40 @@ export function Board({
                             작은 그림 아래에 빈 칸이 생기던 것을 막는다. */}
                         {m.attachments.length > 0 && (
                           <div className={cn('flex flex-wrap items-start gap-2', (m.content || m.title) && 'mt-2')}>
-                            {m.attachments.map((a) => (
-                              <button
-                                key={a.id}
-                                type="button"
-                                onClick={() => setLightbox(a)}
-                                className="overflow-hidden rounded-md border bg-background"
-                                // 상한(15rem)과 말풍선 폭(100%) 둘 다 지켜야 한다 — 감싼 쪽에 걸어야
-                                // 그림의 고유 크기 계산과 순환이 생기지 않는다.
-                                style={{ maxWidth: 'min(15rem, 100%)' }}
-                                title={`${a.name}${a.width && a.height ? ` (${a.width}×${a.height})` : ''}`}
-                              >
-                                {/* 업로드된 사용자 이미지라 next/image 최적화 대상이 아니다(런타임 생성 경로).
-                                    잘라내지 않는다 — 원본 비율 그대로 보이고, 폭이 모자랄 때만 비율을 지키며 줄어든다.
-                                    aspect-ratio를 미리 주면 이미지가 도착하기 전에도 자리를 잡아 화면이 덜 흔들린다. */}
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
-                                  src={a.url}
-                                  alt={a.name}
-                                  width={a.width ?? undefined}
-                                  height={a.height ?? undefined}
-                                  loading="lazy"
-                                  onLoad={() => {
-                                    // 이미지가 늦게 자리를 차지하면 높이가 바뀐다 — 맨 아래를 보고 있었다면 따라 내려간다.
-                                    if (atBottomRef.current) scrollToBottom();
-                                  }}
-                                  // 대화 흐름을 가리지 않게 작게 건다 — 원본 크기는 눌러서 본다.
-                                  // 잘라내지 않으므로 비율은 그대로고, 상한보다 작은 그림은 원래 크기로 나온다.
-                                  //
-                                  // 상한에 퍼센트(100%)를 섞으면 안 된다: 감싼 버튼의 폭이 내용에 맞춰 정해지는데
-                                  // 그 내용의 상한이 다시 부모 폭을 참조해 순환이 생긴다. 브라우저는 이때 원본 폭으로
-                                  // 물러나 버튼만 900px로 벌어지고 그림은 240px로 남아 빈 여백이 크게 생겼다.
-                                  // 말풍선을 넘지 않게 하는 몫은 감싼 버튼(max-w-full)이 맡는다.
-                                  className="h-auto max-h-40 w-auto max-w-full"
-                                  style={a.width && a.height ? { aspectRatio: `${a.width} / ${a.height}` } : undefined}
-                                />
-                              </button>
-                            ))}
+                            {m.attachments.map((a) => {
+                              const box = thumbSize(a);
+                              return (
+                                <button
+                                  key={a.id}
+                                  type="button"
+                                  onClick={() => setLightbox(a)}
+                                  className="max-w-full shrink-0 overflow-hidden rounded-md border bg-background"
+                                  title={`${a.name}${a.width && a.height ? ` (${a.width}×${a.height})` : ''}`}
+                                >
+                                  {/* 업로드된 사용자 이미지라 next/image 최적화 대상이 아니다(런타임 생성 경로).
+                                      잘라내지 않는다 — 표시 크기를 픽셀로 직접 계산해(thumbSize) 비율이 정확하고,
+                                      상자 폭 계산과 순환이 생기지 않는다. 화면이 더 좁으면 max-w-full이 마저 줄인다. */}
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={a.url}
+                                    alt={a.name}
+                                    width={box?.width ?? a.width ?? undefined}
+                                    height={box?.height ?? a.height ?? undefined}
+                                    loading="lazy"
+                                    onLoad={() => {
+                                      // 그림이 늦게 자리를 차지하면 높이가 바뀐다 — 맨 아래를 보고 있었다면 따라 내려간다.
+                                      if (atBottomRef.current) scrollToBottom();
+                                    }}
+                                    className="h-auto max-w-full"
+                                    style={
+                                      box
+                                        ? { width: box.width, aspectRatio: `${a.width} / ${a.height}` }
+                                        : { maxHeight: THUMB_MAX_H, maxWidth: THUMB_MAX_W }
+                                    }
+                                  />
+                                </button>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
