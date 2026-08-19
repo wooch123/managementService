@@ -385,8 +385,12 @@ export const dataDisplayComponents = [
                   tickLine={false}
                   axisLine={false}
                   fontSize={11}
-                  // 가장 긴 이름이 잘리지 않을 만큼만 축을 넓힌다(너무 넓으면 막대가 그만큼 짧아진다).
-                  width={Math.min(140, Math.max(56, Math.ceil(Math.max(...series.map((s) => estimateTextWidth(s.label))) + 12)))}
+                  // 하나도 건너뛰지 않는다. 기본값(preserveEnd)은 자리가 빠듯하면 이름을 통째로
+                  // 빼버려, 열 개 중 다섯 개만 이름이 붙은 그래프가 된다(실측).
+                  interval={0}
+                  // 가장 긴 이름이 **한 줄로** 들어갈 만큼 넓힌다. 좁으면 recharts가 글자를 접어
+                  // 두 줄로 만들어 막대와 어긋난다. 너무 넓히면 막대가 그만큼 짧아지므로 상한을 둔다.
+                  width={Math.min(168, Math.max(56, Math.ceil(Math.max(...series.map((s) => estimateTextWidth(s.label))) + 20)))}
                 />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Bar dataKey="value" fill="var(--color-value)" radius={4} />
