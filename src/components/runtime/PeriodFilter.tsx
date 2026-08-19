@@ -107,6 +107,9 @@ function PeriodFilterBar({
           onValueChange={(v) => v && go({ preset: v as PeriodPresetKey })}
           disabled={pending}
           aria-label="조회 기간 프리셋"
+          // 세그먼트는 기본적으로 한 줄로 붙어 있어 줄바꿈이 없다 — 320px 창에서 359px짜리
+          // 덩어리가 되어 통째로 넘쳤다. 좁으면 접히게 두고 폭도 칸을 넘지 않게 묶는다.
+          className="max-w-full flex-wrap"
         >
           {PERIOD_PRESETS.map((preset) => (
             <ToggleGroupItem key={preset.key} value={preset.key} className="px-2.5">
