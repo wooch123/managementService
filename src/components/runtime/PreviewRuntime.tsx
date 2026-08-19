@@ -94,7 +94,7 @@ export function PreviewRuntime({
           style={
             {
               gridTemplateColumns: 'repeat(12, minmax(0, 1fr))',
-              gridAutoRows: `minmax(${rowHeight}px, auto)`,
+              gridAutoRows: `minmax(auto, ${rowHeight}px)`,
               gap,
               '--rt-row-h': `${rowHeight}px`,
               '--rt-gap': `${gap}px`,
@@ -112,7 +112,7 @@ export function PreviewRuntime({
               style={
                 {
                   gridTemplateColumns: 'repeat(12, minmax(0, 1fr))',
-                  gridAutoRows: `minmax(${rowHeight}px, auto)`,
+                  gridAutoRows: `minmax(auto, ${rowHeight}px)`,
                   gap: ASIDE_GAP,
                   '--rt-row-h': `${rowHeight}px`,
                   '--rt-gap': `${ASIDE_GAP}px`,
