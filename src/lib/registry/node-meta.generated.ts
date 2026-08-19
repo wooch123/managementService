@@ -516,6 +516,7 @@ export const nodeMeta: Record<string, NodeMeta> = {
     "defaultProps": {
       "title": "",
       "chartType": "bar",
+      "color": "primary",
       "unit": "",
       "yLabel": ""
     },

@@ -40,12 +40,28 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowDownRight, ArrowUpRight, Inbox } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { categoricalXAxisProps, yAxisLabelProps } from '@/lib/chart-axis';
+import { categoricalXAxisProps, estimateTextWidth, yAxisLabelProps } from '@/lib/chart-axis';
 import { asSeriesResult, selectedColumns, toLabelValueSeries } from '@/lib/chart-series';
 import { cn } from '@/lib/utils';
 import { defineComponent, type ComponentDef } from '@/lib/registry/types';
 
-const chartConfig = { value: { label: '값', color: 'var(--primary)' } } satisfies ChartConfig;
+/**
+ * 계열 색. 테마 토큰만 쓰고(밝기·다크 모드가 함께 따라온다), **의미에 따라** 고른다 —
+ * 모든 차트를 브랜드 파랑 하나로 그리면 접수·불량·고객사가 전부 같은 그림으로 보인다(디자인 리뷰 ④).
+ */
+const COLORWAY = {
+  primary: 'var(--chart-1)',  // 핵심 지표·접수량
+  positive: 'var(--chart-2)', // 완료·개선처럼 좋은 방향
+  accent: 'var(--chart-3)',   // 보조 분류(고객사 등)
+  warning: 'var(--chart-4)',  // 불량·지연처럼 살펴야 하는 것
+  neutral: 'var(--chart-5)',  // 중립 분포
+} as const;
+
+function colorwayConfig(color: keyof typeof COLORWAY = 'primary'): ChartConfig {
+  return { value: { label: '값', color: COLORWAY[color] ?? COLORWAY.primary } };
+}
+
+const chartConfig = colorwayConfig('primary');
 const sampleChartData = [
   { label: '1월', value: 12 },
   { label: '2월', value: 19 },
@@ -263,12 +279,14 @@ export const dataDisplayComponents = [
     events: [],
     propsSchema: z.object({
       title: z.string().default(''),
-      chartType: z.enum(['bar', 'line']).default('bar'),
+      chartType: z.enum(['bar', 'bar-horizontal', 'line']).default('bar'),
+      /** 계열 색 — 파랑 하나로 모든 차트를 그리면 종류 구분이 안 된다(디자인 리뷰 ④). */
+      color: z.enum(['primary', 'positive', 'accent', 'warning', 'neutral']).default('primary'),
       unit: z.string().default(''),
       /** 비워 두면 y축을 그리지 않는다(지금까지의 모양). 값을 넣으면 축과 함께 세로 이름이 붙는다. */
       yLabel: z.string().default(''),
     }),
-    defaultProps: { title: '', chartType: 'bar', unit: '', yLabel: '' },
+    defaultProps: { title: '', chartType: 'bar', color: 'primary', unit: '', yLabel: '' },
     defaultGrid: { span: 6, rowSpan: 25 },
     render: ({ props, data }) => {
       const heading = props.title ? <h3 className="text-sm font-medium">{props.title}</h3> : null;
@@ -349,8 +367,31 @@ export const dataDisplayComponents = [
         // 차트가 셀보다 훨씬 커져 아래 컴포넌트를 덮는다(실제로 대시보드에서 겹침 발생).
         <div className="flex h-full min-h-[120px] flex-col gap-2">
           {heading}
-          <ChartContainer config={chartConfig} className="aspect-auto h-full min-h-0 w-full flex-1">
-            {props.chartType === 'line' ? (
+          <ChartContainer config={colorwayConfig(props.color)} className="aspect-auto h-full min-h-0 w-full flex-1">
+            {props.chartType === 'bar-horizontal' ? (
+              /**
+               * 가로 막대 — 항목이 많거나 이름이 긴 분류에 쓴다.
+               *
+               * 세로 막대는 항목 이름을 가로축에 늘어놓아야 해서, 열 개쯤 되면 -35°~-60°로 기울고
+               * 서로 겹쳐 읽기 어렵다(Fail Mode 10종·고객사 8종에서 실제로 그랬다). 가로로 눕히면
+               * 이름이 한 줄로 반듯하게 서고 값의 길이 비교도 그대로 된다.
+               */
+              <BarChart data={series} layout="vertical" margin={{ top: 4, right: 16, bottom: 4, left: 4 }}>
+                <CartesianGrid horizontal={false} />
+                <XAxis type="number" tickLine={false} axisLine={false} fontSize={11} />
+                <YAxis
+                  type="category"
+                  dataKey="label"
+                  tickLine={false}
+                  axisLine={false}
+                  fontSize={11}
+                  // 가장 긴 이름이 잘리지 않을 만큼만 축을 넓힌다(너무 넓으면 막대가 그만큼 짧아진다).
+                  width={Math.min(140, Math.max(56, Math.ceil(Math.max(...series.map((s) => estimateTextWidth(s.label))) + 12)))}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="value" fill="var(--color-value)" radius={4} />
+              </BarChart>
+            ) : props.chartType === 'line' ? (
               <LineChart data={series}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="label" {...categoricalXAxisProps(series.map((s) => s.label))} />
