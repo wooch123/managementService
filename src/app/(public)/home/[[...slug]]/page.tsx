@@ -97,7 +97,16 @@ export default async function HomePage({
   const period = periodFilter
     ? resolvePeriod(query, (periodFilter.props.defaultPreset as PeriodPresetKey | undefined) ?? DEFAULT_PERIOD_PRESET)
     : null;
-  const runtimeParams = period ? periodQueryValues(period) : {};
+  // 주소의 모든 문자열 파라미터가 바인딩 필터의 `주소 쿼리` 소스가 된다 — 기간(from/to)뿐 아니라
+  // 선택(sel)·상태 필터(status 등)도 같은 길을 쓴다. 값은 SQL에 이어 붙이지 않고 항상 파라미터로
+  // 바인딩되며, 어떤 컬럼에 걸릴지는 오직 설계(바인딩 필터의 fieldId)가 정한다 — 그래서
+  // 주소에 무엇이 들어와도 설계가 허용한 컬럼 밖으로 나갈 수 없다.
+  const queryParams: Record<string, string> = {};
+  for (const [key, value] of Object.entries(query)) {
+    if (typeof value === 'string') queryParams[key] = value;
+  }
+  // 기간은 서버가 확정한 값이 우선이다(프리셋 → from/to 환산 결과가 주소의 원본 값보다 정확하다).
+  const runtimeParams = { ...queryParams, ...(period ? periodQueryValues(period) : {}) };
 
   // §12.2 "바인딩 데이터는 서버에서 미리 조회해 초기 렌더에 포함" — 노드별로 병렬 조회한다.
   const bindingEntries = await Promise.all(
@@ -116,6 +125,7 @@ export default async function HomePage({
         <RuntimeRenderer
           nodes={activePage.nodes}
           bindingData={bindingData}
+          routeParams={queryParams}
           asideVisible={activePage.asideVisible}
           cols={activePage.layout.cols}
           rowHeight={activePage.layout.rowHeight}

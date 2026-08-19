@@ -44,12 +44,15 @@ function upperBoundFor(entity: ResolvedEntity, filter: Filter, value: string): s
  * 필터의 값 소스를 실제 값으로 바꾼다 — §6.4 필터 `source`의 실행부.
  *
  * - `fixed`   : 설계에 박아 둔 값을 그대로.
- * - `query`   : 주소의 쿼리에서 `ref` 이름으로 가져온다. **값이 없으면 조건 자체를 빼버린다** —
- *               비어 있는 값을 그대로 바인딩하면 "아무것도 해당하지 않음"이 되어, 기간을 안 고른
- *               사용자에게 빈 화면을 보여주게 된다. 조건을 빼는 쪽이 "제한 없음"이라는 의도에 맞다.
+ * - `query`   : 주소의 쿼리에서 `ref` 이름으로 가져온다. **값이 없으면 기본적으로 조건 자체를
+ *               빼버린다** — 비어 있는 값을 그대로 바인딩하면 "아무것도 해당하지 않음"이 되어,
+ *               기간을 안 고른 사용자에게 빈 화면을 보여주게 된다. 다만 선택 상세처럼 "고르기
+ *               전에는 아무것도 아니다"가 맞는 자리는 `whenMissing: 'empty'`로 표시한다.
  * - `component`: 서버가 초기 데이터를 만드는 시점에는 화면 입력값이 아직 없으므로 역시 뺀다.
+ *
+ * 반환이 `null`이면 "조건을 만족하는 행이 없음"이다(질의를 아예 하지 않는다).
  */
-export function resolveRuntimeFilters(entity: ResolvedEntity, filters: Filter[], params: RuntimeParams): Filter[] {
+export function resolveRuntimeFilters(entity: ResolvedEntity, filters: Filter[], params: RuntimeParams): Filter[] | null {
   const resolved: Filter[] = [];
   for (const filter of filters) {
     if (filter.source === 'fixed') {
@@ -58,7 +61,10 @@ export function resolveRuntimeFilters(entity: ResolvedEntity, filters: Filter[],
     }
     if (filter.source === 'query') {
       const raw = filter.ref ? params[filter.ref] : undefined;
-      if (raw === undefined || raw === '') continue;
+      if (raw === undefined || raw === '') {
+        if (filter.whenMissing === 'empty') return null;
+        continue;
+      }
       resolved.push({ ...filter, value: upperBoundFor(entity, filter, raw) });
     }
   }
@@ -79,27 +85,35 @@ export async function resolveBindingData(
   try {
     if (binding.mode === 'list') {
       const entity = findPublishedEntity(spec, binding.entityId);
-      return await runListQuery({ ...binding, filters: resolveRuntimeFilters(entity, binding.filters, params) }, page, entity);
+      const filters = resolveRuntimeFilters(entity, binding.filters, params);
+      // 선택 전(`whenMissing: 'empty'`)에는 질의 자체를 하지 않는다 — 컴포넌트는 빈 결과를 받아
+      // "목록에서 항목을 선택하세요"를 그린다. 결과 봉투 모양은 조회했을 때와 같게 맞춘다.
+      if (!filters) return { rows: [], total: 0, columns: [] };
+      return await runListQuery({ ...binding, filters }, page, entity);
     }
     if (binding.mode === 'group') {
       // 항목별 집계는 DB가 전부 세어 결과만 돌려준다(원시 행을 표본으로 가져오지 않는다).
       const entity = findPublishedEntity(spec, binding.entityId);
-      return await runGroupQuery({ ...binding, filters: resolveRuntimeFilters(entity, binding.filters, params) }, entity);
+      const filters = resolveRuntimeFilters(entity, binding.filters, params);
+      if (!filters) return { rows: [], total: 0, columns: [] };
+      return await runGroupQuery({ ...binding, filters }, entity);
     }
     if (binding.mode === 'aggregate') {
       const entity = findPublishedEntity(spec, binding.entityId);
-      const value = await runAggregateQuery({ ...binding, filters: resolveRuntimeFilters(entity, binding.filters, params) }, entity);
+      const filters = resolveRuntimeFilters(entity, binding.filters, params);
+      if (!filters) return 0;
+      const value = await runAggregateQuery({ ...binding, filters }, entity);
 
       // 직전 같은 길이의 기간과 견준다 — 기간 필터가 넣어 둔 prevFrom/prevTo로 한 번 더 센다.
       // 기간이 한쪽이라도 열려 있으면(전체 등) 비교 구간이 없어 그냥 숫자만 돌려준다.
       if (!binding.compare || !params.prevFrom || !params.prevTo) return value;
-      const previous = await runAggregateQuery(
-        {
-          ...binding,
-          filters: resolveRuntimeFilters(entity, binding.filters, { ...params, from: params.prevFrom, to: params.prevTo }),
-        },
-        entity
-      );
+      const prevFilters = resolveRuntimeFilters(entity, binding.filters, {
+        ...params,
+        from: params.prevFrom,
+        to: params.prevTo,
+      });
+      if (!prevFilters) return value;
+      const previous = await runAggregateQuery({ ...binding, filters: prevFilters }, entity);
       return { value, previous };
     }
     if (binding.mode === 'single') {

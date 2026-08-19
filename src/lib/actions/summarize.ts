@@ -21,6 +21,8 @@ function describeSource(source: ValueSource): string {
       return '현재 시각';
     case 'user':
       return '현재 사용자';
+    case 'sequence':
+      return `자동 번호(${source.prefix}+${source.digits}자리)`;
   }
 }
 

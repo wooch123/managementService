@@ -495,7 +495,9 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "showExport": false,
       "selectable": false,
       "density": "default",
-      "emptyText": "데이터가 없습니다"
+      "emptyText": "데이터가 없습니다",
+      "selectParam": "",
+      "selectFieldId": ""
     },
     "bindingModes": [
       "list"
@@ -1459,6 +1461,157 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "allowWrite": true,
       "searchable": true,
       "categories": ""
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "option-select": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 3,
+      "rowSpan": 8
+    },
+    "defaultProps": {
+      "label": "라벨",
+      "placeholder": "선택하세요",
+      "options": []
+    },
+    "bindingModes": [
+      "field"
+    ],
+    "events": [
+      "onChange"
+    ]
+  },
+  "record-detail": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 20
+    },
+    "defaultProps": {
+      "title": "",
+      "emptyText": "목록에서 항목을 선택하세요",
+      "subtitleCount": 2
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "record-timeline": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 18
+    },
+    "defaultProps": {
+      "title": "",
+      "emptyText": "표시할 이력이 없습니다",
+      "maxItems": 8
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "list-panel": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 20
+    },
+    "defaultProps": {
+      "title": "",
+      "subtitle": "",
+      "emptyText": "표시할 항목이 없습니다",
+      "maxItems": 8,
+      "badgeSuffix": ""
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "article-cards": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 22
+    },
+    "defaultProps": {
+      "title": "",
+      "subtitle": "",
+      "emptyText": "표시할 문서가 없습니다",
+      "columns": 3,
+      "maxItems": 6
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
+  },
+  "checklist": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 18
+    },
+    "defaultProps": {
+      "title": "",
+      "subtitle": "",
+      "items": []
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "stepper": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 4
+    },
+    "defaultProps": {
+      "steps": [],
+      "current": 1
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "nav-cards": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 14
+    },
+    "defaultProps": {
+      "title": "",
+      "subtitle": "",
+      "columns": 3,
+      "items": []
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "status-filter": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 3
+    },
+    "defaultProps": {
+      "title": "",
+      "param": "status",
+      "options": []
     },
     "bindingModes": [],
     "events": []

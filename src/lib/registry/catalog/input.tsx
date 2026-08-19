@@ -39,7 +39,9 @@ export const inputComponents = [
     propsSchema: z.object({
       label: z.string().default('라벨'),
       placeholder: z.string().default(''),
-      type: z.enum(['text', 'email', 'number', 'password', 'tel', 'url']).default('text'),
+      // 'date'는 브라우저 기본 날짜 선택기를 띄우고 값이 'YYYY-MM-DD'로 나온다 — DATE 컬럼에
+      // 그대로 들어가는 모양이라, 날짜를 글자로 받아 형식이 어긋나던 입력칸을 대체한다.
+      type: z.enum(['text', 'email', 'number', 'password', 'tel', 'url', 'date']).default('text'),
     }),
     defaultProps: { label: '라벨', placeholder: '', type: 'text' },
     defaultGrid: { span: 4, rowSpan: 8 },

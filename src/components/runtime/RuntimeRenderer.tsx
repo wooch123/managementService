@@ -13,6 +13,25 @@ import type { Effect, ActionResult } from '@/lib/actions/executor';
 export const ASIDE_GAP = 4;
 
 /**
+ * CSV 내보내기 액션의 결과를 실제 파일로 내려준다.
+ *
+ * 서버(§9 EXPORT_CSV)는 예전부터 `{ filename, csv }`를 만들어 돌려줬는데 받는 쪽이 아무것도 하지
+ * 않아, 버튼을 눌러도 겉보기에 아무 일이 없었다. 엑셀에서 한글이 깨지지 않도록 BOM을 앞에 붙인다.
+ */
+function downloadCsvIfAny(data: unknown): void {
+  if (!data || typeof data !== 'object') return;
+  const { filename, csv } = data as { filename?: unknown; csv?: unknown };
+  if (typeof filename !== 'string' || typeof csv !== 'string') return;
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
  * §12.2~12.3 운영 렌더러. PreviewRuntime(P6, /admin/preview 전용)과 로직(dispatch → §10.7
  * POST /api/runtime/action → effects 처리, 입력값 추적)은 거의 같지만 세 가지가 다르다:
  * 드래프트가 아니라 서버에서 이미 프리페치한 발행 스펙 노드/바인딩 데이터를 받고, navigate가
@@ -26,6 +45,7 @@ export function RuntimeRenderer({
   rowHeight,
   gap,
   asideVisible = true,
+  routeParams = {},
 }: {
   /** 본문(main)과 우측 패널(aside) 컴포넌트가 모두 들어온다 — 영역 분리는 이 안에서 한다. */
   nodes: ComponentNodeSpec[];
@@ -33,6 +53,12 @@ export function RuntimeRenderer({
   cols: number;
   rowHeight: number;
   gap: number;
+  /**
+   * 주소의 쿼리 파라미터 — 액션이 `주소 파라미터` 값 소스로 쓴다(§9 ValueSource `route`).
+   * 목록에서 고른 항목(`?sel=FAR-26-4514`)을 그대로 '담당자 변경'·'상태 업데이트' 같은
+   * 액션의 대상 키로 넘기기 위한 통로다.
+   */
+  routeParams?: Record<string, string>;
   /** 페이지 속성 — 관리자가 우측 지표 패널을 끄면 컴포넌트가 있어도 렌더하지 않는다. */
   asideVisible?: boolean;
 }) {
@@ -71,17 +97,18 @@ export function RuntimeRenderer({
       const res = await fetch('/api/runtime/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ actionId, context: { componentValues } }),
+        body: JSON.stringify({ actionId, context: { componentValues, routeParams } }),
       });
       const result = (await res.json()) as ActionResult;
       if (!result.ok) {
         toast.error(result.error ?? '액션 실행에 실패했습니다.');
         return;
       }
+      downloadCsvIfAny(result.data);
       applyEffects(result.effects);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [componentValues]
+    [componentValues, routeParams]
   );
 
   const hooks = {

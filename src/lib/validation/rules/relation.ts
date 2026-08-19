@@ -100,9 +100,12 @@ export const relOrphanNode: ValidationRule = {
     // 고아로 잡혔다(관계도에는 lib/db/graph.ts가 파생 엣지로 같은 사실을 그린다).
     const chained = new Set<string>();
     for (const a of spec.actions) {
-      const config = a.config as { onSuccess?: string | null; onError?: string | null };
+      const config = a.config as { onSuccess?: string | null; onError?: string | null; steps?: string[] };
       if (config.onSuccess) chained.add(config.onSuccess);
       if (config.onError) chained.add(config.onError);
+      // COMPOSITE의 스텝도 후속 액션과 똑같이 "다른 액션이 나를 부른다"는 연결이다. 빠져 있어서
+      // 복합 실행에만 쓰이는 액션(이력 등록 + 단계 반영)이 전부 고아로 잡혔다.
+      for (const step of config.steps ?? []) chained.add(step);
     }
     for (const a of spec.actions) {
       const usedAsTarget = chained.has(a.id) || spec.relations.some((r) => r.toId === a.id);

@@ -8,6 +8,19 @@ export const valueSourceSchema = z.discriminatedUnion('from', [
   z.object({ from: z.literal('route'), param: z.string() }),
   z.object({ from: z.literal('now') }),
   z.object({ from: z.literal('user') }),
+  /**
+   * 업무 번호를 서버가 만들어 준다(예: `ASG-` + 6자리).
+   *
+   * 청사진이 화면마다 반복해서 지적한 것이 "식별번호 수기 입력"이다 — 배정번호·리포트번호·
+   * 의뢰번호를 사람이 적으면 중복과 오타가 나고, 그 번호를 만들려고 기존 목록을 먼저 뒤져야 한다
+   * (REVIEW.md FA Assign·Tech Report·Reball 의뢰서·의뢰 상세). 값을 만드는 주체를 화면에서
+   * 서버로 옮긴다. 같은 접두사를 쓰는 기존 값 중 가장 큰 번호 다음을 쓴다.
+   */
+  z.object({
+    from: z.literal('sequence'),
+    prefix: z.string().default(''),
+    digits: z.number().int().min(3).max(10).default(6),
+  }),
 ]);
 export type ValueSource = z.infer<typeof valueSourceSchema>;
 
@@ -41,6 +54,14 @@ export const actionConfigSchema = z.discriminatedUnion('kind', [
     kind: z.literal('UPDATE'),
     entityId: z.string(),
     keySource: valueSourceSchema,
+    /**
+     * 대상 행을 찾을 컬럼. 비우면 지금까지처럼 내부 id로 찾는다.
+     *
+     * 화면이 다루는 키는 내부 id가 아니라 업무 키(FAR No·의뢰번호)다 — 목록에서 고른 값이
+     * 주소에 남고(`?sel=FAR-26-4514`), 그 값으로 바로 상태를 바꿀 수 있어야 "선택 → 다음 행동"이
+     * 한 화면에서 이어진다. id를 요구하면 화면이 내부 식별자를 들고 다녀야 한다.
+     */
+    keyFieldId: z.string().optional(),
     fieldMap: fieldMapSchema,
     onSuccess: z.string().nullable().optional(),
     onError: z.string().nullable().optional(),
@@ -49,6 +70,8 @@ export const actionConfigSchema = z.discriminatedUnion('kind', [
     kind: z.literal('DELETE'),
     entityId: z.string(),
     keySource: valueSourceSchema,
+    /** UPDATE와 같은 뜻 — 비우면 내부 id로 찾는다. */
+    keyFieldId: z.string().optional(),
     confirmText: z.string().nullable().optional(),
     onSuccess: z.string().nullable().optional(),
   }),

@@ -9,6 +9,15 @@ export const filterSchema = z.object({
   source: z.enum(['fixed', 'query', 'component']),
   value: z.unknown().optional(),
   ref: z.string().optional(),
+  /**
+   * 주소에 값이 없을 때 어떻게 할지.
+   *
+   * - `ignore`(기본) — 조건을 빼고 전부 보여준다. 기간·상태 필터처럼 "고르지 않았으면 제한 없음"이
+   *   맞는 경우다.
+   * - `empty` — 아무것도 보여주지 않는다. **선택 상세**가 이쪽이다: 아직 아무 행도 고르지 않았는데
+   *   조건을 빼면 표의 첫 행이 나와, 고르지도 않은 항목이 선택된 것처럼 보인다.
+   */
+  whenMissing: z.enum(['ignore', 'empty']).optional(),
 });
 export type Filter = z.infer<typeof filterSchema>;
 

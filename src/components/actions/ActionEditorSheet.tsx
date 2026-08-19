@@ -57,6 +57,7 @@ function ValueSourceEditor({ value, onChange }: { value: ValueSource; onChange: 
           <SelectItem value="route">라우트 파라미터</SelectItem>
           <SelectItem value="now">현재 시각</SelectItem>
           <SelectItem value="user">현재 사용자</SelectItem>
+          <SelectItem value="sequence">자동 번호</SelectItem>
         </SelectContent>
       </Select>
       {value.from === 'literal' && (
@@ -73,6 +74,25 @@ function ValueSourceEditor({ value, onChange }: { value: ValueSource; onChange: 
       )}
       {value.from === 'route' && (
         <Input className="h-8" value={value.param} onChange={(e) => onChange({ from: 'route', param: e.target.value })} placeholder="파라미터명" />
+      )}
+      {value.from === 'sequence' && (
+        <>
+          <Input
+            className="h-8 w-28"
+            value={value.prefix}
+            onChange={(e) => onChange({ ...value, prefix: e.target.value })}
+            placeholder="접두사 ASG-"
+          />
+          <Input
+            className="h-8 w-20"
+            type="number"
+            min={3}
+            max={10}
+            value={value.digits}
+            onChange={(e) => onChange({ ...value, digits: Number(e.target.value) || 6 })}
+            placeholder="자릿수"
+          />
+        </>
       )}
     </div>
   );
@@ -92,6 +112,8 @@ function defaultValueSource(from: ValueSource['from']): ValueSource {
       return { from: 'now' };
     case 'user':
       return { from: 'user' };
+    case 'sequence':
+      return { from: 'sequence', prefix: '', digits: 6 };
   }
 }
 

@@ -12,8 +12,14 @@ export function toStorageValue(dataType: DataType, value: unknown): unknown {
   if (value == null) return null;
   switch (dataType) {
     case 'TEXT':
-    case 'DATE':
       return String(value);
+    case 'DATE': {
+      // DATE 칸에는 날짜만 남긴다. '현재 시각' 같은 소스는 ISO 일시('2026-08-19T10:36:26.293Z')를
+      // 주는데 그대로 저장하면 같은 컬럼에 'YYYY-MM-DD'와 일시가 섞여, 기간 조건(BETWEEN)과
+      // 정렬이 어긋난다 — 문자열 비교라 '2026-08-19T…'는 '2026-08-19'보다 크다.
+      const text = String(value);
+      return /^\d{4}-\d{2}-\d{2}T/.test(text) ? text.slice(0, 10) : text;
+    }
     case 'DATETIME':
       return new Date(value as string).toISOString();
     case 'INTEGER': {

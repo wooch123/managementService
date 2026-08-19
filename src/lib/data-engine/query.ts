@@ -17,7 +17,18 @@ export type ResolvedEntity = Entity & { fields: Field[] };
  * 컬럼"으로 보고 버린 뒤 라벨 개수를 세어, 항목별 집계 막대가 전부 1로 그려졌다(2026-08-19 발견:
  * 운영 대시보드의 제품군별/Fail Mode별/고객사별 차트 3종). 표식을 명시 플래그로 분리한다.
  */
-export type ResultColumn = { columnName: string; fieldId: string | null; dataType: DataType; implicit?: boolean };
+export type ResultColumn = {
+  columnName: string;
+  fieldId: string | null;
+  dataType: DataType;
+  implicit?: boolean;
+  /**
+   * 관리자가 설계에 적어 둔 표시 이름(예: 'FAR No'). 컬럼명(`far_no`)이 아니라 이 이름을 화면에
+   * 쓴다 — 선택 상세·타임라인처럼 열 머리글을 따로 설정하지 않는 컴포넌트가 라벨을 스스로 만들어
+   * 낼 수 있어야 하기 때문이다. 데이터 테이블처럼 머리글을 props로 받는 컴포넌트는 그대로 두면 된다.
+   */
+  label?: string;
+};
 
 /** 항목별 집계에서 분류 축을 날짜 버킷으로 묶는 방식. SQL 조각이 고정 문자열이라 사용자 입력이 SQL에 닿지 않는다. */
 const GROUP_TRANSFORM_FORMAT: Record<'month' | 'week' | 'year', string> = {
@@ -104,11 +115,16 @@ export function buildOrderClause(entity: ResolvedEntity, sort: Sort[]): string {
 
 function resolveSelectColumns(entity: ResolvedEntity, select: string[]): ResultColumn[] {
   const cols: ResultColumn[] = [
-    { columnName: 'id', fieldId: null, dataType: 'TEXT', implicit: true },
+    { columnName: 'id', fieldId: null, dataType: 'TEXT', implicit: true, label: 'id' },
   ];
   for (const fieldId of select) {
     const field = resolveField(entity, fieldId);
-    cols.push({ columnName: field.columnName, fieldId: field.id, dataType: field.dataType as DataType });
+    cols.push({
+      columnName: field.columnName,
+      fieldId: field.id,
+      dataType: field.dataType as DataType,
+      label: field.name,
+    });
   }
   return cols;
 }

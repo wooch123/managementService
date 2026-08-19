@@ -42,13 +42,44 @@ function resolveValueSource(source: ValueSource, ctx: ActionContext): unknown {
       return new Date().toISOString();
     case 'user':
       return 'anonymous';
+    case 'sequence':
+      // 실제 번호는 대상 테이블을 봐야 정해진다 — 엔티티를 아는 CREATE/UPDATE 안에서 채운다.
+      return undefined;
   }
 }
 
-function resolveFieldMap(fieldMap: Record<string, ValueSource>, ctx: ActionContext): Record<string, unknown> {
+/**
+ * 같은 접두사를 쓰는 기존 값 중 가장 큰 번호 + 1.
+ *
+ * 자릿수가 다른 값이 섞여 있을 수 있으므로(`ASG-9` vs `ASG-10`) 문자열 정렬이 아니라 **숫자로**
+ * 비교한다. 접두사 뒤가 숫자가 아닌 값은 세지 않는다.
+ */
+function nextSequenceValue(entity: ResolvedEntity, fieldId: string, prefix: string, digits: number): string {
+  const field = resolveField(entity, fieldId);
+  const db = getAppDb();
+  const row = db
+    .prepare(
+      `SELECT MAX(CAST(SUBSTR(${quoteIdent(field.columnName)}, ?) AS INTEGER)) AS n
+         FROM ${quoteIdent(entity.tableName)}
+        WHERE ${quoteIdent(field.columnName)} LIKE ?`
+    )
+    .get(prefix.length + 1, `${prefix}%`) as { n: number | null };
+  const next = (row?.n ?? 0) + 1;
+  return `${prefix}${String(next).padStart(digits, '0')}`;
+}
+
+/** 값 맵 해석. `sequence`처럼 대상 테이블을 알아야 하는 소스는 entity가 주어질 때만 채워진다. */
+function resolveFieldMap(
+  fieldMap: Record<string, ValueSource>,
+  ctx: ActionContext,
+  entity?: ResolvedEntity
+): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [fieldId, source] of Object.entries(fieldMap)) {
-    out[fieldId] = resolveValueSource(source, ctx);
+    out[fieldId] =
+      source.from === 'sequence' && entity
+        ? nextSequenceValue(entity, fieldId, source.prefix, source.digits)
+        : resolveValueSource(source, ctx);
   }
   return out;
 }
@@ -132,18 +163,40 @@ async function runCreate(
   spec: PublishedSpec
 ): Promise<ActionResult> {
   const entity = findPublishedEntity(spec, config.entityId);
-  const values = toColumnValues(entity, resolveFieldMap(config.fieldMap, context));
   const db = getAppDb();
   const id = nanoid();
   const now = new Date().toISOString();
-  const columns = ['id', 'created_at', 'updated_at', ...Object.keys(values)];
-  db.prepare(
-    `INSERT INTO ${quoteIdent(entity.tableName)} (${columns.map(quoteIdent).join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`
-  ).run(id, now, now, ...Object.values(values));
+
+  // 번호 채번(sequence)은 "가장 큰 값 조회 → INSERT"라 그 사이에 다른 저장이 끼면 같은 번호가
+  // 두 번 나온다. 한 트랜잭션으로 묶어 좁히고, 그래도 부딪히면(다중 워커) 다시 채번해 시도한다 —
+  // 번호 컬럼은 대개 UNIQUE라 부딪힘은 오류로 드러나지 실수로 덮어쓰이지 않는다.
+  const hasSequence = Object.values(config.fieldMap).some((s) => s.from === 'sequence');
+  const insertOnce = db.transaction(() => {
+    const values = toColumnValues(entity, resolveFieldMap(config.fieldMap, context, entity));
+    const columns = ['id', 'created_at', 'updated_at', ...Object.keys(values)];
+    db.prepare(
+      `INSERT INTO ${quoteIdent(entity.tableName)} (${columns.map(quoteIdent).join(', ')}) VALUES (${columns.map(() => '?').join(', ')})`
+    ).run(id, now, now, ...Object.values(values));
+  });
+
+  const attempts = hasSequence ? 3 : 1;
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      insertOnce();
+      break;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '';
+      if (attempt >= attempts || !/UNIQUE constraint failed/i.test(message)) throw err;
+    }
+  }
 
   const effects = [
     ...(await runFollowUp(config.onSuccess, context, spec)),
     { type: 'toast' as const, variant: 'success' as const, message: '저장되었습니다' },
+    // 저장했으면 화면도 그 결과를 보여야 한다 — 방금 등록한 건이 목록에 없으면 저장이 안 된 것처럼
+    // 보인다. 예전에는 액션마다 "저장 후 목록 갱신" QUERY를 하나씩 더 만들어 붙였는데, 그건 갱신
+    // 말고는 하는 일이 없는 액션이 저장 액션 수만큼 늘어난다는 뜻이었다.
+    { type: 'refresh' as const, nodeId: '' },
   ];
   return { ok: true, data: { id }, effects };
 }
@@ -154,18 +207,32 @@ async function runUpdate(
   spec: PublishedSpec
 ): Promise<ActionResult> {
   const entity = findPublishedEntity(spec, config.entityId);
-  const rowId = String(resolveValueSource(config.keySource, context));
-  const values = toColumnValues(entity, resolveFieldMap(config.fieldMap, context));
+  const key = resolveValueSource(config.keySource, context);
+  // 키가 비면 WHERE가 아무 행도 맞추지 못하거나(문자열 'undefined') 최악의 경우 의도치 않은
+  // 행을 건드린다 — 조용히 0건 갱신하고 "저장됨"이라 알리지 않고 분명히 실패시킨다.
+  if (key === null || key === undefined || key === '') {
+    return { ok: false, error: '갱신할 대상이 지정되지 않았습니다. 목록에서 항목을 먼저 선택하세요.', effects: [] };
+  }
+  const rowKey = String(key);
+  const keyColumn = config.keyFieldId ? resolveField(entity, config.keyFieldId).columnName : 'id';
+  const values = toColumnValues(entity, resolveFieldMap(config.fieldMap, context, entity));
   const db = getAppDb();
   const now = new Date().toISOString();
   const setClauses = [...Object.keys(values).map((c) => `${quoteIdent(c)} = ?`), `"updated_at" = ?`];
-  db.prepare(`UPDATE ${quoteIdent(entity.tableName)} SET ${setClauses.join(', ')} WHERE "id" = ?`).run(
-    ...Object.values(values),
-    now,
-    rowId
-  );
-  const effects = await runFollowUp(config.onSuccess, context, spec);
-  return { ok: true, data: { id: rowId }, effects };
+  const info = db
+    .prepare(`UPDATE ${quoteIdent(entity.tableName)} SET ${setClauses.join(', ')} WHERE ${quoteIdent(keyColumn)} = ?`)
+    .run(...Object.values(values), now, rowKey);
+  if (info.changes === 0) {
+    return { ok: false, error: `대상을 찾지 못했습니다: ${rowKey}`, effects: [] };
+  }
+  // CREATE와 같은 이유로 알림과 갱신을 함께 낸다. 예전에는 UPDATE만 아무 효과도 내지 않아,
+  // 상태를 바꿔도 화면에 아무 일이 없어 보였다(눌렀는데 반응이 없으면 다시 누르게 된다).
+  const effects = [
+    ...(await runFollowUp(config.onSuccess, context, spec)),
+    { type: 'toast' as const, variant: 'success' as const, message: '반영되었습니다' },
+    { type: 'refresh' as const, nodeId: '' },
+  ];
+  return { ok: true, data: { key: rowKey, changed: info.changes }, effects };
 }
 
 async function runDelete(
@@ -174,11 +241,16 @@ async function runDelete(
   spec: PublishedSpec
 ): Promise<ActionResult> {
   const entity = findPublishedEntity(spec, config.entityId);
-  const rowId = String(resolveValueSource(config.keySource, context));
+  const key = resolveValueSource(config.keySource, context);
+  if (key === null || key === undefined || key === '') {
+    return { ok: false, error: '삭제할 대상이 지정되지 않았습니다.', effects: [] };
+  }
+  const rowKey = String(key);
+  const keyColumn = config.keyFieldId ? resolveField(entity, config.keyFieldId).columnName : 'id';
   const db = getAppDb();
-  db.prepare(`DELETE FROM ${quoteIdent(entity.tableName)} WHERE "id" = ?`).run(rowId);
+  db.prepare(`DELETE FROM ${quoteIdent(entity.tableName)} WHERE ${quoteIdent(keyColumn)} = ?`).run(rowKey);
   const effects = await runFollowUp(config.onSuccess, context, spec);
-  return { ok: true, data: { id: rowId }, effects };
+  return { ok: true, data: { key: rowKey }, effects };
 }
 
 async function runQuery(config: Extract<ActionConfig, { kind: 'QUERY' }>, spec: PublishedSpec): Promise<ActionResult> {

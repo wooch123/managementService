@@ -66,8 +66,24 @@ describe('필터 값 소스 해석', () => {
   });
 
   it('DATE 컬럼의 상한과 DATETIME의 하한은 손대지 않는다', () => {
-    expect(resolveRuntimeFilters(ENTITY, [to], { to: '2026-08-19' })[0].value).toBe('2026-08-19');
+    expect(resolveRuntimeFilters(ENTITY, [to], { to: '2026-08-19' })?.[0].value).toBe('2026-08-19');
     const dtFrom: Filter = { fieldId: 'f-at', op: 'gte', source: 'query', ref: 'from' };
-    expect(resolveRuntimeFilters(ENTITY, [dtFrom], { from: '2026-08-19' })[0].value).toBe('2026-08-19');
+    expect(resolveRuntimeFilters(ENTITY, [dtFrom], { from: '2026-08-19' })?.[0].value).toBe('2026-08-19');
+  });
+
+  // 선택 상세(record-detail)가 쓰는 규칙. 조건을 빼 버리면 아무것도 고르지 않았는데 표의 첫 행이
+  // 상세 패널에 나와, 고르지도 않은 항목이 선택된 것처럼 보인다.
+  it("whenMissing: 'empty'는 값이 없으면 '결과 없음'(null)을 돌려준다", () => {
+    const selection: Filter = { fieldId: 'f-status', op: 'eq', source: 'query', ref: 'sel', whenMissing: 'empty' };
+    expect(resolveRuntimeFilters(ENTITY, [selection], {})).toBeNull();
+    expect(resolveRuntimeFilters(ENTITY, [selection], { sel: '' })).toBeNull();
+    expect(resolveRuntimeFilters(ENTITY, [selection], { sel: 'FAR-26-4514' })).toEqual([
+      { ...selection, value: 'FAR-26-4514' },
+    ]);
+  });
+
+  it("whenMissing이 없으면 지금까지처럼 조건을 뺀다(제한 없음)", () => {
+    const optional: Filter = { fieldId: 'f-status', op: 'eq', source: 'query', ref: 'status' };
+    expect(resolveRuntimeFilters(ENTITY, [optional], {})).toEqual([]);
   });
 });

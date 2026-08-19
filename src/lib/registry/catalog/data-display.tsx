@@ -9,6 +9,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { DataTable as DataTableUi } from '@/components/ui/data-table';
+import { SelectableTable } from '@/components/runtime/SelectableTable';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import {
   Carousel,
@@ -233,8 +234,28 @@ export const dataDisplayComponents = [
       selectable: z.boolean().default(false),
       density: z.enum(['compact', 'default', 'comfortable']).default('default'),
       emptyText: z.string().default('데이터가 없습니다'),
+      /**
+       * 행을 고르면 그 값을 적을 주소 파라미터 이름(비우면 선택 없는 정적인 표).
+       *
+       * 청사진의 뼈대인 "목록에서 고르면 상세가 따라온다"를 만드는 곳이다. 선택은 화면 안의
+       * 상태가 아니라 **주소**에 남는다 — 기간 필터와 같은 방식이라 상세·이력 패널은 바인딩
+       * 필터에 `주소 쿼리`를 걸어 두기만 하면 되고, 고른 화면을 링크로 공유할 수 있다.
+       */
+      selectParam: z.string().default(''),
+      /** 선택값으로 쓸 필드(대개 FAR No·의뢰번호 같은 업무 키) */
+      selectFieldId: z.string().default(''),
     }),
-    defaultProps: { title: '', columns: [], showSearch: true, showExport: false, selectable: false, density: 'default', emptyText: '데이터가 없습니다' },
+    defaultProps: {
+      title: '',
+      columns: [],
+      showSearch: true,
+      showExport: false,
+      selectable: false,
+      density: 'default',
+      emptyText: '데이터가 없습니다',
+      selectParam: '',
+      selectFieldId: '',
+    },
     defaultGrid: { span: 12, rowSpan: 40 },
     render: ({ props, data }) => {
       // resolveBindingData(list 모드)는 { rows, total, columns }를 반환한다(data-engine/query.ts
@@ -257,10 +278,25 @@ export const dataDisplayComponents = [
         data && typeof data === 'object' && Array.isArray((data as { rows?: unknown }).rows)
           ? ((data as { rows: Record<string, unknown>[] }).rows)
           : [];
+      // 선택을 켜려면 "어디에 적을지(selectParam)"와 "무엇을 적을지(selectFieldId)"가 모두 있어야
+      // 한다. 필드가 조회 결과에 없으면(설계 변경 등) 조용히 정적인 표로 물러난다.
+      const selectColumn = props.selectFieldId ? (columnNameByFieldId.get(props.selectFieldId) ?? null) : null;
+      const selectable = props.selectParam !== '' && selectColumn !== null;
       return (
         <div className="flex flex-col gap-2">
           {props.title && <h3 className="text-sm font-medium">{props.title}</h3>}
-          <DataTableUi columns={columns} data={rows} emptyText={props.emptyText} showSearch={props.showSearch} />
+          {selectable ? (
+            <SelectableTable
+              columns={columns}
+              data={rows}
+              emptyText={props.emptyText}
+              showSearch={props.showSearch}
+              param={props.selectParam}
+              column={selectColumn}
+            />
+          ) : (
+            <DataTableUi columns={columns} data={rows} emptyText={props.emptyText} showSearch={props.showSearch} />
+          )}
         </div>
       );
     },

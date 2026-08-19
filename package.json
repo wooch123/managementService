@@ -19,7 +19,8 @@
     "audit:catalog": "tsx --tsconfig scripts/audit.tsconfig.json scripts/audit-catalog.tsx",
     "theme:gen": "tsx scripts/generate-theme-css.ts",
     "audit:ui": "node scripts/audit-ui.mjs",
-    "db:optimize": "tsx scripts/optimize-indexes.ts"
+    "db:optimize": "tsx scripts/optimize-indexes.ts",
+    "validate": "tsx scripts/validate-draft.mts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

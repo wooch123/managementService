@@ -30,6 +30,10 @@ interface DataTableProps<TData, TValue> {
   emptyText?: string
   pageSize?: number
   showSearch?: boolean
+  /** 행을 누를 수 있게 한다(운영 화면의 목록→상세 선택). 없으면 지금까지처럼 정적인 표다. */
+  onRowClick?: (row: TData) => void
+  /** 지금 선택된 행인지 — 라우터를 여기서 읽지 않도록 판정만 밖에서 받는다. */
+  isRowSelected?: (row: TData) => boolean
 }
 
 function DataTable<TData, TValue>({
@@ -38,6 +42,8 @@ function DataTable<TData, TValue>({
   emptyText = "데이터가 없습니다",
   pageSize = 10,
   showSearch = false,
+  onRowClick,
+  isRowSelected,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState("")
@@ -100,18 +106,40 @@ function DataTable<TData, TValue>({
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              table.getRowModel().rows.map((row) => {
+                const selected = isRowSelected?.(row.original) ?? row.getIsSelected()
+                return (
+                  <TableRow
+                    key={row.id}
+                    data-state={selected ? "selected" : undefined}
+                    // 누를 수 있는 행에만 커서와 hover를 준다 — 반응하지 않는 표에서 손 모양이
+                    // 뜨면 눌러도 아무 일이 없는 것처럼 보인다.
+                    className={
+                      onRowClick
+                        ? "cursor-pointer data-[state=selected]:bg-primary/10"
+                        : undefined
+                    }
+                    tabIndex={onRowClick ? 0 : undefined}
+                    onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                    onKeyDown={
+                      onRowClick
+                        ? (e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault()
+                              onRowClick(row.original)
+                            }
+                          }
+                        : undefined
+                    }
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                )
+              })
             ) : (
               <TableRow>
                 <TableCell
