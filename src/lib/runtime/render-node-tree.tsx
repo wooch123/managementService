@@ -32,7 +32,16 @@ const SELF_SURFACED = new Set(['card', 'alert']);
  * 입력값 추적을 연결하고, 없으면(빌더 캔버스) 지금까지처럼 정적으로 렌더한다.
  */
 export function renderNodeTree(nodes: NodeDto[], parentId: string | null = null, hooks?: RuntimeHooks): React.ReactNode {
-  const children = nodes.filter((n) => n.parentNodeId === parentId).sort((a, b) => a.order - b.order);
+  const children = nodes.filter((n) => n.parentNodeId === parentId);
+  // 최상위는 **보이는 순서**(위→아래, 왼쪽→오른쪽)로 그린다. 그리드에 좌표를 직접 지정하므로
+  // 넓은 화면에서는 DOM 순서가 배치를 바꾸지 않지만, 폭이 좁아 한 줄씩 쌓일 때는 DOM 순서가
+  // 곧 화면 순서가 된다 — order가 배치 순서와 어긋난 페이지(fa-assign·tips)에서 실제로 달라진다.
+  // 탭 이동 순서도 이 편이 화면과 일치한다.
+  if (parentId === null) {
+    children.sort((a, b) => a.grid.row - b.grid.row || a.grid.col - b.grid.col || a.order - b.order);
+  } else {
+    children.sort((a, b) => a.order - b.order);
+  }
 
   return children.map((node) => {
     const def = getComponentDef(node.type);
@@ -59,13 +68,16 @@ export function renderNodeTree(nodes: NodeDto[], parentId: string | null = null,
     return (
       <div
         key={node.id}
-        className={isRoot ? 'min-h-0' : undefined}
+        className={isRoot ? 'runtime-cell min-h-0 min-w-0' : undefined}
         style={
           isRoot
-            ? {
+            ? ({
                 gridColumn: `${node.grid.col} / span ${node.grid.span}`,
                 gridRow: `${node.grid.row} / span ${node.grid.rowSpan}`,
-              }
+                // 폭이 좁아 한 줄씩 쌓일 때 설계한 높이를 최소 높이로 되살리는 데 쓴다
+                // (globals.css의 .runtime-grid 좁은 폭 규칙이 읽는다).
+                '--rt-span-y': String(node.grid.rowSpan),
+              } as React.CSSProperties)
             : undefined
         }
       >

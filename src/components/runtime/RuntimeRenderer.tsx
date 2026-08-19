@@ -98,10 +98,24 @@ export function RuntimeRenderer({
     // 사이드바에 붙여 좌측 정렬하고, 남는 여백은 오른쪽에 둔다. 우측 지표 패널은 본문 바로
     // 옆에 붙어 함께 움직인다(뷰포트 오른쪽 끝에 고정하지 않는다).
     <div className="flex w-full max-w-[1760px] gap-6">
-      <div className="w-full min-w-0 max-w-[1200px] flex-1">
+      {/* runtime-grid-wrap: 좁은 폭 규칙의 기준이 되는 컨테이너. 뷰포트가 아니라 **본문이 실제로
+          쓸 수 있는 폭**을 기준으로 판단해야 한다 — 사이드바가 열려 있느냐에 따라 같은 창 크기에서도
+          본문 폭이 크게 달라지기 때문이다(globals.css 참고). */}
+      <div className="runtime-grid-wrap w-full min-w-0 max-w-[1200px] flex-1">
         <div
-          className="grid gap-4"
-          style={{ gridTemplateColumns: `repeat(${cols}, 1fr)`, gridAutoRows: `${rowHeight}px`, gap }}
+          className="runtime-grid grid gap-4"
+          style={
+            {
+              gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+              // 내용이 배정된 줄보다 커지면 줄을 늘려 아래를 밀어낸다. 고정 높이(`8px`)로 두면
+              // 넘친 내용이 아래 컴포넌트 위에 그대로 겹쳐 그려진다 — 폭이 좁아 글이 여러 줄로
+              // 접힐 때 실제로 그랬다.
+              gridAutoRows: `minmax(${rowHeight}px, auto)`,
+              gap,
+              '--rt-row-h': `${rowHeight}px`,
+              '--rt-gap': `${gap}px`,
+            } as React.CSSProperties
+          }
         >
           {renderNodeTree(mainNodes as unknown as NodeDto[], null, hooks)}
         </div>
@@ -111,8 +125,16 @@ export function RuntimeRenderer({
         <aside className="hidden w-[300px] shrink-0 lg:block">
           <div className="sticky top-0 rounded-xl border bg-card/80 p-3 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-card/60">
             <div
-              className="grid"
-              style={{ gridTemplateColumns: `repeat(${cols}, 1fr)`, gridAutoRows: `${rowHeight}px`, gap: ASIDE_GAP }}
+              className="runtime-grid grid"
+              style={
+                {
+                  gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+                  gridAutoRows: `minmax(${rowHeight}px, auto)`,
+                  gap: ASIDE_GAP,
+                  '--rt-row-h': `${rowHeight}px`,
+                  '--rt-gap': `${ASIDE_GAP}px`,
+                } as React.CSSProperties
+              }
             >
               {renderNodeTree(asideNodes as unknown as NodeDto[], null, hooks)}
             </div>

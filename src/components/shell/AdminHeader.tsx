@@ -27,7 +27,12 @@ export async function AdminHeader({ pageLabel }: { pageLabel: string }) {
         <>
           <Stepper validationBadge={validationBadge} canDeploy={canDeploy} />
           <ThemeToggleButton />
-          <Badge variant="outline" title="P8(배포 파이프라인) 이전에는 직전 배포 대비 변경분을 계산할 리비전이 없어 임시로 드래프트 존재 여부만 표시합니다">
+          {/* 정보성 표시라 자리가 빠듯하면 가장 먼저 접는다 — 단계 이동과 테마 버튼이 우선이다. */}
+          <Badge
+            variant="outline"
+            className="hidden whitespace-nowrap xl:inline-flex"
+            title="P8(배포 파이프라인) 이전에는 직전 배포 대비 변경분을 계산할 리비전이 없어 임시로 드래프트 존재 여부만 표시합니다"
+          >
             드래프트 {hasDraftContent ? '변경 있음' : '변경 0건'}
           </Badge>
         </>

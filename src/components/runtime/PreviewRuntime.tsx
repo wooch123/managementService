@@ -88,10 +88,18 @@ export function PreviewRuntime({
   // 운영 화면(RuntimeRenderer)과 같은 2단 구성(좌측 정렬 + 우측 패널) — 미리보기도 동일하게 보여야 한다.
   return (
     <div className="flex w-full max-w-[1760px] gap-6">
-      <div className="w-full min-w-0 max-w-[1200px] flex-1">
+      <div className="runtime-grid-wrap w-full min-w-0 max-w-[1200px] flex-1">
         <div
-          className="grid gap-4"
-          style={{ gridTemplateColumns: 'repeat(12, 1fr)', gridAutoRows: `${rowHeight}px`, gap }}
+          className="runtime-grid grid gap-4"
+          style={
+            {
+              gridTemplateColumns: 'repeat(12, minmax(0, 1fr))',
+              gridAutoRows: `minmax(${rowHeight}px, auto)`,
+              gap,
+              '--rt-row-h': `${rowHeight}px`,
+              '--rt-gap': `${gap}px`,
+            } as React.CSSProperties
+          }
         >
           {renderNodeTree(mainNodes, null, hooks)}
         </div>
@@ -100,8 +108,16 @@ export function PreviewRuntime({
         <aside className="hidden w-[300px] shrink-0 lg:block">
           <div className="sticky top-0 rounded-xl border bg-card/80 p-3 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-card/60">
             <div
-              className="grid"
-              style={{ gridTemplateColumns: 'repeat(12, 1fr)', gridAutoRows: `${rowHeight}px`, gap: ASIDE_GAP }}
+              className="runtime-grid grid"
+              style={
+                {
+                  gridTemplateColumns: 'repeat(12, minmax(0, 1fr))',
+                  gridAutoRows: `minmax(${rowHeight}px, auto)`,
+                  gap: ASIDE_GAP,
+                  '--rt-row-h': `${rowHeight}px`,
+                  '--rt-gap': `${ASIDE_GAP}px`,
+                } as React.CSSProperties
+              }
             >
               {renderNodeTree(asideNodes, null, hooks)}
             </div>

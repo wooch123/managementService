@@ -71,14 +71,16 @@ function PeriodFilterBar({
   const activePreset = resolved?.preset ?? null;
 
   return (
-    <div className="flex h-full flex-wrap items-center gap-x-3 gap-y-2">
-      <div className="flex items-center gap-1.5 text-sm font-medium">
+    // 폭이 좁아지면 줄바꿈으로 흘러내린다. 바깥 칸(runtime-cell)이 내용만큼 늘어나므로
+    // 줄이 늘어도 아래 컴포넌트를 덮지 않는다(globals.css의 좁은 폭 규칙).
+    <div className="flex h-full min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+      <div className="flex shrink-0 items-center gap-1.5 text-sm font-medium">
         <CalendarRange className="size-4 text-muted-foreground" />
         {title}
       </div>
 
       {showPresets && (
-        <div className="flex flex-wrap items-center gap-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-1">
           {PERIOD_PRESETS.map((preset) => (
             <Button
               key={preset.key}
@@ -93,14 +95,16 @@ function PeriodFilterBar({
         </div>
       )}
 
-      {showPresets && showCustom && <Separator orientation="vertical" className="hidden h-6 sm:block" />}
+      {/* 한 줄에 다 들어가는 넓이에서만 구분선을 둔다 — 줄바꿈이 일어나면 선만 덩그러니 남는다. */}
+      {showPresets && showCustom && <Separator orientation="vertical" className="hidden h-6 lg:block" />}
 
       {showCustom && (
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          {/* 폭이 모자라면 날짜 칸이 먼저 줄어들되(min-w) 읽을 수 있는 선은 지킨다. */}
           <Input
             type="date"
             aria-label="시작일"
-            className="h-8 w-[150px]"
+            className="h-8 w-[150px] min-w-[130px] flex-1"
             value={from}
             max={to || undefined}
             onChange={(e) => setFrom(e.target.value)}
@@ -109,7 +113,7 @@ function PeriodFilterBar({
           <Input
             type="date"
             aria-label="종료일"
-            className="h-8 w-[150px]"
+            className="h-8 w-[150px] min-w-[130px] flex-1"
             value={to}
             min={from || undefined}
             onChange={(e) => setTo(e.target.value)}
@@ -125,7 +129,8 @@ function PeriodFilterBar({
         </div>
       )}
 
-      <div className={cn('ml-auto text-xs text-muted-foreground tabular-nums', pending && 'opacity-50')}>
+      {/* 지금 적용된 기간은 날짜 입력칸이 이미 같은 값을 보여주므로, 자리가 빠듯하면 감춘다. */}
+      <div className={cn('ml-auto hidden text-xs text-muted-foreground tabular-nums lg:block', pending && 'opacity-50')}>
         {resolved ? (resolved.from || resolved.to ? `${resolved.from ?? '처음'} ~ ${resolved.to ?? '오늘'}` : '전체 기간') : null}
       </div>
     </div>

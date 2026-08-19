@@ -553,10 +553,12 @@ export const dataDisplayComponents = [
           <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
             {bars.map((b, i) => (
               <div key={`${b.label}-${i}`} className="flex items-center gap-2 text-xs">
-                <span className="w-32 shrink-0 truncate text-muted-foreground" title={b.label}>
+                {/* 폭이 좁으면 항목명을 줄이고 오른쪽 날짜 칸은 접는다 — 셋을 다 펼치면 최소 304px가
+                    필요해 320px 창에서 막대가 카드 밖으로 밀려났다. 전체 구간은 아래 눈금이 보여준다. */}
+                <span className="w-20 shrink-0 truncate text-muted-foreground sm:w-32" title={b.label}>
                   {b.label}
                 </span>
-                <span className="relative h-4 flex-1 rounded bg-muted">
+                <span className="relative h-4 min-w-0 flex-1 rounded bg-muted">
                   <span
                     className="absolute top-0 h-4 rounded bg-primary"
                     style={{
@@ -569,7 +571,7 @@ export const dataDisplayComponents = [
                     <span className="absolute top-0 h-4 w-px bg-destructive" style={{ left: `${pct(today)}%` }} />
                   )}
                 </span>
-                <span className="w-40 shrink-0 tabular-nums text-muted-foreground">
+                <span className="hidden w-40 shrink-0 tabular-nums text-muted-foreground sm:block">
                   {fmtDate(b.start)} ~ {fmtDate(b.end)}
                 </span>
               </div>

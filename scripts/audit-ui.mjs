@@ -16,9 +16,15 @@ const { chromium } = require('@playwright/test');
 import { IN_PAGE } from './ui-audit-rules.mjs';
 
 const BASE = process.argv[2] ?? 'http://localhost:3100';
+// 넓은 화면뿐 아니라 **창을 극단적으로 좁혔을 때**도 본다 — 12칼럼 배치가 한 줄씩 쌓이는 구간
+// (본문 폭 600px 이하)과 그 경계 바로 위를 함께 확인해야 무너지는 지점을 잡을 수 있다.
 const VIEWPORTS = [
   { name: '데스크톱 1600', width: 1600, height: 1000 },
   { name: '노트북 1280', width: 1280, height: 800 },
+  { name: '좁은 창 1024', width: 1024, height: 900 },
+  { name: '태블릿 768', width: 768, height: 1000 },
+  { name: '모바일 375', width: 375, height: 812 },
+  { name: '극단 320', width: 320, height: 700 },
 ];
 
 

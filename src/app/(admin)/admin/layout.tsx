@@ -27,7 +27,9 @@ export default async function AdminLayout({
         siteTitle={settings.siteTitle}
         siteSubtitle={settings.siteSubtitle}
       />
-      <SidebarInset className="min-h-0">{children}</SidebarInset>
+      {/* min-w-0: 안쪽 내용이 넓어도 본문이 사이드바를 밀어내며 창 밖으로 나가지 않게 한다
+          (flex 자식의 기본 min-width는 auto라 최소 내용 폭만큼 벌어진다). */}
+      <SidebarInset className="min-h-0 min-w-0">{children}</SidebarInset>
     </SidebarProvider>
   );
 }

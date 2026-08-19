@@ -111,7 +111,8 @@ export default async function HomePage({
   return (
     <>
       <AppHeader breadcrumbItems={breadcrumbItems} />
-      <div className="flex-1 overflow-y-auto p-6">
+      {/* 폭이 좁을수록 여백을 줄인다 — 320px 창에서 좌우 24px씩은 본문의 15%를 먹는다. */}
+      <div className="flex-1 overflow-y-auto p-3 sm:p-6">
         <RuntimeRenderer
           nodes={activePage.nodes}
           bindingData={bindingData}

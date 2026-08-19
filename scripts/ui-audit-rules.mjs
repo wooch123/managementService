@@ -76,6 +76,31 @@ export const IN_PAGE = () => {
     if (hasOwnText && /hidden|clip/.test(cs.overflowX) && el.scrollWidth > el.clientWidth + TOL && cs.textOverflow !== 'ellipsis') {
       push('말줄임 없이 잘린 글자', el, `${el.scrollWidth - el.clientWidth}px 넘침`);
     }
+
+    // 3-1) 세로 스크롤 영역이 가로로도 밀려남.
+    //
+    // WHY: 문서 전체(1번)만 보면 놓친다 — 본문이 `overflow-y: auto`인 스크롤 영역 안에 있으면
+    //      넘친 내용이 문서가 아니라 **그 영역 안에서** 옆으로 밀리고, 화면에는 그냥 잘려 보인다.
+    //      실제로 좁은 폭에서 카드가 통째로 잘려 나가는데도 문서 폭은 뷰포트와 같아 통과했다.
+    //      표처럼 가로 스크롤이 설계인 요소(overflow-x-* 를 직접 지정)는 제외한다.
+    if (/auto|scroll/.test(cs.overflowX) && el.scrollWidth > el.clientWidth + TOL) {
+      const cls = typeof el.className === 'string' ? el.className : '';
+      if (!/overflow-x-(auto|scroll)/.test(cls)) {
+        push('가로로 밀려남(내부 스크롤)', el, `내용 ${el.scrollWidth} > 보이는 폭 ${el.clientWidth}`);
+      }
+    }
+  }
+
+  // 3-2) 그리드 칸이 그리드보다 넓어짐 — 트랙 최소 크기(`1fr` = `minmax(auto, 1fr)`)를 내용이
+  //      밀어 넓히면 칸이 화면 밖으로 나간다. 좁은 폭에서만 드러나므로 따로 본다.
+  for (const grid of document.querySelectorAll('.runtime-grid')) {
+    const gr = grid.getBoundingClientRect();
+    for (const cell of grid.children) {
+      const r = cell.getBoundingClientRect();
+      if (r.width > gr.width + TOL) {
+        push('그리드 칸이 그리드보다 넓음', cell, `칸 ${Math.round(r.width)} > 그리드 ${Math.round(gr.width)}`);
+      }
+    }
   }
 
   // 4) 같은 행 카드의 오와 열 + 5) 겹침

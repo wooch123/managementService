@@ -110,7 +110,9 @@ export function AppSidebar({
             8px 왼쪽으로 치우친다(레일 48px vs 버튼 32px). 접힘 상태에서는 명시적으로 가운데
             정렬도 걸어 둔다. */}
         <SidebarGroup>
-          <SidebarMenu className="group-data-[collapsible=icon]:items-center">
+          {/* 항목 사이를 살짝 띄운다 — shadcn 기본값은 gap-0이라 메뉴가 서로 붙어 한 덩어리로
+              읽힌다. 하위 메뉴(gap-1)와 같은 리듬을 주되 목록이 길어져도 부담스럽지 않은 선. */}
+          <SidebarMenu className="gap-1 group-data-[collapsible=icon]:items-center">
             {pages.map((page) => (
               <PageMenuItem key={page.id} node={page} hrefFor={hrefFor} isActive={isActive} />
             ))}
