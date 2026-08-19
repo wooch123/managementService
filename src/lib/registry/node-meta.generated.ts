@@ -1090,6 +1090,22 @@ export const nodeMeta: Record<string, NodeMeta> = {
     "bindingModes": [],
     "events": []
   },
+  "date-range-filter": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 3
+    },
+    "defaultProps": {
+      "title": "조회 기간",
+      "defaultPreset": "3m",
+      "showPresets": true,
+      "showCustom": true
+    },
+    "bindingModes": [],
+    "events": []
+  },
   "stat-histogram": {
     "isContainer": false,
     "allowedChildren": null,
@@ -1298,7 +1314,8 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "yLabel": ""
     },
     "bindingModes": [
-      "list"
+      "list",
+      "group"
     ],
     "events": []
   },

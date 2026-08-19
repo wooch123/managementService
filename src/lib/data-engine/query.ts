@@ -9,6 +9,24 @@ import type { Entity, Field } from '@prisma/client';
 export type ResolvedEntity = Entity & { fields: Field[] };
 
 /**
+ * 조회 결과의 컬럼 설명. `implicit`은 관리자가 고른 필드가 아니라 엔진이 끼워 넣은 컬럼(모든
+ * 테이블의 `id`)을 뜻한다 — 차트/표는 이 플래그로 "관리자가 고른 컬럼"만 골라낸다.
+ *
+ * WHY: 예전에는 `fieldId === null`을 그 표식으로 썼는데, group 바인딩의 값 컬럼도 개수(count)
+ * 집계일 때는 대응하는 필드가 없어 fieldId가 null이었다. 그래서 차트가 값 컬럼을 "내 것이 아닌
+ * 컬럼"으로 보고 버린 뒤 라벨 개수를 세어, 항목별 집계 막대가 전부 1로 그려졌다(2026-08-19 발견:
+ * 운영 대시보드의 제품군별/Fail Mode별/고객사별 차트 3종). 표식을 명시 플래그로 분리한다.
+ */
+export type ResultColumn = { columnName: string; fieldId: string | null; dataType: DataType; implicit?: boolean };
+
+/** 항목별 집계에서 분류 축을 날짜 버킷으로 묶는 방식. SQL 조각이 고정 문자열이라 사용자 입력이 SQL에 닿지 않는다. */
+const GROUP_TRANSFORM_FORMAT: Record<'month' | 'week' | 'year', string> = {
+  month: '%Y-%m',
+  week: '%Y-W%W',
+  year: '%Y',
+};
+
+/**
  * §6.4 "쿼리 빌더 규칙": entityId/fieldId는 반드시 활성 스펙(meta.db)에서 조회해 실제
  * 테이블명/컬럼명으로 치환한다. 치환에 실패하면 쿼리를 만들지 않고 에러를 던진다.
  * 클라이언트가 보낸 테이블/컬럼 이름 문자열은 이 함수들을 거치지 않고는 SQL에 닿지 않는다.
@@ -84,9 +102,9 @@ export function buildOrderClause(entity: ResolvedEntity, sort: Sort[]): string {
   return `ORDER BY ${parts.join(', ')}`;
 }
 
-function resolveSelectColumns(entity: ResolvedEntity, select: string[]): { columnName: string; fieldId: string | null; dataType: DataType }[] {
-  const cols: { columnName: string; fieldId: string | null; dataType: DataType }[] = [
-    { columnName: 'id', fieldId: null, dataType: 'TEXT' },
+function resolveSelectColumns(entity: ResolvedEntity, select: string[]): ResultColumn[] {
+  const cols: ResultColumn[] = [
+    { columnName: 'id', fieldId: null, dataType: 'TEXT', implicit: true },
   ];
   for (const fieldId of select) {
     const field = resolveField(entity, fieldId);
@@ -146,6 +164,10 @@ export async function runAggregateQuery(binding: Extract<BindingSpec, { mode: 'a
  *
  * 결과를 list 조회와 같은 봉투({ rows, columns, total })로 돌려준다. 차트 컴포넌트들이 이미
  * "첫 텍스트 컬럼 = 라벨, 첫 숫자 컬럼 = 값"으로 해석하므로, 컴포넌트를 고치지 않고도 그대로 그려진다.
+ *
+ * `groupTransform`을 주면 분류 축을 날짜 버킷(월·주·연)으로 묶는다 — 추이 차트를 미리 집계해 둔
+ * 별도 테이블이 아니라 원본 테이블에서 바로 파생시키기 위한 것이다. 그래야 조회 기간을 바꿀 때
+ * 추이도 같이 따라온다(미리 집계한 표는 만들어 둔 구간만 갖고 있어 기간 선택에 반응하지 못한다).
  */
 export async function runGroupQuery(
   binding: Extract<BindingSpec, { mode: 'group' }>,
@@ -156,7 +178,13 @@ export async function runGroupQuery(
   const { sql: whereSql, params } = buildWhereClause(entity, binding.filters);
   const db = getAppDb();
   const table = quoteIdent(entity.tableName);
-  const groupCol = quoteIdent(groupField.columnName);
+  const transform = binding.groupTransform ?? 'none';
+  // strftime 서식 문자열은 위 상수 표에서만 나온다(열거형 → 고정 문자열). 컬럼명은 quoteIdent를
+  // 거치므로, 이 식에도 사용자 입력이 문자열로 끼어들 자리가 없다.
+  const groupExpr =
+    transform === 'none'
+      ? quoteIdent(groupField.columnName)
+      : `strftime('${GROUP_TRANSFORM_FORMAT[transform]}', ${quoteIdent(groupField.columnName)})`;
 
   let valueExpr = 'COUNT(*)';
   if (binding.fn !== 'count') {
@@ -165,13 +193,18 @@ export async function runGroupQuery(
     valueExpr = `${binding.fn.toUpperCase()}(${quoteIdent(valueField.columnName)})`;
   }
   // 정렬 기준은 열거형이라 값이 고정돼 있다(사용자 입력이 SQL에 직접 들어가지 않는다).
-  const orderSql = binding.orderBy === 'label' ? `ORDER BY ${groupCol} ASC` : 'ORDER BY "value" DESC';
+  const orderSql = binding.orderBy === 'label' ? `ORDER BY "label" ASC` : 'ORDER BY "value" DESC';
+  const inner = `SELECT ${groupExpr} AS "label", ${valueExpr} AS "value" FROM ${table} ${whereSql} GROUP BY ${groupExpr}`;
 
-  const rows = db
-    .prepare(
-      `SELECT ${groupCol} AS "label", ${valueExpr} AS "value" FROM ${table} ${whereSql} GROUP BY ${groupCol} ${orderSql} LIMIT ?`
-    )
-    .all(...params, binding.limit) as { label: unknown; value: number }[];
+  // 시계열(날짜 버킷 + 시간순)에서 상한에 걸리면 **오래된 쪽이 아니라 최근 쪽**을 남긴다.
+  // 그냥 `ORDER BY label ASC LIMIT n`으로 자르면 기간이 넓을 때 가장 오래된 n개만 그려져
+  // "최근 추이"를 보러 온 화면이 과거만 보여준다.
+  const sql =
+    transform !== 'none' && binding.orderBy === 'label'
+      ? `SELECT "label", "value" FROM (${inner} ORDER BY "label" DESC LIMIT ?) ORDER BY "label" ASC`
+      : `${inner} ${orderSql} LIMIT ?`;
+
+  const rows = db.prepare(sql).all(...params, binding.limit) as { label: unknown; value: number }[];
 
   return {
     rows: rows.map((r) => ({ label: r.label ?? '(없음)', value: r.value })),
@@ -179,7 +212,7 @@ export async function runGroupQuery(
     columns: [
       { columnName: 'label', fieldId: binding.groupFieldId, dataType: 'TEXT' as DataType },
       { columnName: 'value', fieldId: binding.valueFieldId ?? null, dataType: 'REAL' as DataType },
-    ],
+    ] satisfies ResultColumn[],
   };
 }
 

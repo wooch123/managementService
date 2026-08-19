@@ -1,7 +1,11 @@
 import 'server-only';
 import { runListQuery, runAggregateQuery, runGroupQuery, runSingleQuery, type ResolvedEntity } from '@/lib/data-engine/query';
-import type { BindingSpec } from '@/types/binding';
+import { isIsoDate } from '@/lib/period';
+import type { BindingSpec, Filter } from '@/types/binding';
 import type { ComponentNodeSpec, PublishedSpec } from '@/types/spec';
+
+/** 주소의 쿼리에서 온 값들 — 바인딩 필터가 `source: 'query'` + `ref`로 이름을 지목해 쓴다. */
+export type RuntimeParams = Record<string, string>;
 
 /** §10.7 nodeId → 활성 스펙의 노드. 클라이언트가 보낸 nodeId 자체는 그저 조회 키일 뿐이고,
  * 실제 쿼리에 쓰이는 테이블/컬럼명은 이 노드의 binding을 거쳐서만 나온다. */
@@ -23,25 +27,68 @@ export function findPublishedEntity(spec: PublishedSpec, entityId: string): Reso
   return entity as unknown as ResolvedEntity;
 }
 
+/**
+ * 하루 전체를 포함하도록 상한을 그 날의 끝으로 올린다.
+ *
+ * WHY: 기간 필터가 주는 값은 '2026-08-19' 같은 날짜다. 대상 컬럼이 DATETIME이면 저장된 값이
+ * '2026-08-19T22:38:44.039Z'라 `<= '2026-08-19'` 비교에서 그날 하루가 통째로 빠진다.
+ * 날짜(DATE) 컬럼은 값이 그대로 'YYYY-MM-DD'라 손댈 필요가 없다.
+ */
+function upperBoundFor(entity: ResolvedEntity, filter: Filter, value: string): string {
+  if (filter.op !== 'lte' || !isIsoDate(value)) return value;
+  const field = entity.fields.find((f) => f.id === filter.fieldId);
+  return field?.dataType === 'DATETIME' ? `${value}T23:59:59.999Z` : value;
+}
+
+/**
+ * 필터의 값 소스를 실제 값으로 바꾼다 — §6.4 필터 `source`의 실행부.
+ *
+ * - `fixed`   : 설계에 박아 둔 값을 그대로.
+ * - `query`   : 주소의 쿼리에서 `ref` 이름으로 가져온다. **값이 없으면 조건 자체를 빼버린다** —
+ *               비어 있는 값을 그대로 바인딩하면 "아무것도 해당하지 않음"이 되어, 기간을 안 고른
+ *               사용자에게 빈 화면을 보여주게 된다. 조건을 빼는 쪽이 "제한 없음"이라는 의도에 맞다.
+ * - `component`: 서버가 초기 데이터를 만드는 시점에는 화면 입력값이 아직 없으므로 역시 뺀다.
+ */
+export function resolveRuntimeFilters(entity: ResolvedEntity, filters: Filter[], params: RuntimeParams): Filter[] {
+  const resolved: Filter[] = [];
+  for (const filter of filters) {
+    if (filter.source === 'fixed') {
+      resolved.push(filter);
+      continue;
+    }
+    if (filter.source === 'query') {
+      const raw = filter.ref ? params[filter.ref] : undefined;
+      if (raw === undefined || raw === '') continue;
+      resolved.push({ ...filter, value: upperBoundFor(entity, filter, raw) });
+    }
+  }
+  return resolved;
+}
+
 /** 노드 하나의 바인딩을 실제로 실행해 초기 렌더에 필요한 데이터를 만든다 — §12.2 "바인딩
  * 데이터는 서버에서 미리 조회해 초기 렌더에 포함한다"의 실행부. static/field 모드는 여기서
  * 조회할 게 없다(field는 컴포넌트 자신의 현재 값이라 런타임 상태로 다룬다). */
-export async function resolveBindingData(spec: PublishedSpec, binding: BindingSpec | null, page = 1): Promise<unknown> {
+export async function resolveBindingData(
+  spec: PublishedSpec,
+  binding: BindingSpec | null,
+  page = 1,
+  params: RuntimeParams = {}
+): Promise<unknown> {
   if (!binding || binding.mode === 'static' || binding.mode === 'field') return null;
 
   try {
     if (binding.mode === 'list') {
       const entity = findPublishedEntity(spec, binding.entityId);
-      return await runListQuery(binding, page, entity);
+      return await runListQuery({ ...binding, filters: resolveRuntimeFilters(entity, binding.filters, params) }, page, entity);
     }
     if (binding.mode === 'group') {
       // 항목별 집계는 DB가 전부 세어 결과만 돌려준다(원시 행을 표본으로 가져오지 않는다).
       const entity = findPublishedEntity(spec, binding.entityId);
-      return await runGroupQuery(binding, entity);
+      return await runGroupQuery({ ...binding, filters: resolveRuntimeFilters(entity, binding.filters, params) }, entity);
     }
     if (binding.mode === 'aggregate') {
       const entity = findPublishedEntity(spec, binding.entityId);
-      return await runAggregateQuery(binding, entity);
+      return await runAggregateQuery({ ...binding, filters: resolveRuntimeFilters(entity, binding.filters, params) }, entity);
     }
     if (binding.mode === 'single') {
       if (binding.keySource !== 'fixed' || !binding.keyValue) return null; // route/selection은 클라이언트에서 §10.7 재조회

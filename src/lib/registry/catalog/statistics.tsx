@@ -23,6 +23,7 @@ import {
 } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { categoricalXAxisProps, yAxisLabelProps } from '@/lib/chart-axis';
+import { asSeriesResult, isNumericColumn, selectedColumns, toLabelValueSeries, type SeriesResult } from '@/lib/chart-series';
 import { defineComponent } from '@/lib/registry/types';
 import {
   boxStats,
@@ -58,22 +59,11 @@ const chartConfig = {
   limit: { label: '한계선', color: 'var(--chart-5)' },
 } satisfies ChartConfig;
 
-type ResultColumn = { columnName: string; fieldId: string | null; dataType: string };
-type ResultRow = Record<string, unknown>;
-type ListResult = { rows: ResultRow[]; columns: ResultColumn[] };
+type ListResult = SeriesResult;
 
-const NUMERIC = new Set(['INTEGER', 'REAL']);
-
-function asList(data: unknown): ListResult | null {
-  if (!data || typeof data !== 'object') return null;
-  const { rows, columns } = data as Partial<ListResult>;
-  if (!Array.isArray(rows) || !Array.isArray(columns)) return null;
-  return { rows, columns };
-}
-
-const selected = (r: ListResult) => r.columns.filter((c) => c.fieldId !== null);
-const labelColumn = (r: ListResult) => selected(r).find((c) => !NUMERIC.has(c.dataType));
-const numericColumns = (r: ListResult) => selected(r).filter((c) => NUMERIC.has(c.dataType));
+const asList = asSeriesResult;
+const labelColumn = (r: ListResult) => selectedColumns(r.columns).find((c) => !isNumericColumn(c));
+const numericColumns = (r: ListResult) => selectedColumns(r.columns).filter(isNumericColumn);
 
 /** 첫 번째 숫자 컬럼의 값들 */
 function numbers(data: unknown): number[] {
@@ -84,26 +74,8 @@ function numbers(data: unknown): number[] {
   return r.rows.map((row) => Number(row[col.columnName])).filter((v) => Number.isFinite(v));
 }
 
-/** 라벨 + 첫 숫자 컬럼. 숫자 컬럼이 없으면 라벨별 건수를 센다. */
-function series(data: unknown): { label: string; value: number }[] {
-  const r = asList(data);
-  if (!r) return [];
-  const label = labelColumn(r);
-  const num = numericColumns(r)[0];
-  if (!label) return [];
-  if (!num) {
-    const counts = new Map<string, number>();
-    for (const row of r.rows) {
-      const key = String(row[label.columnName] ?? '-');
-      counts.set(key, (counts.get(key) ?? 0) + 1);
-    }
-    return [...counts].map(([l, v]) => ({ label: l, value: v }));
-  }
-  return r.rows.map((row) => ({
-    label: String(row[label.columnName] ?? '-'),
-    value: Number(row[num.columnName] ?? 0),
-  }));
-}
+/** 라벨 + 첫 숫자 컬럼. 규칙은 lib/chart-series.ts에 한 벌만 둔다. */
+const series = toLabelValueSeries;
 
 /** 숫자 컬럼 2~3개 → 산점/버블용 좌표 */
 function points(data: unknown): { x: number; y: number; z: number; label: string }[] {
@@ -576,7 +548,9 @@ const movingAverageChart = defineComponent({
   icon: 'chart-spline',
   description: '원본 시계열 + n점 이동평균',
   isContainer: false,
-  bindingModes: ['list'],
+  // group 모드도 받는다 — 시점별 집계를 DB가 직접 계산해 주면(원시 행 표본이 아니라) 값이 정확하고,
+  // 날짜 버킷(월/주)을 쓰면 조회 기간을 바꿀 때 시계열도 함께 따라온다.
+  bindingModes: ['list', 'group'],
   events: [],
   propsSchema: z.object({ title: z.string().default('이동평균 추이'), window: z.number().min(2).max(30).default(5), yLabel: z.string().default('') }),
   defaultProps: { title: '이동평균 추이', window: 5, yLabel: '' },

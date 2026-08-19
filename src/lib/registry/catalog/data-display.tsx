@@ -41,6 +41,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Inbox } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { categoricalXAxisProps, yAxisLabelProps } from '@/lib/chart-axis';
+import { asSeriesResult, selectedColumns, toLabelValueSeries } from '@/lib/chart-series';
 import { defineComponent, type ComponentDef } from '@/lib/registry/types';
 
 const chartConfig = { value: { label: '값', color: 'var(--primary)' } } satisfies ChartConfig;
@@ -50,54 +51,14 @@ const sampleChartData = [
   { label: '3월', value: 8 },
 ];
 
-const NUMERIC_DATA_TYPES = new Set(['INTEGER', 'REAL']);
-
 function formatChartNumber(value: number): string {
   return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 2 }).format(value);
 }
 
-/**
- * list 바인딩 결과(runListQuery의 { rows, columns })를 recharts가 먹는 { label, value } 배열로
- * 바꾼다. 숫자 컬럼이 있으면 그 값을, 없으면 카테고리별 건수를 쓴다. 바인딩이 없거나(null)
- * 모양이 다르면 빈 배열을 돌려주고, 호출부가 "데이터 없음"으로 렌더한다.
- */
-function toChartSeries(data: unknown): { label: string; value: number }[] {
-  if (!data || typeof data !== 'object') return [];
-  const { rows, columns } = data as {
-    rows?: Record<string, unknown>[];
-    columns?: { columnName: string; fieldId: string | null; dataType: string }[];
-  };
-  if (!Array.isArray(rows) || !Array.isArray(columns)) return [];
+/** 조회 결과 → { label, value } 배열. 규칙은 lib/chart-series.ts에 한 벌만 둔다. */
+const toChartSeries = toLabelValueSeries;
 
-  const selected = columns.filter((c) => c.fieldId !== null);
-  const labelCol = selected.find((c) => !NUMERIC_DATA_TYPES.has(c.dataType));
-  const valueCol = selected.find((c) => NUMERIC_DATA_TYPES.has(c.dataType));
-  if (!labelCol) return [];
-
-  if (!valueCol) {
-    const counts = new Map<string, number>();
-    for (const row of rows) {
-      const label = String(row[labelCol.columnName] ?? '-');
-      counts.set(label, (counts.get(label) ?? 0) + 1);
-    }
-    return [...counts].map(([label, value]) => ({ label, value }));
-  }
-
-  return rows.map((row) => ({
-    label: String(row[labelCol.columnName] ?? '-'),
-    value: Number(row[valueCol.columnName] ?? 0),
-  }));
-}
-
-type ResultColumn = { columnName: string; fieldId: string | null; dataType: string };
-
-/** list 바인딩 결과를 안전하게 꺼낸다(바인딩이 없거나 모양이 다르면 null). */
-function asListResult(data: unknown): { rows: Record<string, unknown>[]; columns: ResultColumn[] } | null {
-  if (!data || typeof data !== 'object') return null;
-  const { rows, columns } = data as { rows?: Record<string, unknown>[]; columns?: ResultColumn[] };
-  if (!Array.isArray(rows) || !Array.isArray(columns)) return null;
-  return { rows, columns };
-}
+const asListResult = asSeriesResult;
 
 const DATE_TYPES = new Set(['DATE', 'DATETIME']);
 const NUMERIC_TYPES = new Set(['INTEGER', 'REAL']);
@@ -115,7 +76,7 @@ const fmtDate = (d: Date) =>
 function toGanttBars(data: unknown): { label: string; start: Date; end: Date }[] {
   const r = asListResult(data);
   if (!r) return [];
-  const selected = r.columns.filter((c) => c.fieldId !== null);
+  const selected = selectedColumns(r.columns);
   const dateCols = selected.filter((c) => DATE_TYPES.has(c.dataType));
   const labelCol = selected.find((c) => !DATE_TYPES.has(c.dataType) && !NUMERIC_TYPES.has(c.dataType)) ?? selected[0];
   if (!labelCol || dateCols.length === 0) return [];
@@ -137,7 +98,7 @@ function toGanttBars(data: unknown): { label: string; start: Date; end: Date }[]
 function toKanbanBoard(data: unknown): { column: string; cards: { title: string; meta: string[] }[] }[] {
   const r = asListResult(data);
   if (!r) return [];
-  const selected = r.columns.filter((c) => c.fieldId !== null);
+  const selected = selectedColumns(r.columns);
   const groupCol = selected.find((c) => c.dataType === 'ENUM') ?? selected.find((c) => !NUMERIC_TYPES.has(c.dataType));
   if (!groupCol) return [];
   const titleCol = selected.find((c) => c !== groupCol && !NUMERIC_TYPES.has(c.dataType)) ?? selected.find((c) => c !== groupCol);

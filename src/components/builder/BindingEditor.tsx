@@ -92,7 +92,7 @@ export function BindingEditor() {
             else if (mode === 'single') setBinding({ mode: 'single', entityId: '', select: [], keySource: 'fixed' });
             else if (mode === 'field') setBinding({ mode: 'field', entityId: '', fieldId: '' });
             else if (mode === 'aggregate') setBinding({ mode: 'aggregate', entityId: '', fn: 'count', filters: [] });
-            else if (mode === 'group') setBinding({ mode: 'group', entityId: '', groupFieldId: '', fn: 'count', filters: [], orderBy: 'value', limit: 20 });
+            else if (mode === 'group') setBinding({ mode: 'group', entityId: '', groupFieldId: '', groupTransform: 'none', fn: 'count', filters: [], orderBy: 'value', limit: 20 });
           }}
         >
           <SelectTrigger className="w-full">
@@ -134,6 +134,13 @@ export function EntitySelect({ value, entities, onChange }: { value: string; ent
     </Select>
   );
 }
+
+/** 필터 값이 어디서 오는지 — `주소 쿼리`는 기간 필터 같은 화면 상단 컨트롤이 주소에 심어 둔 값을 읽는다. */
+const SOURCE_LABEL: Record<Filter['source'], string> = {
+  fixed: '고정값',
+  query: '주소 쿼리',
+  component: '컴포넌트 값',
+};
 
 export function FilterBuilder({ fields, filters, onChange }: { fields: Field[]; filters: Filter[]; onChange: (f: Filter[]) => void }) {
   function addFilter() {
@@ -182,18 +189,46 @@ export function FilterBuilder({ fields, filters, onChange }: { fields: Field[]; 
             </SelectContent>
           </Select>
           {f.op !== 'isNull' && (
-            <Input
-              className="h-8"
-              value={(f.value as string) ?? ''}
-              onChange={(e) => updateFilter(i, { value: e.target.value })}
-              placeholder="값"
-            />
+            <Select value={f.source} onValueChange={(v) => updateFilter(i, { source: v as Filter['source'], value: '', ref: '' })}>
+              <SelectTrigger className="h-8 w-[110px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(SOURCE_LABEL) as Filter['source'][]).map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {SOURCE_LABEL[s]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
+          {f.op !== 'isNull' &&
+            (f.source === 'fixed' ? (
+              <Input
+                className="h-8"
+                value={(f.value as string) ?? ''}
+                onChange={(e) => updateFilter(i, { value: e.target.value })}
+                placeholder="값"
+              />
+            ) : (
+              // 주소 쿼리는 파라미터 이름을, 컴포넌트 값은 그 컴포넌트의 노드 id를 가리킨다.
+              <Input
+                className="h-8"
+                value={f.ref ?? ''}
+                onChange={(e) => updateFilter(i, { ref: e.target.value })}
+                placeholder={f.source === 'query' ? '파라미터 이름 (from / to)' : '노드 id'}
+              />
+            ))}
           <Button variant="ghost" size="icon-sm" onClick={() => removeFilter(i)} aria-label="조건 삭제">
             <X className="size-3.5" />
           </Button>
         </div>
       ))}
+      {filters.some((f) => f.source === 'query') && (
+        <p className="text-xs text-muted-foreground">
+          주소 쿼리 값이 없으면 그 조건은 걸리지 않는다 — 기간 필터 컴포넌트가 <code>from</code> · <code>to</code>를 넣어 준다.
+        </p>
+      )}
     </div>
   );
 }
@@ -509,6 +544,11 @@ function AggregateBindingForm({
  * 항목별 집계 폼 — 차트가 "분류별 개수/합계"를 DB에서 직접 받아오게 한다.
  * 원시 행을 표본으로 가져와 화면에서 세던 방식은 데이터가 쌓이면 수치가 틀린다(모드 설명 참고).
  */
+function isDateField(fields: Field[], fieldId: string): boolean {
+  const field = fields.find((f) => f.id === fieldId);
+  return field?.dataType === 'DATE' || field?.dataType === 'DATETIME';
+}
+
 function GroupBindingForm({
   binding,
   entities,
@@ -547,6 +587,28 @@ function GroupBindingForm({
               </SelectContent>
             </Select>
           </div>
+          {isDateField(fields, binding.groupFieldId) && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-muted-foreground">날짜 묶음 단위</label>
+              <Select
+                value={binding.groupTransform ?? 'none'}
+                onValueChange={(v) => onChange({ ...binding, groupTransform: v as typeof binding.groupTransform })}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">묶지 않음 (날짜 그대로)</SelectItem>
+                  <SelectItem value="month">월별 (2026-08)</SelectItem>
+                  <SelectItem value="week">주별 (2026-W33)</SelectItem>
+                  <SelectItem value="year">연도별 (2026)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                날짜를 묶으면 추이 차트를 원본 표에서 바로 만든다 — 조회 기간을 바꾸면 추이도 함께 따라온다.
+              </p>
+            </div>
+          )}
           <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-muted-foreground">집계 함수</label>
             <Select value={binding.fn} onValueChange={(v) => onChange({ ...binding, fn: v as typeof binding.fn })}>
@@ -595,9 +657,9 @@ function GroupBindingForm({
               <Input
                 type="number"
                 min={1}
-                max={100}
+                max={200}
                 value={binding.limit}
-                onChange={(e) => onChange({ ...binding, limit: Math.min(100, Math.max(1, Number(e.target.value) || 1)) })}
+                onChange={(e) => onChange({ ...binding, limit: Math.min(200, Math.max(1, Number(e.target.value) || 1)) })}
               />
             </div>
           </div>

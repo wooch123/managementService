@@ -13,7 +13,21 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { FileIcon, CircleDot } from 'lucide-react';
 import { LiveChat, LiveChatPreview } from '@/components/runtime/LiveChat';
+import { PeriodFilter, PeriodFilterPreview } from '@/components/runtime/PeriodFilter';
 import { defineComponent, type ComponentDef } from '@/lib/registry/types';
+import type { PeriodRange } from '@/lib/period';
+
+/**
+ * 서버가 `data`로 내려준 확정 기간을 안전하게 꺼낸다. 빌더 캔버스(undefined)나 카탈로그
+ * 점검(빈 결과·숫자 등 엉뚱한 모양)에서도 터지지 않아야 하므로 모양을 직접 확인한다.
+ */
+function asPeriodRange(data: unknown): PeriodRange | null {
+  if (!data || typeof data !== 'object') return null;
+  const value = data as Partial<PeriodRange>;
+  const okBound = (v: unknown) => v === null || typeof v === 'string';
+  if (typeof value.preset !== 'string' || !okBound(value.from) || !okBound(value.to)) return null;
+  return { from: value.from ?? null, to: value.to ?? null, preset: value.preset as PeriodRange['preset'] };
+}
 
 export const utilityComponents = [
   defineComponent({
@@ -205,6 +219,39 @@ export const utilityComponents = [
         <LiveChat room={props.room} title={props.title} placeholder={props.placeholder} />
       ) : (
         <LiveChatPreview title={props.title} />
+      ),
+  }),
+  defineComponent({
+    key: 'date-range-filter',
+    label: '기간 필터',
+    group: '유틸리티',
+    icon: 'calendar-range',
+    description: '페이지 전체의 조회 기간을 정한다 — 고른 기간이 같은 페이지의 모든 바인딩에 적용된다',
+    isContainer: false,
+    // 스스로 조회하지 않는다. 주소(?preset / ?from&to)를 바꾸면 서버가 페이지의 바인딩들을
+    // 그 기간으로 다시 조회한다 — 실제 연결은 각 바인딩의 필터에서 `주소 쿼리` 소스로 건다.
+    bindingModes: [],
+    events: [],
+    propsSchema: z.object({
+      title: z.string().default('조회 기간'),
+      /** 주소에 기간이 없을 때 적용되는 기본 기간 */
+      defaultPreset: z.enum(['1m', '3m', '6m', '12m', 'all']).default('3m'),
+      showPresets: z.boolean().default(true),
+      /** 날짜를 직접 찍어 지정하는 입력칸 */
+      showCustom: z.boolean().default(true),
+    }),
+    defaultProps: { title: '조회 기간', defaultPreset: '3m', showPresets: true, showCustom: true },
+    defaultGrid: { span: 12, rowSpan: 3 },
+    render: ({ props, data, onValueChange }) =>
+      typeof onValueChange === 'function' ? (
+        <PeriodFilter
+          title={props.title}
+          resolved={asPeriodRange(data)}
+          showPresets={props.showPresets}
+          showCustom={props.showCustom}
+        />
+      ) : (
+        <PeriodFilterPreview title={props.title} defaultPreset={props.defaultPreset} />
       ),
   }),
 ] satisfies ComponentDef[];

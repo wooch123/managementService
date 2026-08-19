@@ -59,14 +59,22 @@ export const bindingSpecSchema = z.discriminatedUnion('mode', [
     entityId: z.string(),
     /** 가로축(분류)으로 쓸 필드 */
     groupFieldId: z.string(),
+    /**
+     * 분류 축이 날짜/일시 필드일 때 묶는 단위. 'none'이면 값을 그대로 분류로 쓴다(기존 동작).
+     *
+     * WHY: 추이 차트를 "미리 월/주별로 집계해 둔 표"에 물려 두면 그 표가 담고 있는 구간(예: 최근
+     * 12개월)만 볼 수 있어 조회 기간을 바꿔도 따라오지 못한다. 원본 테이블의 날짜 컬럼을 여기서
+     * 묶으면 어떤 기간을 골라도 그 기간의 추이가 그대로 나온다.
+     */
+    groupTransform: z.enum(['none', 'month', 'week', 'year']).default('none'),
     fn: z.enum(['count', 'sum', 'avg']).default('count'),
     /** sum/avg 대상 숫자 필드 (count면 필요 없음) */
     valueFieldId: z.string().optional(),
     filters: z.array(filterSchema).default([]),
     /** 값 큰 순서 또는 분류 이름 순서 */
     orderBy: z.enum(['value', 'label']).default('value'),
-    /** 그릴 항목 수 상한(막대가 무한정 늘어나지 않게) */
-    limit: z.number().int().min(1).max(100).default(20),
+    /** 그릴 항목 수 상한(막대가 무한정 늘어나지 않게). 날짜 버킷 시계열은 구간이 길어질 수 있어 상한을 넉넉히 둔다. */
+    limit: z.number().int().min(1).max(200).default(20),
   }),
 ]);
 export type BindingSpec = z.infer<typeof bindingSpecSchema>;
