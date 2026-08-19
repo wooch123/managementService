@@ -4,7 +4,7 @@ import { getActiveSpec } from '@/lib/runtime/spec-cache';
 import { buildPublishedPageTree } from '@/lib/runtime/published-page-tree';
 import { buildBreadcrumb } from '@/lib/runtime/breadcrumb';
 import { resolveBindingData } from '@/lib/runtime/binding-query';
-import { DEFAULT_PERIOD_PRESET, periodQueryValues, resolvePeriod, type PeriodPresetKey } from '@/lib/period';
+import { DEFAULT_PERIOD_PRESET, periodQueryValues, resolvePeriod, toIsoDate, type PeriodPresetKey } from '@/lib/period';
 import { AppHeader } from '@/components/shell/AppHeader';
 import { RuntimeRenderer } from '@/components/runtime/RuntimeRenderer';
 import { Button } from '@/components/ui/button';
@@ -106,7 +106,13 @@ export default async function HomePage({
     if (typeof value === 'string') queryParams[key] = value;
   }
   // 기간은 서버가 확정한 값이 우선이다(프리셋 → from/to 환산 결과가 주소의 원본 값보다 정확하다).
-  const runtimeParams = { ...queryParams, ...(period ? periodQueryValues(period) : {}) };
+  // `today`도 서버가 넣는다 — "마감이 지난 건", "오늘 반입 예정" 같은 조건은 설계에 날짜를 박을 수
+  // 없고 클라이언트가 계산하면 자정 근처에 서버와 어긋난다. 주소로 덮어쓸 수 없게 뒤에 둔다.
+  const runtimeParams = {
+    ...queryParams,
+    ...(period ? periodQueryValues(period) : {}),
+    today: toIsoDate(new Date()),
+  };
 
   // §12.2 "바인딩 데이터는 서버에서 미리 조회해 초기 렌더에 포함" — 노드별로 병렬 조회한다.
   const bindingEntries = await Promise.all(

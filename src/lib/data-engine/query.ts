@@ -85,6 +85,19 @@ export function buildWhereClause(entity: ResolvedEntity, filters: Filter[]): { s
 
   for (const f of filters) {
     const field = resolveField(entity, f.fieldId);
+    // 여러 컬럼 중 하나라도 맞으면 되는 조건(통합 검색). 각 컬럼은 설계의 fieldId로만 정해지고
+    // 값은 그대로 파라미터로 묶이므로, 컬럼 수가 늘어도 주입 경로가 생기지 않는다.
+    if (f.fieldIds && f.fieldIds.length > 0 && f.op !== 'in') {
+      const parts: string[] = [];
+      for (const fieldId of f.fieldIds) {
+        const target = resolveField(entity, fieldId);
+        const { sql, bind } = opToSqlFragment(target, f.op);
+        parts.push(sql);
+        params.push(...bind(f.value));
+      }
+      clauses.push(`(${parts.join(' OR ')})`);
+      continue;
+    }
     if (f.op === 'in') {
       const values = Array.isArray(f.value) ? f.value : [];
       if (values.length === 0) {

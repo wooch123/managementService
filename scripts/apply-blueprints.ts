@@ -14,7 +14,7 @@
 import { PrismaClient } from '@prisma/client';
 import { metaDbUrl } from '@/lib/db/paths';
 import { nodeMeta } from '@/lib/registry/node-meta.generated';
-import { assertNoOverlap, entityOf, fieldOf, loadSchema, tableColumns, toBindingJson, type ActionPlan, type EntityInfo, type ValuePlan } from './blueprint-lib';
+import { assertNoOverlap, entityOf, fieldOf, loadSchema, tableColumns, toBindingJson, type ActionPlan, type EntityInfo, type NodePlan, type ValuePlan } from './blueprint-lib';
 import { buildActions, buildPages } from './blueprint-design';
 
 const prisma = new PrismaClient({ datasourceUrl: metaDbUrl() });
@@ -138,42 +138,54 @@ async function main() {
 
   // ── 컴포넌트 ─────────────────────────────────────────────────────────────
   const nodeIds = new Map<string, string>();
-  let order = 0;
-  for (const plan of pages) {
-    const page = pageBySlug.get(plan.slug)!;
-    order = 0;
-    for (const node of plan.nodes) {
-      const meta = nodeMeta[node.type];
-      if (!meta) throw new Error(`카탈로그에 없는 컴포넌트입니다: ${node.type}`);
-      // 카탈로그 기본값을 먼저 깔고 설계값을 덮는다 — 나중에 속성이 추가돼도 기존 노드가
-      // "렌더링 오류"로 떨어지지 않게 하는 것과 같은 이유다(SYSTEM.md §8).
-      const props = { ...meta.defaultProps, ...(node.props ?? {}) };
-      if (node.type === 'data-table' && node.bind) {
-        props.columns = tableColumns(schema, node.bind, node.headers);
-      }
-      const created = await prisma.componentNode.create({
-        data: {
-          pageId: page.id,
-          type: node.type,
-          order: order++,
-          gridCol: node.col,
-          gridSpan: node.span,
-          gridRow: node.row,
-          gridRowSpan: node.rowSpan,
-          region: 'main',
-          propsJson: JSON.stringify(props),
-          bindingJson: node.bind ? toBindingJson(schema, node.bind) : null,
-          eventsJson: '{}',
-          label: null,
-        },
-      });
-      if (node.key) {
-        if (nodeIds.has(node.key)) throw new Error(`노드 별칭이 겹칩니다: ${node.key}`);
-        nodeIds.set(node.key, created.id);
-      }
+  // 만든 노드와 그 계획을 짝지어 둔다 — 이벤트·관계는 액션이 생긴 뒤에 붙여야 하는데,
+  // 자식이 생기면서 "만든 순서 = 계획 순서"가 더는 성립하지 않기 때문이다.
+  const built: { id: string; plan: NodePlan }[] = [];
+  // 자식은 부모가 만들어진 뒤에야 붙일 수 있어 재귀로 만든다. 좌표는 최상위에만 의미가 있다.
+  async function createNode(node: NodePlan, pageId: string, order: number, parentNodeId: string | null): Promise<void> {
+    const meta = nodeMeta[node.type];
+    if (!meta) throw new Error(`카탈로그에 없는 컴포넌트입니다: ${node.type}`);
+    // 카탈로그 기본값을 먼저 깔고 설계값을 덮는다 — 나중에 속성이 추가돼도 기존 노드가
+    // "렌더링 오류"로 떨어지지 않게 하는 것과 같은 이유다(SYSTEM.md §8).
+    const props = { ...meta.defaultProps, ...(node.props ?? {}) };
+    if (node.type === 'data-table' && node.bind) {
+      props.columns = tableColumns(schema, node.bind, node.headers);
+    }
+    const created = await prisma.componentNode.create({
+      data: {
+        pageId,
+        type: node.type,
+        parentNodeId,
+        order,
+        gridCol: node.col,
+        gridSpan: node.span,
+        gridRow: node.row,
+        gridRowSpan: node.rowSpan,
+        region: 'main',
+        propsJson: JSON.stringify(props),
+        bindingJson: node.bind ? toBindingJson(schema, node.bind) : null,
+        eventsJson: '{}',
+        label: null,
+      },
+    });
+    if (node.key) {
+      if (nodeIds.has(node.key)) throw new Error(`노드 별칭이 겹칩니다: ${node.key}`);
+      nodeIds.set(node.key, created.id);
+    }
+    built.push({ id: created.id, plan: node });
+    let childOrder = 0;
+    for (const child of node.children ?? []) {
+      await createNode(child, pageId, childOrder++, created.id);
     }
   }
-  console.log(`만듦: 컴포넌트 ${pages.reduce((n, p) => n + p.nodes.length, 0)}개`);
+
+  for (const plan of pages) {
+    const page = pageBySlug.get(plan.slug)!;
+    let order = 0;
+    for (const node of plan.nodes) await createNode(node, page.id, order++, null);
+  }
+  const nodeCount = await prisma.componentNode.count({ where: { pageId: { in: targetPageIds } } });
+  console.log(`만듦: 컴포넌트 ${nodeCount}개(최상위 ${pages.reduce((n, p) => n + p.nodes.length, 0)}개)`);
 
   // ── 액션 ─────────────────────────────────────────────────────────────────
   // 후속 액션(onSuccess)과 COMPOSITE 스텝은 다른 액션의 id를 가리킨다. 먼저 빈 껍데기로 모두
@@ -195,23 +207,18 @@ async function main() {
   // ── 이벤트 연결 ──────────────────────────────────────────────────────────
   // 노드를 만든 뒤에야 액션 id가 생기므로 이벤트는 여기서 채운다.
   let eventCount = 0;
-  const triggers: { nodeId: string; actionId: string; eventName: string }[] = [];
-  for (const plan of pages) {
-    const page = pageBySlug.get(plan.slug)!;
-    const created = await prisma.componentNode.findMany({ where: { pageId: page.id }, orderBy: { order: 'asc' } });
-    for (let i = 0; i < plan.nodes.length; i += 1) {
-      const node = plan.nodes[i];
-      if (!node.on) continue;
-      const events: Record<string, string> = {};
-      for (const [eventName, actionKey] of Object.entries(node.on)) {
-        const actionId = actionIds.get(actionKey);
-        if (!actionId) throw new Error(`이벤트가 가리키는 액션이 없습니다: ${actionKey}`);
-        events[eventName] = actionId;
-        triggers.push({ nodeId: created[i].id, actionId, eventName });
-      }
-      await prisma.componentNode.update({ where: { id: created[i].id }, data: { eventsJson: JSON.stringify(events) } });
-      eventCount += Object.keys(events).length;
+  const triggers: { nodeId: string; actionId: string }[] = [];
+  for (const { id, plan: node } of built) {
+    if (!node.on) continue;
+    const events: Record<string, string> = {};
+    for (const [eventName, actionKey] of Object.entries(node.on)) {
+      const actionId = actionIds.get(actionKey);
+      if (!actionId) throw new Error(`이벤트가 가리키는 액션이 없습니다: ${actionKey}`);
+      events[eventName] = actionId;
+      triggers.push({ nodeId: id, actionId });
     }
+    await prisma.componentNode.update({ where: { id }, data: { eventsJson: JSON.stringify(events) } });
+    eventCount += Object.keys(events).length;
   }
   console.log(`연결: 이벤트 ${eventCount}개`);
 
@@ -219,14 +226,9 @@ async function main() {
   // 관계는 화면·데이터·동작이 실제로 어떻게 이어져 있는지를 담는다. 배치에서 그대로 파생되므로
   // 손으로 그리지 않고 여기서 만든다(검증 규칙 E-REL-004는 이벤트 설정과 일치할 것을 요구한다).
   const relations: { fromType: string; fromId: string; toType: string; toId: string; kind: string }[] = [];
-  for (const plan of pages) {
-    const page = pageBySlug.get(plan.slug)!;
-    const created = await prisma.componentNode.findMany({ where: { pageId: page.id }, orderBy: { order: 'asc' } });
-    for (let i = 0; i < plan.nodes.length; i += 1) {
-      const bind = plan.nodes[i].bind;
-      if (!bind) continue;
-      relations.push({ fromType: 'COMPONENT', fromId: created[i].id, toType: 'ENTITY', toId: entityOf(schema, bind.table).id, kind: 'READS' });
-    }
+  for (const { id, plan: node } of built) {
+    if (!node.bind) continue;
+    relations.push({ fromType: 'COMPONENT', fromId: id, toType: 'ENTITY', toId: entityOf(schema, node.bind.table).id, kind: 'READS' });
   }
   for (const trigger of triggers) {
     relations.push({ fromType: 'COMPONENT', fromId: trigger.nodeId, toType: 'ACTION', toId: trigger.actionId, kind: 'TRIGGERS' });

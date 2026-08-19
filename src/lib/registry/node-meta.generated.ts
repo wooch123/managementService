@@ -1615,5 +1615,178 @@ export const nodeMeta: Record<string, NodeMeta> = {
     },
     "bindingModes": [],
     "events": []
+  },
+  "stat-tile": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 3,
+      "rowSpan": 7
+    },
+    "defaultProps": {
+      "title": "",
+      "unit": "건",
+      "secondaryLabel": "",
+      "secondaryHigherIsBetter": false,
+      "target": null,
+      "targetLabel": "목표",
+      "lowerIsBetter": false
+    },
+    "bindingModes": [
+      "aggregate"
+    ],
+    "events": []
+  },
+  "stage-bars": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 14
+    },
+    "defaultProps": {
+      "title": "",
+      "subtitle": "",
+      "order": "",
+      "color": "primary",
+      "unit": "건"
+    },
+    "bindingModes": [
+      "group"
+    ],
+    "events": []
+  },
+  "form-card": {
+    "isContainer": true,
+    "allowedChildren": [
+      "input",
+      "textarea",
+      "option-select",
+      "select",
+      "native-select",
+      "date-picker",
+      "checkbox",
+      "switch",
+      "radio-group",
+      "button",
+      "typography",
+      "alert"
+    ],
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 20
+    },
+    "defaultProps": {
+      "title": "",
+      "description": "",
+      "columns": 2,
+      "footnote": ""
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "page-header": {
+    "isContainer": true,
+    "allowedChildren": [
+      "button",
+      "button-group",
+      "badge"
+    ],
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 3
+    },
+    "defaultProps": {
+      "title": "페이지 제목",
+      "description": ""
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "search-filter": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 3
+    },
+    "defaultProps": {
+      "label": "통합 검색",
+      "placeholder": "검색어를 입력하세요",
+      "param": "q"
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "select-filter": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 3,
+      "rowSpan": 3
+    },
+    "defaultProps": {
+      "label": "필터",
+      "param": "filter",
+      "allLabel": "전체",
+      "options": ""
+    },
+    "bindingModes": [
+      "group"
+    ],
+    "events": []
+  },
+  "metric-cards": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 15
+    },
+    "defaultProps": {
+      "title": "",
+      "subtitle": "",
+      "columns": 3,
+      "unit": "건",
+      "items": []
+    },
+    "bindingModes": [
+      "group"
+    ],
+    "events": []
+  },
+  "callout": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 4
+    },
+    "defaultProps": {
+      "text": "안내 문구",
+      "tone": "info"
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "issue-list": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 20
+    },
+    "defaultProps": {
+      "title": "",
+      "subtitle": "",
+      "emptyText": "표시할 항목이 없습니다",
+      "maxItems": 10,
+      "moreSlug": "",
+      "moreLabel": "전체 보기"
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
   }
 };

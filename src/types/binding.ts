@@ -5,6 +5,14 @@ export type FilterOp = z.infer<typeof filterOpSchema>;
 
 export const filterSchema = z.object({
   fieldId: z.string(),
+  /**
+   * 같은 값을 **여러 컬럼 중 하나라도** 만족하면 되는 조건(OR). 통합 검색이 이것 없이는 성립하지
+   * 않는다 — 청사진의 검색칸은 "FAR No, 고객사, 모델"을 한 번에 찾는데, 조건을 컬럼마다 따로 걸면
+   * AND로 묶여 아무것도 안 나온다. 비어 있으면 `fieldId` 하나만 본다(지금까지의 동작).
+   *
+   * 컬럼 이름은 여기 적힌 fieldId를 설계에서 찾아서만 나온다 — 주소로 들어온 값이 컬럼을 고르지 못한다.
+   */
+  fieldIds: z.array(z.string()).optional(),
   op: filterOpSchema,
   source: z.enum(['fixed', 'query', 'component']),
   value: z.unknown().optional(),
@@ -63,6 +71,14 @@ export const bindingSpecSchema = z.discriminatedUnion('mode', [
      * 한 번 더 세어 비교한다. 기간 한쪽이 열려 있으면 견줄 대상이 없어 비교하지 않는다.
      */
     compare: z.boolean().default(false),
+    /**
+     * 같은 표를 **다른 조건으로 한 번 더** 세어 보조 수치로 함께 돌려준다.
+     *
+     * 청사진의 지표 타일은 큰 숫자 하나 밑에 늘 한 줄이 더 있다 — "216건 / 지연 위험 38건",
+     * "1,329건 / 반입 지연 41건". 그 한 줄이 "지금 무엇을 봐야 하는가"를 말한다. 노드 하나에
+     * 바인딩은 하나뿐이라, 두 번째 수치는 이렇게 같은 바인딩 안에서 조건만 달리해 얻는다.
+     */
+    secondaryFilters: z.array(filterSchema).optional(),
   }),
   /**
    * 항목별 집계 — 차트처럼 "분류별 합계"를 그리는 컴포넌트를 위한 모드.

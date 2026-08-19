@@ -9,6 +9,8 @@ import type { PrismaClient } from '@prisma/client';
 
 export type FilterPlan = {
   col: string;
+  /** 같은 값을 여러 컬럼 중 하나라도 만족하면 되는 조건(통합 검색). 비우면 col 하나만 본다. */
+  cols?: string[];
   op: 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains' | 'in' | 'isNull';
   source: 'fixed' | 'query';
   value?: unknown;
@@ -34,6 +36,8 @@ export type BindPlan =
       field?: string;
       filters?: FilterPlan[];
       compare?: boolean;
+      /** 보조 수치를 위한 두 번째 조건 세트 */
+      secondaryFilters?: FilterPlan[];
     }
   | {
       mode: 'group';
@@ -61,6 +65,11 @@ export type NodePlan = {
   on?: Record<string, string>;
   /** data-table의 열 머리글을 select 순서대로 덮어쓴다(비우면 필드 이름 그대로) */
   headers?: string[];
+  /**
+   * 컨테이너의 자식(폼 카드 안의 입력들, 페이지 머리 옆 버튼들).
+   * 자식은 좌표를 갖지 않는다 — 부모가 순서대로 배치한다.
+   */
+  children?: NodePlan[];
 };
 
 export type PagePlan = {
@@ -151,7 +160,12 @@ export function enumOf(schema: Map<string, EntityInfo>, table: string, col: stri
 
 function toFilters(schema: Map<string, EntityInfo>, table: string, filters: FilterPlan[] | undefined) {
   return (filters ?? []).map((f) => {
-    const base = { fieldId: fieldOf(schema, table, f.col).id, op: f.op, source: f.source };
+    const base = {
+      fieldId: fieldOf(schema, table, f.col).id,
+      ...(f.cols ? { fieldIds: f.cols.map((c) => fieldOf(schema, table, c).id) } : {}),
+      op: f.op,
+      source: f.source,
+    };
     return f.source === 'fixed'
       ? { ...base, value: f.value }
       : { ...base, ref: f.ref, ...(f.whenMissing ? { whenMissing: f.whenMissing } : {}) };
@@ -177,6 +191,7 @@ export function toBindingJson(schema: Map<string, EntityInfo>, bind: BindPlan): 
       ...(bind.field ? { fieldId: fieldOf(schema, bind.table, bind.field).id } : {}),
       filters: toFilters(schema, bind.table, bind.filters),
       compare: bind.compare ?? false,
+      ...(bind.secondaryFilters ? { secondaryFilters: toFilters(schema, bind.table, bind.secondaryFilters) } : {}),
     });
   }
   return JSON.stringify({
