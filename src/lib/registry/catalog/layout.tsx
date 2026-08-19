@@ -263,4 +263,28 @@ export const layoutComponents = [
       </SidebarProvider>
     ),
   }),
+  defineComponent({
+    key: 'page-title',
+    label: '페이지 제목',
+    group: '레이아웃',
+    icon: 'heading-1',
+    description: '화면 맨 위의 제목 + 한 줄 설명 (카드 없이 제목처럼 보인다)',
+    isContainer: false,
+    // 설명이 길어 여러 줄로 접히면 그만큼 칸이 늘어나야 한다.
+    growsWithContent: true,
+    bindingModes: [],
+    events: [],
+    propsSchema: z.object({
+      title: z.string().default('페이지 제목'),
+      description: z.string().default(''),
+    }),
+    defaultProps: { title: '페이지 제목', description: '' },
+    defaultGrid: { span: 12, rowSpan: 2 },
+    render: ({ props }) => (
+      <div className="flex flex-col gap-0.5">
+        <h2 className="text-lg font-semibold tracking-tight text-foreground">{props.title}</h2>
+        {props.description && <p className="text-sm text-muted-foreground">{props.description}</p>}
+      </div>
+    ),
+  }),
 ] satisfies ComponentDef[];

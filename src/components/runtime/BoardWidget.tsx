@@ -20,6 +20,12 @@ type Message = {
   category: string | null;
   createdAt: string;
   attachments: Attachment[];
+  /**
+   * 화면에만 먼저 올린 메시지. 보내기를 누르면 서버 응답을 기다리지 않고 바로 대화에 붙이고,
+   * 저장이 끝나면 진짜 id로 바꿔 단다 — 누르고 나서 잠깐 아무 일도 없는 것처럼 보이던 문제 때문이다.
+   * 'sending'은 저장 중, 'failed'는 실패(다시 보내기 가능).
+   */
+  local?: 'sending' | 'failed';
 };
 type SearchHit = { id: string; author: string; title: string; excerpt: string; createdAt: string };
 type GalleryItem = { id: string; url: string; name: string; postId: string | null; author: string; createdAt: string };
@@ -147,7 +153,9 @@ export function Board({
   >({ type: 'bottom' });
 
   useEffect(() => {
-    newestRef.current = messages.length > 0 ? messages[messages.length - 1].id : null;
+    // 아직 저장 중인(화면에만 있는) 메시지는 커서가 될 수 없다 — 서버가 모르는 id다.
+    const confirmed = messages.filter((m) => !m.local);
+    newestRef.current = confirmed.length > 0 ? confirmed[confirmed.length - 1].id : null;
   }, [messages]);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
@@ -343,36 +351,72 @@ export function Board({
     [boardKey]
   );
 
-  const send = useCallback(async () => {
-    const content = draft.trim();
-    if ((!content && pending.length === 0) || sending || !allowWrite) return;
-    setSending(true);
-    const saved = await api<{ id: string }>('/api/board/posts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        boardKey,
+  /**
+   * 보내기 — **먼저 화면에 올리고** 저장한다.
+   *
+   * 예전에는 저장이 끝난 뒤에야 폴링이 그 메시지를 물어 왔다. 누르고 나서 최대 3초 동안 아무 일도
+   * 일어나지 않는 것처럼 보여서, 사용자가 다시 누르게 된다. 이제 곧바로 말풍선이 뜨고 그 옆에
+   * "보내는 중"이 붙었다가, 저장이 끝나면 진짜 메시지로 바뀐다(실패하면 다시 보내기가 나온다).
+   */
+  const send = useCallback(
+    async (retry?: Message) => {
+      const content = retry ? retry.content : draft.trim();
+      const attachments = retry ? retry.attachments : pending;
+      if ((!content && attachments.length === 0) || !allowWrite) return;
+
+      const localId = retry?.id ?? `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const optimistic: Message = {
+        id: localId,
         title: '',
         content,
-        author: author || '방문자',
-        category: draftCategory || null,
-        attachmentIds: pending.map((p) => p.id),
-      }),
-    });
-    setSending(false);
-    if (!saved) {
-      setError('메시지를 보내지 못했습니다.');
-      return;
-    }
-    setDraft('');
-    setPending([]);
-    pendingRef.current = 0;
-    setError(null);
-    // 보낸 사람은 항상 맨 아래로 — 방금 보낸 것이 보여야 한다.
-    atBottomRef.current = true;
-    setAtBottom(true);
-    scrollToBottom('smooth');
-  }, [allowWrite, author, boardKey, draft, draftCategory, pending, scrollToBottom, sending]);
+        author: (retry?.author || author || '방문자').trim(),
+        category: retry ? retry.category : draftCategory || null,
+        createdAt: retry?.createdAt ?? new Date().toISOString(),
+        attachments,
+        local: 'sending',
+      };
+
+      if (retry) {
+        setMessages((prev) => prev.map((m) => (m.id === localId ? optimistic : m)));
+      } else {
+        setDraft('');
+        setPending([]);
+        pendingRef.current = 0;
+        setError(null);
+        // 보낸 사람은 항상 맨 아래로 — 방금 보낸 것이 보여야 한다.
+        scrollActionRef.current = { type: 'bottom', smooth: true };
+        setMessages((prev) => [...prev, optimistic]);
+      }
+      setSending(true);
+
+      const saved = await api<{ id: string; createdAt: string }>('/api/board/posts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          boardKey,
+          title: '',
+          content,
+          author: optimistic.author,
+          category: optimistic.category,
+          attachmentIds: attachments.map((p) => p.id),
+        }),
+      });
+      setSending(false);
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id !== localId
+            ? m
+            : saved
+              ? // 진짜 id로 바꿔 달아야 폴링이 같은 메시지를 한 번 더 붙이지 않는다.
+                { ...m, id: saved.id, createdAt: saved.createdAt, local: undefined }
+              : { ...m, local: 'failed' }
+        )
+      );
+      if (!saved) setError('메시지를 보내지 못했습니다. 다시 보내기를 눌러 주세요.');
+    },
+    [allowWrite, author, boardKey, draft, draftCategory, pending]
+  );
 
   const remove = useCallback(async (id: string) => {
     const res = await fetch(`/api/board/posts/${id}`, { method: 'DELETE' });
@@ -502,6 +546,25 @@ export function Board({
                         <div className={cn('flex items-center gap-1.5 text-[11px] text-muted-foreground', mine && 'flex-row-reverse')}>
                           <span className="font-medium text-foreground/80">{m.author}</span>
                           <span>{timeOf(m.createdAt)}</span>
+                          {/* 저장이 끝나기 전에도 말풍선은 이미 떠 있다 — 지금 어떤 상태인지 여기서 알린다. */}
+                          {m.local === 'sending' && (
+                            <span className="flex items-center gap-1">
+                              <Loader2 className="size-3 animate-spin" /> 보내는 중
+                            </span>
+                          )}
+                          {m.local === 'failed' && (
+                            <span className="flex items-center gap-1 text-destructive">
+                              보내지 못함
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-4 px-1 text-[11px] text-destructive"
+                                onClick={() => void send(m)}
+                              >
+                                다시 보내기
+                              </Button>
+                            </span>
+                          )}
                           {m.category && (
                             <Badge variant="outline" className="h-4 px-1 text-[10px]">
                               {m.category}
@@ -523,8 +586,10 @@ export function Board({
 
                       <div
                         className={cn(
-                          'max-w-[min(85%,44rem)] min-w-0 rounded-lg px-3 py-2',
-                          mine ? 'bg-primary text-primary-foreground' : 'border bg-background'
+                          'max-w-[min(85%,44rem)] min-w-0 rounded-lg px-3 py-2 transition-opacity',
+                          mine ? 'bg-primary text-primary-foreground' : 'border bg-background',
+                          m.local === 'sending' && 'opacity-60',
+                          m.local === 'failed' && 'opacity-60 ring-1 ring-destructive'
                         )}
                       >
                         {/* 예전 게시글은 제목을 갖고 있다 — 대화에서는 첫 줄로 살린다. */}
@@ -679,19 +744,19 @@ export function Board({
               // 클립보드에 이미지가 있으면 그대로 첨부한다 — 화면 캡처를 붙여넣는 것이 가장 흔한 쓰임이다.
               // 여러 장을 한 번에 붙여넣는 경우(탐색기에서 파일 여러 개 복사)도 그대로 받는다.
               onPaste={(e) => {
-                // 브라우저에 따라 그림이 `files`에만, 또는 `items`에만 잡힌다 — 양쪽을 모아 겹치는 것만 걸러낸다.
-                const fromItems = [...e.clipboardData.items]
-                  .filter((it) => it.kind === 'file')
-                  .map((it) => it.getAsFile())
-                  .filter((f): f is File => Boolean(f));
-                const seen = new Set<string>();
-                const images = [...e.clipboardData.files, ...fromItems].filter((f) => {
-                  if (!f.type.startsWith('image/')) return false;
-                  const key = `${f.name}:${f.size}:${f.lastModified}`;
-                  if (seen.has(key)) return false;
-                  seen.add(key);
-                  return true;
-                });
+                // `files`와 `items`는 **같은 그림을 양쪽에서** 준다(files가 items에서 파생된다).
+                // 둘을 합쳐서 이름·크기로 걸러 봤더니, 붙여넣은 화면 캡처는 이름이 매번
+                // "image.png"로 같고 `getAsFile()`이 만들어 주는 File의 시각이 달라 같은 그림이
+                // 서로 다른 것으로 보였다 — 한 장이 두 장으로 올라갔다.
+                // 그래서 합치지 않는다: `files`가 있으면 그것만 쓰고, 비었을 때만 `items`에서 꺼낸다.
+                const fromFiles = [...e.clipboardData.files].filter((f) => f.type.startsWith('image/'));
+                const images =
+                  fromFiles.length > 0
+                    ? fromFiles
+                    : [...e.clipboardData.items]
+                        .filter((it) => it.kind === 'file' && it.type.startsWith('image/'))
+                        .map((it) => it.getAsFile())
+                        .filter((f): f is File => Boolean(f));
                 if (images.length > 0) {
                   e.preventDefault();
                   void uploadFiles(images);

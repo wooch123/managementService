@@ -40,6 +40,8 @@ export const feedbackComponents = [
     icon: 'circle-alert',
     description: '인라인 경고/안내 메시지',
     isContainer: false,
+    // 글이 길어 여러 줄로 접히면 그만큼 칸이 늘어나야 한다(아래 컴포넌트를 덮지 않게).
+    growsWithContent: true,
     bindingModes: [],
     events: [],
     propsSchema: z.object({

@@ -148,6 +148,20 @@ export const nodeMeta: Record<string, NodeMeta> = {
     "bindingModes": [],
     "events": []
   },
+  "page-title": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 2
+    },
+    "defaultProps": {
+      "title": "페이지 제목",
+      "description": ""
+    },
+    "bindingModes": [],
+    "events": []
+  },
   "input": {
     "isContainer": false,
     "allowedChildren": null,

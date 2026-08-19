@@ -228,6 +228,8 @@ export const utilityComponents = [
     icon: 'calendar-range',
     description: '페이지 전체의 조회 기간을 정한다 — 고른 기간이 같은 페이지의 모든 바인딩에 적용된다',
     isContainer: false,
+    // 폭이 좁으면 프리셋·날짜 입력이 두세 줄로 접힌다 — 접힌 만큼 칸이 늘어나야 한다.
+    growsWithContent: true,
     // 스스로 조회하지 않는다. 주소(?preset / ?from&to)를 바꾸면 서버가 페이지의 바인딩들을
     // 그 기간으로 다시 조회한다 — 실제 연결은 각 바인딩의 필터에서 `주소 쿼리` 소스로 건다.
     bindingModes: [],

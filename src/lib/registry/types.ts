@@ -42,6 +42,15 @@ export type ComponentDef<Schema extends z.ZodObject<any> = z.ZodObject<any>> = {
   icon: string;
   description: string;
   isContainer: boolean;
+  /**
+   * 배정된 칸보다 내용이 커지면 **칸을 늘려야** 하는 컴포넌트인지.
+   *
+   * 기본값(false)은 "칸 높이에 맞춰 내가 줄어든다" — 차트·표·대화처럼 안에서 스크롤하거나
+   * 눌러 담는 것들이다. 이들이 칸 높이를 정확히 받으려면 min-content 기여를 0으로 눌러야 한다.
+   * 반면 글이 접히는 안내문·필터 바는 정반대로, 접힌 만큼 칸이 늘어나야 한다 — 실제로 조회 기간
+   * 필터가 좁은 폭에서 세 줄로 접혔는데 칸은 56px 그대로여서 넘친 줄이 아래 카드 뒤로 숨었다.
+   */
+  growsWithContent?: boolean;
   allowedChildren?: string[];
   bindingModes: BindingMode[];
   events: EventDef[];

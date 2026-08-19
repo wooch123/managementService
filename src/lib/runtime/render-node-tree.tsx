@@ -25,7 +25,7 @@ function NodeRenderer({ def, ctx }: { def: ComponentDef; ctx: RenderContext }) {
 }
 
 /** 자기 표면(테두리+배경)을 이미 갖고 있는 컴포넌트 — 카드로 한 번 더 감싸면 테두리가 겹친다. */
-const SELF_SURFACED = new Set(['card', 'alert']);
+const SELF_SURFACED = new Set(['card', 'alert', 'page-title']);
 
 /**
  * §12.2 렌더 파이프라인의 축소판. `hooks`가 주어지면(미리보기/운영) 실제 dispatch와
@@ -53,13 +53,23 @@ export function renderNodeTree(nodes: NodeDto[], parentId: string | null = null,
       );
     }
     const isRoot = parentId === null;
+    // 내용만큼 칸이 늘어나야 하는 컴포넌트(글이 접히는 안내문·필터 바)는 높이 계산이 정반대다.
+    // 기본형은 min-content를 0으로 눌러 칸 높이를 그대로 받고(차트·표·대화가 안에서 스크롤한다),
+    // 이쪽은 누르지 않아야 접힌 만큼이 칸 높이로 전달된다(registry/types.ts 참고).
+    const grows = def.growsWithContent === true;
     // 배치된 컴포넌트는 모두 카드 표면 위에 올린다(§3 디자인 규칙) — 자기 테두리를 이미 가진
     // 컴포넌트만 예외로 두어 테두리가 겹치지 않게 한다.
     const withCard = (content: React.ReactNode) =>
       isRoot && !SELF_SURFACED.has(node.type) ? (
         // Tremor식 카드 표면: 그림자 대신 1px 테두리, 반지름 8px, 넉넉한 안쪽 여백.
-        <div className="flex h-full flex-col rounded-lg border bg-card p-4 text-card-foreground">
-          <div className="min-h-0 flex-1">{content}</div>
+        <div
+          className={
+            grows
+              ? 'flex min-h-full flex-col rounded-lg border bg-card p-4 text-card-foreground'
+              : 'flex h-full flex-col rounded-lg border bg-card p-4 text-card-foreground'
+          }
+        >
+          <div className={grows ? 'flex-1' : 'min-h-0 flex-1'}>{content}</div>
         </div>
       ) : (
         content
@@ -68,7 +78,9 @@ export function renderNodeTree(nodes: NodeDto[], parentId: string | null = null,
     return (
       <div
         key={node.id}
-        className={isRoot ? 'runtime-cell min-h-0 min-w-0' : undefined}
+        // min-h-0을 걸면 이 칸의 min-content 기여가 0이 되어, 늘어나야 하는 컴포넌트도 칸이
+        // 그대로 남는다(줄바꿈된 내용이 아래 칸 뒤로 숨는다). 늘어나는 쪽에는 걸지 않는다.
+        className={isRoot ? (grows ? 'runtime-cell min-w-0' : 'runtime-cell min-h-0 min-w-0') : undefined}
         style={
           isRoot
             ? ({

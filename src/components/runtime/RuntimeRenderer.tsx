@@ -108,14 +108,17 @@ export function RuntimeRenderer({
             {
               gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
               /**
-               * 줄 높이는 `minmax(auto, 줄높이)` — "기본은 설계한 높이, 다만 **꼭 필요한 만큼**은 늘어난다".
+               * 줄 높이는 `minmax(min-content, 줄높이)` — "기본은 설계한 높이, 다만 **꼭 필요한 만큼**은 늘어난다".
                *
                * 고정(`8px`)이면 접힌 글이 아래 컴포넌트 위에 겹쳐 그려진다(폭이 좁을 때 실제로 그랬다).
                * 그렇다고 `minmax(줄높이, auto)`로 두면 최대 크기가 **내용 전체**가 되어, 안에서 스스로
                * 스크롤하려는 컴포넌트(대화형 게시판)가 높이를 못 받고 통째로 늘어나 버린다.
-               * 순서를 뒤집으면 최소는 min-content(= 넘치지 않을 만큼), 최대는 설계 높이가 된다.
+               *
+               * 최소를 `auto`로 적으면 안 된다: 그리드 항목의 `auto` 최소 크기는 "자동 최소 크기" 규칙을
+               * 타서 사실상 0으로 취급돼 줄이 전혀 늘어나지 않는다(실측: 조회 기간 필터 카드가 102px로
+               * 접혔는데 칸은 56px 그대로였다). `min-content`로 못 박아야 한다.
                */
-              gridAutoRows: `minmax(auto, ${rowHeight}px)`,
+              gridAutoRows: `minmax(min-content, ${rowHeight}px)`,
               gap,
               '--rt-row-h': `${rowHeight}px`,
               '--rt-gap': `${gap}px`,
@@ -134,7 +137,7 @@ export function RuntimeRenderer({
               style={
                 {
                   gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-                  gridAutoRows: `minmax(auto, ${rowHeight}px)`,
+                  gridAutoRows: `minmax(min-content, ${rowHeight}px)`,
                   gap: ASIDE_GAP,
                   '--rt-row-h': `${rowHeight}px`,
                   '--rt-gap': `${ASIDE_GAP}px`,
