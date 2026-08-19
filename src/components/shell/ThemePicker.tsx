@@ -77,8 +77,8 @@ export function ThemePicker() {
               className="group-data-[collapsible=icon]:justify-center"
             >
               <Palette className="size-4 shrink-0" />
-              <span className="group-data-[collapsible=icon]:hidden">테마</span>
-              <span className="ml-auto truncate text-xs text-muted-foreground group-data-[collapsible=icon]:hidden">
+              <span className="sidebar-fade">테마</span>
+              <span className="sidebar-fade ml-auto truncate text-xs text-muted-foreground">
                 {activeLabel}
               </span>
             </SidebarMenuButton>

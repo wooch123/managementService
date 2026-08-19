@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { ChevronLeft } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty';
 import { EntityList } from '@/components/data/EntityList';
@@ -8,6 +10,8 @@ import { FieldEditor } from '@/components/data/FieldEditor';
 import { EntityDataTab } from '@/components/data/EntityDataTab';
 import { apiCall } from '@/lib/api-client';
 import type { EntityListItem } from '@/lib/db/entities';
+import { BUILDER_NARROW_QUERY, useMediaQuery } from '@/hooks/use-media-query';
+import { cn } from '@/lib/utils';
 import type { SchemaChange } from '@/lib/data-engine/diff';
 
 export function DataShell({
@@ -23,6 +27,7 @@ export function DataShell({
     (initialSelectedId && initialEntities.some((e) => e.id === initialSelectedId) ? initialSelectedId : null) ?? initialEntities[0]?.id ?? null
   );
   const [diff, setDiff] = useState<SchemaChange[] | null>(null);
+  const narrow = useMediaQuery(BUILDER_NARROW_QUERY);
 
   async function refetchEntities() {
     const result = await apiCall<EntityListItem[]>('/api/admin/entities');
@@ -46,18 +51,29 @@ export function DataShell({
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
+      {/* 좁은 창에서는 목록과 상세를 한 화면에 같이 두지 않는다 — 375px에서 상세가 135px로 줄어
+          필드 표를 전혀 읽을 수 없었다. 고르기 전에는 목록만, 고른 뒤에는 상세만 보여준다. */}
       <div className="flex flex-1 overflow-hidden">
-        <EntityList
-          entities={entities}
-          selectedId={selectedId}
-          onSelect={(id) => {
-            setSelectedId(id);
-            refetchDiff();
-          }}
-          onRefetch={refetchEntities}
-        />
+        {(!narrow || !selected) && (
+          <EntityList
+            entities={entities}
+            selectedId={selectedId}
+            onSelect={(id) => {
+              setSelectedId(id);
+              refetchDiff();
+            }}
+            onRefetch={refetchEntities}
+          />
+        )}
 
-        <div className="flex-1 overflow-y-auto">
+        <div className={cn('flex-1 overflow-y-auto', narrow && !selected && 'hidden')}>
+          {narrow && selected && (
+            <div className="border-b p-2">
+              <Button variant="ghost" size="sm" onClick={() => setSelectedId(null)}>
+                <ChevronLeft className="size-4" /> 엔티티 목록
+              </Button>
+            </div>
+          )}
           {!selected ? (
             <div className="flex h-full items-center justify-center p-8">
               <Empty>

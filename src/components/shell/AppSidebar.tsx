@@ -19,6 +19,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -67,30 +68,35 @@ export function AppSidebar({
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <SidebarMenu>
-          <SidebarMenuItem>
+          {/* 사이드바 접기 버튼을 이 줄 오른쪽 끝에 둔다 — 예전에는 여기 위아래 화살표(장식)가 있고
+              접기 버튼은 본문 헤더에 따로 떨어져 있었다. 버튼 안에 버튼을 넣을 수 없으므로
+              제목 버튼과 형제로 나란히 놓는다. 접힌 상태에서는 자리가 없어 감추고, 그때는
+              본문 헤더의 버튼이 대신 나타난다(AppHeader). */}
+          <SidebarMenuItem className="flex items-center gap-1">
             {/* 관리자 화면에서는 이 영역을 눌러 사이트 이름/부제를 바로 수정한다(운영 화면은 표시 전용). */}
             <SidebarMenuButton
               size="lg"
               onClick={mode === 'admin' ? () => setTitleEditOpen(true) : undefined}
               title={mode === 'admin' ? '클릭해서 사이트 이름 수정' : undefined}
               className={cn(
-                'group-data-[collapsible=icon]:justify-center',
+                'min-w-0 flex-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0',
                 mode === 'public' && 'cursor-default'
               )}
             >
               <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground group-data-[collapsible=icon]:size-8">
                 <LayoutGrid className="size-5 group-data-[collapsible=icon]:size-4" />
               </div>
-              <div className="flex flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
+              <div className="sidebar-fade flex flex-col gap-0.5 leading-none">
                 <span className="truncate font-medium">{siteTitle}</span>
                 {siteSubtitle && <span className="truncate text-xs text-muted-foreground">{siteSubtitle}</span>}
               </div>
-              {mode === 'admin' ? (
+              {mode === 'admin' && (
                 <Pencil className="ml-auto size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/menu-button:opacity-100 group-data-[collapsible=icon]:hidden" />
-              ) : (
-                <ChevronsUpDown className="ml-auto size-4 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" />
               )}
             </SidebarMenuButton>
+            {/* 접힌 상태에서는 완전히 없앤다 — 투명하게만 두면 눈에 안 보이는 버튼에 키보드
+                포커스가 걸린다. 이 버튼은 글자가 아니라 아이콘이라 사라짐이 눈에 거슬리지 않는다. */}
+            <SidebarTrigger className="shrink-0 group-data-[collapsible=icon]:hidden" title="사이드바 접기" />
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
@@ -155,8 +161,8 @@ function PageMenuItem({
         <SidebarMenuButton asChild isActive={active} tooltip={node.title}>
           <Link href={hrefFor(node)}>
             {node.icon && <DynamicIcon name={node.icon} className="size-4" />}
-            <span>{node.title}</span>
-            {!node.isVisible && <EyeOff className="ml-auto size-3.5 text-muted-foreground" />}
+            <span className="sidebar-fade">{node.title}</span>
+            {!node.isVisible && <EyeOff className="sidebar-fade ml-auto size-3.5 text-muted-foreground" />}
           </Link>
         </SidebarMenuButton>
       </SidebarMenuItem>
@@ -172,8 +178,8 @@ function PageMenuItem({
         <SidebarMenuButton asChild isActive={active} tooltip={node.title} onClick={() => setOpen(true)}>
           <Link href={hrefFor(node)}>
             {node.icon && <DynamicIcon name={node.icon} className="size-4" />}
-            <span>{node.title}</span>
-            {!node.isVisible && <EyeOff className="ml-auto size-3.5 text-muted-foreground" />}
+            <span className="sidebar-fade">{node.title}</span>
+            {!node.isVisible && <EyeOff className="sidebar-fade ml-auto size-3.5 text-muted-foreground" />}
           </Link>
         </SidebarMenuButton>
         <CollapsibleTrigger asChild>
@@ -195,9 +201,9 @@ function PageMenuItem({
               <SidebarMenuSubItem key={child.id}>
                 <SidebarMenuSubButton asChild isActive={isActive(child)}>
                   <Link href={hrefFor(child)}>
-                    <span>{child.title}</span>
+                    <span className="sidebar-fade">{child.title}</span>
                     {!child.isVisible && (
-                      <EyeOff className="ml-auto size-3.5 text-muted-foreground" />
+                      <EyeOff className="sidebar-fade ml-auto size-3.5 text-muted-foreground" />
                     )}
                   </Link>
                 </SidebarMenuSubButton>
@@ -227,17 +233,17 @@ function UserMenu({ username, mode }: { username?: string; mode: 'admin' | 'publ
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <SidebarMenuButton size="lg" className="group-data-[collapsible=icon]:justify-center">
+            <SidebarMenuButton size="lg" className="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0">
               <Avatar size="sm" className="shrink-0">
                 <AvatarFallback>{displayName.slice(0, 1).toUpperCase()}</AvatarFallback>
               </Avatar>
-              <div className="flex flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
+              <div className="sidebar-fade flex flex-col gap-0.5 leading-none">
                 <span className="font-medium">{displayName}</span>
                 {username && (
                   <span className="text-xs text-muted-foreground">{username}</span>
                 )}
               </div>
-              <ChevronsUpDown className="ml-auto size-4 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" />
+              <ChevronsUpDown className="sidebar-fade ml-auto size-4 shrink-0 text-muted-foreground" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" side="top" className="w-56">

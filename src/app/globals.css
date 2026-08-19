@@ -216,3 +216,43 @@
     }
   }
 }
+
+/**
+ * 사이드바 접기/펼치기 동안 글자가 눌려 보이지 않게 한다.
+ *
+ * 사이드바는 폭(16rem ↔ 3rem)을 200ms에 걸쳐 줄이고 늘리는데, 안쪽 글자는 그 사이 내내
+ * 남아 있으면서 점점 잘린다 — "Claim 종합 현황"이 "Claim 종…" → "Cl…"로 밀려 들어가고,
+ * 펼칠 때는 반대로 좁은 칸에 글자가 통째로 튀어나왔다가 펴진다(찌그러짐).
+ *
+ * 그래서 **폭이 변하는 동안에는 글자를 아예 보이지 않게** 한다.
+ *   접을 때 : 기다리지 않고 먼저 사라진다(폭이 줄기 전에 없어져야 눌리지 않는다).
+ *   펼칠 때 : 폭이 거의 다 늘어난 뒤에 떠오른다.
+ * `max-width`도 함께 줄여 접힌 상태에서 자리를 차지하지 않게 한다(아이콘이 레일 가운데에 오도록).
+ */
+@layer components {
+  .sidebar-fade {
+    max-width: 16rem;
+    overflow: hidden;
+    white-space: nowrap;
+    opacity: 1;
+    transition:
+      opacity 150ms ease 110ms,
+      max-width 200ms ease;
+  }
+
+  [data-collapsible='icon'] .sidebar-fade {
+    max-width: 0;
+    opacity: 0;
+    transition:
+      opacity 90ms ease,
+      max-width 200ms ease;
+  }
+
+  /* 움직임을 줄이도록 설정한 사용자에게는 전환 없이 곧바로 바뀐다. */
+  @media (prefers-reduced-motion: reduce) {
+    .sidebar-fade,
+    [data-collapsible='icon'] .sidebar-fade {
+      transition: none;
+    }
+  }
+}

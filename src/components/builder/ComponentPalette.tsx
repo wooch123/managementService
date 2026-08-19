@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
-import { Search } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -11,9 +12,10 @@ import { DynamicIcon } from '@/components/shell/DynamicIcon';
 import { getCatalogByGroup } from '@/lib/registry/catalog';
 import type { ComponentDef } from '@/lib/registry/types';
 import { useCanvasStore } from '@/components/builder/canvas-store';
+import { useAddComponent } from '@/components/builder/use-add-component';
 import { cn } from '@/lib/utils';
 
-export function ComponentPalette() {
+export function ComponentPalette({ onAdded }: { onAdded?: () => void } = {}) {
   const [tab, setTab] = useState<'components' | 'structure'>('components');
   const [search, setSearch] = useState('');
   const grouped = useMemo(() => getCatalogByGroup(), []);
@@ -66,7 +68,7 @@ export function ComponentPalette() {
                       <AccordionTrigger className="text-xs">{group}</AccordionTrigger>
                       <AccordionContent className="flex flex-col gap-1">
                         {defs.map((def) => (
-                          <PaletteItem key={def.key} def={def} />
+                          <PaletteItem key={def.key} def={def} onAdded={onAdded} />
                         ))}
                       </AccordionContent>
                     </AccordionItem>
@@ -85,11 +87,12 @@ export function ComponentPalette() {
   );
 }
 
-function PaletteItem({ def }: { def: ComponentDef }) {
+function PaletteItem({ def, onAdded }: { def: ComponentDef; onAdded?: () => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `palette:${def.key}`,
     data: { source: 'palette', componentKey: def.key },
   });
+  const addComponent = useAddComponent();
 
   return (
     <HoverCard openDelay={300}>
@@ -99,7 +102,7 @@ function PaletteItem({ def }: { def: ComponentDef }) {
           {...attributes}
           {...listeners}
           className={cn(
-            'flex h-11 cursor-grab items-center gap-2 rounded-md border px-2 text-sm hover:bg-accent active:cursor-grabbing',
+            'group/palette-item flex h-11 cursor-grab items-center gap-2 rounded-md border px-2 text-sm hover:bg-accent active:cursor-grabbing',
             isDragging && 'opacity-40'
           )}
         >
@@ -108,6 +111,22 @@ function PaletteItem({ def }: { def: ComponentDef }) {
             <span className="truncate">{def.label}</span>
             <span className="truncate text-[10px] text-muted-foreground">{def.key}</span>
           </div>
+          {/* 끌어다 놓을 수 없는 상황(칸이 탭으로 접힌 좁은 화면)에서도 추가할 수 있는 길.
+              넓은 화면에서는 마우스를 올렸을 때만 보여 드래그 UX를 방해하지 않는다. */}
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`${def.label} 추가`}
+            title={`${def.label}을(를) 페이지 맨 아래에 추가`}
+            className="ml-auto shrink-0 opacity-0 transition-opacity focus-visible:opacity-100 group-hover/palette-item:opacity-100 max-lg:opacity-100"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={async (e) => {
+              e.stopPropagation();
+              if (await addComponent(def.key)) onAdded?.();
+            }}
+          >
+            <Plus className="size-4" />
+          </Button>
         </div>
       </HoverCardTrigger>
       <HoverCardContent side="right" className="w-56">

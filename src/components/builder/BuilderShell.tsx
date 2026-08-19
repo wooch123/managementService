@@ -8,6 +8,7 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from '@/components/ui/resizable';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageTree } from '@/components/builder/PageTree';
 import { PagePropertiesPanel } from '@/components/builder/PagePropertiesPanel';
 import { ComponentPalette } from '@/components/builder/ComponentPalette';
@@ -19,6 +20,7 @@ import { useCanvasSync } from '@/components/builder/use-canvas-sync';
 import { getComponentDef } from '@/lib/registry/catalog';
 import type { PageTreeNode } from '@/lib/db/page-tree';
 import type { NodeDto } from '@/lib/db/nodes';
+import { BUILDER_NARROW_QUERY, useMediaQuery } from '@/hooks/use-media-query';
 import type { ApiResult } from '@/types/auth';
 
 /** 드래그 오버레이가 원래 잡은 지점과 상관없이 항상 "왼쪽 위 모서리가 커서에 매달린" 것처럼
@@ -46,6 +48,8 @@ function findPageInTree(nodes: PageTreeNode[], id: string | null): PageTreeNode 
   return undefined;
 }
 
+type Pane = 'pages' | 'palette' | 'canvas' | 'props';
+
 export function BuilderShell({
   initialTree,
   initialSelectedId,
@@ -62,6 +66,9 @@ export function BuilderShell({
   const [activeComponentKey, setActiveComponentKey] = useState<string | null>(null);
   /** 우측 속성 패널 접기 — 캔버스를 넓게 쓰고 싶을 때(넓은 페이지 배치 작업 등) 숨긴다. */
   const [propertyPanelOpen, setPropertyPanelOpen] = useState(true);
+  // 좁은 창에서는 네 칸을 탭으로 접는다(칸 최소 폭 합계가 1,140px이라 그 아래에서는 다 못 담는다).
+  const narrow = useMediaQuery(BUILDER_NARROW_QUERY);
+  const [pane, setPane] = useState<Pane>('canvas');
   const loadPage = useCanvasStore((s) => s.loadPage);
   const select = useCanvasStore((s) => s.select);
   const canvasSelectedId = useCanvasStore((s) => s.selectedId);
@@ -116,6 +123,82 @@ export function BuilderShell({
 
   const activeDef = activeComponentKey ? getComponentDef(activeComponentKey) : null;
 
+  const propertyPanel = canvasSelectedId ? (
+    <NodePropertyPanel />
+  ) : (
+    <PagePropertiesPanel tree={tree} selectedId={selectedPageId} onChanged={refetchTree} />
+  );
+  const canvasPane = selectedPageId ? (
+    // 캔버스가 운영 화면과 같은 비율로 보이도록 페이지의 행 높이/간격을 그대로 넘긴다.
+    <Canvas
+      pageId={selectedPageId}
+      rowHeight={selectedPage?.rowHeight}
+      gap={selectedPage?.gap}
+      propertyPanelOpen={propertyPanelOpen}
+      onTogglePropertyPanel={() => setPropertyPanelOpen((v) => !v)}
+    />
+  ) : (
+    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+      왼쪽에서 페이지를 선택하세요
+    </div>
+  );
+
+  /**
+   * 좁은 창: 4분할 대신 **한 번에 한 칸**을 탭으로 보여준다.
+   *
+   * 네 칸의 최소 폭 합계가 1,140px이라 1024px 아래에서는 어떤 칸도 제 몫을 못 한다 — 예전에는
+   * 각 칸이 내부 스크롤로 버티며 트리도 팔레트도 캔버스도 전부 읽을 수 없는 상태가 됐다.
+   * 팔레트→캔버스 드래그는 두 칸이 동시에 보여야 하므로 이 모드에서는 성립하지 않는다.
+   * 대신 팔레트 항목의 ＋ 버튼으로 추가하고(맨 아래에 붙는다) 캔버스 탭으로 넘어간다.
+   */
+  if (narrow) {
+    return (
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragStop} onDragCancel={handleDragStop}>
+        <Tabs value={pane} onValueChange={(v) => setPane(v as Pane)} className="flex min-h-0 flex-1 flex-col gap-0">
+          <TabsList className="mx-2 mt-2 shrink-0">
+            <TabsTrigger value="pages">페이지</TabsTrigger>
+            <TabsTrigger value="palette">컴포넌트</TabsTrigger>
+            <TabsTrigger value="canvas">캔버스</TabsTrigger>
+            <TabsTrigger value="props">속성</TabsTrigger>
+          </TabsList>
+          <TabsContent value="pages" className="min-h-0 flex-1 overflow-hidden">
+            <PageTree
+              tree={tree}
+              selectedId={selectedPageId}
+              // 페이지를 고르면 바로 그 화면을 보여준다 — 탭 모드에서는 고른 결과가 다른 탭에 있어
+              // 그대로 두면 아무 일도 안 일어난 것처럼 보인다.
+              onSelect={(id) => {
+                setSelectedPageId(id);
+                setPane('canvas');
+              }}
+              onRefetch={refetchTree}
+            />
+          </TabsContent>
+          <TabsContent value="palette" className="min-h-0 flex-1 overflow-hidden">
+            <ComponentPalette onAdded={() => setPane('canvas')} />
+          </TabsContent>
+          <TabsContent value="canvas" className="min-h-0 flex-1 overflow-hidden">
+            {canvasPane}
+          </TabsContent>
+          <TabsContent value="props" className="min-h-0 flex-1 overflow-hidden">
+            {propertyPanel}
+          </TabsContent>
+        </Tabs>
+
+        <DragOverlay modifiers={[snapTopLeftToCursor]} dropAnimation={null}>
+          {activeDef && (
+            <div className="wa-swing origin-top-left">
+              <div className="flex h-11 w-44 items-center gap-2 rounded-md border bg-card px-2 text-sm shadow-lg">
+                <DynamicIcon name={activeDef.icon} className="size-4 shrink-0 text-muted-foreground" />
+                <span className="truncate">{activeDef.label}</span>
+              </div>
+            </div>
+          )}
+        </DragOverlay>
+      </DndContext>
+    );
+  }
+
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragStop} onDragCancel={handleDragStop}>
       <ResizablePanelGroup orientation="horizontal" className="flex-1">
@@ -127,31 +210,12 @@ export function BuilderShell({
           <ComponentPalette />
         </ResizablePanel>
         <ResizableHandle />
-        <ResizablePanel minSize={400}>
-          {selectedPageId ? (
-            // 캔버스가 운영 화면과 같은 비율로 보이도록 페이지의 행 높이/간격을 그대로 넘긴다.
-            <Canvas
-              pageId={selectedPageId}
-              rowHeight={selectedPage?.rowHeight}
-              gap={selectedPage?.gap}
-              propertyPanelOpen={propertyPanelOpen}
-              onTogglePropertyPanel={() => setPropertyPanelOpen((v) => !v)}
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-              왼쪽에서 페이지를 선택하세요
-            </div>
-          )}
-        </ResizablePanel>
+        <ResizablePanel minSize={400}>{canvasPane}</ResizablePanel>
         {propertyPanelOpen && (
           <>
             <ResizableHandle />
             <ResizablePanel defaultSize={320} minSize={280}>
-              {canvasSelectedId ? (
-                <NodePropertyPanel />
-              ) : (
-                <PagePropertiesPanel tree={tree} selectedId={selectedPageId} onChanged={refetchTree} />
-              )}
+              {propertyPanel}
             </ResizablePanel>
           </>
         )}

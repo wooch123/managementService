@@ -335,7 +335,7 @@ export function Canvas({
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex items-center gap-2 border-b p-2">
+      <div className="flex flex-wrap items-center gap-2 border-b p-2">
         <Button variant="ghost" size="icon-sm" onClick={() => temporal.getState().undo()} aria-label="실행 취소">
           <Undo2 className="size-4" />
         </Button>

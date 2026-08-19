@@ -78,7 +78,7 @@ export function EntityList({
   }
 
   return (
-    <div className="flex h-full w-[240px] shrink-0 flex-col border-r">
+    <div className="flex h-full w-full shrink-0 flex-col border-r lg:w-[240px]">
       <div className="flex items-center justify-between border-b p-2">
         <span className="text-sm font-medium">엔티티</span>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
