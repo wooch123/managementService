@@ -87,7 +87,9 @@ async function withAttachments(rows: PostRow[]) {
   if (rows.length === 0) return new Map<string, { id: string; url: string; name: string; width: number | null; height: number | null }[]>();
   const attachments = await prisma.boardAttachment.findMany({
     where: { postId: { in: rows.map((r) => r.id) } },
-    orderBy: { createdAt: 'asc' },
+    // 보낸 사람이 붙여넣은 순서 그대로. 여러 장을 동시에 올리므로 업로드가 끝난 순서(createdAt)는
+    // 그 순서와 다르다 — 같은 값이면(예전 데이터) 올라온 순서로 이어 붙인다.
+    orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
   });
   const byPost = new Map<string, { id: string; url: string; name: string; width: number | null; height: number | null }[]>();
   for (const a of attachments) {
@@ -240,12 +242,13 @@ export async function POST(request: NextRequest) {
     const created = await tx.boardPost.create({
       data: { ...post, category: post.category || null },
     });
-    if (attachmentIds.length > 0) {
-      // 아직 어느 메시지에도 붙지 않은, **같은 게시판의** 첨부만 연결한다 — 남의 게시판 이미지를
-      // id만 알아내 끌어오는 경로를 막는다.
+    // 아직 어느 메시지에도 붙지 않은, **같은 게시판의** 첨부만 연결한다 — 남의 게시판 이미지를
+    // id만 알아내 끌어오는 경로를 막는다. 보낸 목록의 순서를 sortOrder에 그대로 적어,
+    // 동시에 올라가 업로드 완료 순서가 뒤섞여도 화면에서는 붙여넣은 순서로 보이게 한다.
+    for (const [index, attachmentId] of attachmentIds.entries()) {
       await tx.boardAttachment.updateMany({
-        where: { id: { in: attachmentIds }, boardKey: post.boardKey, postId: null },
-        data: { postId: created.id },
+        where: { id: attachmentId, boardKey: post.boardKey, postId: null },
+        data: { postId: created.id, sortOrder: index },
       });
     }
     return created;

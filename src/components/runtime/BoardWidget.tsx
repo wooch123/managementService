@@ -31,6 +31,8 @@ const POLL_MS = 3000;
 const BOTTOM_SLACK = 48;
 /** 위로 이만큼 남았을 때 이전 메시지를 미리 불러온다. */
 const TOP_TRIGGER = 120;
+/** 한 메시지에 붙일 수 있는 이미지 수 — 서버(POST /api/board/posts)의 상한과 같은 값이다. */
+const MAX_ATTACHMENTS = 10;
 
 /** 표시용 작성자명. 설계 데이터가 아니라 방문자 로컬 UI 상태라 localStorage에 둔다(CLAUDE.md §4.2 예외). */
 function loadAuthor(): string {
@@ -70,8 +72,11 @@ async function api<T>(url: string, init?: RequestInit): Promise<T | null> {
  * 게시판 — 대화(채팅) 화면.
  *
  * 원래는 목록 → 글 열기 → 글쓰기로 넘어가는 게시판이었는데, 실제 쓰임이 "짧은 이야기를 계속
- * 주고받는" 쪽이라 대화 화면으로 바꿨다. 예전 글 2,001건은 그대로 남아 말풍선으로 보이고,
+ * 주고받는" 쪽이라 대화 화면으로 바꿨다. 같은 표를 그대로 쓰므로 예전 글도 말풍선으로 보이고,
  * 제목이 있던 글은 첫 줄에 굵게 나온다 — 기록을 버리지 않기 위한 선택이다.
+ *
+ * 이미지는 대화 안에서는 작게(누르면 원본 크기) 보여 흐름을 가리지 않게 하고, 붙여넣기 한 번에
+ * 여러 장을 함께 올릴 수 있다.
  *
  * 배치와 동시에 동작해야 하므로(사용자 요구) 별도의 DB 설계·액션 연결 없이 플랫폼이 제공하는
  * BoardPost/BoardAttachment 표를 쓴다. 어떤 게시판인지는 boardKey로 구분한다.
@@ -130,6 +135,8 @@ export function Board({
   /** 최신 메시지 id — 폴링 커서. 렌더와 무관하게 최신 값을 읽어야 해 ref로 둔다. */
   const newestRef = useRef<string | null>(null);
   const atBottomRef = useRef(true);
+  /** 올리는 중인 것까지 포함한 첨부 수 — 여러 장을 동시에 올릴 때 상한을 정확히 세기 위해 즉시 갱신한다. */
+  const pendingRef = useRef(0);
   /**
    * 목록이 다시 그려진 **직후** 스크롤을 어떻게 할지. 화면에 실제로 붙기 전에는 높이를 알 수 없어
    * (setState 직후의 scrollHeight는 예전 값이다) 명령만 남겨 두고 레이아웃 단계에서 실행한다.
@@ -300,15 +307,37 @@ export function Board({
     async (files: File[]) => {
       const images = files.filter((f) => f.type.startsWith('image/'));
       if (images.length === 0) return;
-      setUploading((n) => n + images.length);
-      for (const file of images) {
-        const form = new FormData();
-        form.append('file', file);
-        form.append('boardKey', boardKey);
-        const data = await api<Attachment>('/api/board/uploads', { method: 'POST', body: form });
-        if (data) setPending((prev) => [...prev, data]);
-        else setError('이미지를 올리지 못했습니다(형식 · 크기를 확인해 주세요).');
-        setUploading((n) => n - 1);
+
+      const room = MAX_ATTACHMENTS - pendingRef.current;
+      if (room <= 0) {
+        setError(`한 번에 보낼 수 있는 이미지는 ${MAX_ATTACHMENTS}장까지입니다.`);
+        return;
+      }
+      const batch = images.slice(0, room);
+      if (batch.length < images.length) {
+        setError(`이미지는 한 번에 ${MAX_ATTACHMENTS}장까지만 올라갑니다(${images.length - batch.length}장 제외).`);
+      }
+      pendingRef.current += batch.length;
+      setUploading((n) => n + batch.length);
+
+      // 여러 장을 **한꺼번에** 올린다 — 한 장씩 차례로 기다리면 붙여넣은 장수만큼 시간이 곱해진다.
+      const results = await Promise.all(
+        batch.map(async (file) => {
+          const form = new FormData();
+          form.append('file', file);
+          form.append('boardKey', boardKey);
+          const data = await api<Attachment>('/api/board/uploads', { method: 'POST', body: form });
+          setUploading((n) => n - 1);
+          return data;
+        })
+      );
+
+      // 붙여넣은 순서를 그대로 유지한다(먼저 끝난 순서가 아니라).
+      const uploaded = results.filter((r): r is Attachment => Boolean(r));
+      pendingRef.current -= batch.length - uploaded.length;
+      if (uploaded.length > 0) setPending((prev) => [...prev, ...uploaded]);
+      if (uploaded.length < batch.length) {
+        setError(`${batch.length - uploaded.length}장을 올리지 못했습니다(형식 · 크기를 확인해 주세요).`);
       }
     },
     [boardKey]
@@ -337,6 +366,7 @@ export function Board({
     }
     setDraft('');
     setPending([]);
+    pendingRef.current = 0;
     setError(null);
     // 보낸 사람은 항상 맨 아래로 — 방금 보낸 것이 보여야 한다.
     atBottomRef.current = true;
@@ -505,8 +535,10 @@ export function Board({
                             className={cn('space-y-2', mine && '[&_a]:text-primary-foreground [&_a]:underline')}
                           />
                         )}
+                        {/* items-start: 한 줄에 놓인 그림들이 가장 큰 것 높이로 늘어나(flex 기본값 stretch)
+                            작은 그림 아래에 빈 칸이 생기던 것을 막는다. */}
                         {m.attachments.length > 0 && (
-                          <div className={cn('flex flex-wrap gap-2', (m.content || m.title) && 'mt-2')}>
+                          <div className={cn('flex flex-wrap items-start gap-2', (m.content || m.title) && 'mt-2')}>
                             {m.attachments.map((a) => (
                               <button
                                 key={a.id}
@@ -529,9 +561,14 @@ export function Board({
                                     // 이미지가 늦게 자리를 차지하면 높이가 바뀐다 — 맨 아래를 보고 있었다면 따라 내려간다.
                                     if (atBottomRef.current) scrollToBottom();
                                   }}
-                                  // 원본 크기 그대로 — **폭이 모자랄 때만** 비율을 지키며 줄어든다.
-                                  // 높이 상한은 두지 않는다(세로로 긴 그림도 잘리거나 눌리지 않게).
-                                  className="h-auto w-auto max-w-full"
+                                  // 대화 흐름을 가리지 않게 작게 건다 — 원본 크기는 눌러서 본다.
+                                  // 잘라내지 않으므로 비율은 그대로고, 상한보다 작은 그림은 원래 크기로 나온다.
+                                  //
+                                  // 상한에 퍼센트(100%)를 섞으면 안 된다: 감싼 버튼의 폭이 내용에 맞춰 정해지는데
+                                  // 그 내용의 상한이 다시 부모 폭을 참조해 순환이 생긴다. 브라우저는 이때 원본 폭으로
+                                  // 물러나 버튼만 900px로 벌어지고 그림은 240px로 남아 빈 여백이 크게 생겼다.
+                                  // 말풍선을 넘지 않게 하는 몫은 감싼 버튼(max-w-full)이 맡는다.
+                                  className="h-auto max-h-40 w-auto max-w-60"
                                   style={a.width && a.height ? { aspectRatio: `${a.width} / ${a.height}` } : undefined}
                                 />
                               </button>
@@ -593,7 +630,10 @@ export function Board({
                     size="icon-sm"
                     aria-label={`${p.name} 첨부 취소`}
                     className="absolute -right-1.5 -top-1.5 size-5 rounded-full"
-                    onClick={() => setPending((prev) => prev.filter((x) => x.id !== p.id))}
+                    onClick={() => {
+                      pendingRef.current = Math.max(0, pendingRef.current - 1);
+                      setPending((prev) => prev.filter((x) => x.id !== p.id));
+                    }}
                   >
                     <X className="size-3" />
                   </Button>
@@ -637,11 +677,24 @@ export function Board({
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               // 클립보드에 이미지가 있으면 그대로 첨부한다 — 화면 캡처를 붙여넣는 것이 가장 흔한 쓰임이다.
+              // 여러 장을 한 번에 붙여넣는 경우(탐색기에서 파일 여러 개 복사)도 그대로 받는다.
               onPaste={(e) => {
-                const files = [...e.clipboardData.files];
-                if (files.some((f) => f.type.startsWith('image/'))) {
+                // 브라우저에 따라 그림이 `files`에만, 또는 `items`에만 잡힌다 — 양쪽을 모아 겹치는 것만 걸러낸다.
+                const fromItems = [...e.clipboardData.items]
+                  .filter((it) => it.kind === 'file')
+                  .map((it) => it.getAsFile())
+                  .filter((f): f is File => Boolean(f));
+                const seen = new Set<string>();
+                const images = [...e.clipboardData.files, ...fromItems].filter((f) => {
+                  if (!f.type.startsWith('image/')) return false;
+                  const key = `${f.name}:${f.size}:${f.lastModified}`;
+                  if (seen.has(key)) return false;
+                  seen.add(key);
+                  return true;
+                });
+                if (images.length > 0) {
                   e.preventDefault();
-                  void uploadFiles(files);
+                  void uploadFiles(images);
                 }
               }}
               onKeyDown={(e) => {

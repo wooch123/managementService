@@ -256,6 +256,9 @@ model BoardAttachment {
   byteSize  Int
   width     Int?
   height    Int?
+  /// 한 메시지 안에서의 순서. 여러 장을 **동시에** 올리므로 업로드가 끝난 순서(createdAt)는
+  /// 사용자가 붙여넣은 순서와 다르다 — 보낼 때 받은 목록 순서를 여기에 적어 그대로 보여준다.
+  sortOrder Int        @default(0)
   createdAt DateTime   @default(now())
 
   @@index([boardKey, createdAt])
