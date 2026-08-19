@@ -299,28 +299,26 @@ function claimAnalysis(claimStatus: string[]): PagePlan {
     nodes: [
       title(1, 'Claim 분석 워크벤치', '목록에서 고르면 상세·FA 이력·후속 작업이 같은 화면에서 이어집니다.'),
       {
+        // 청사진 02의 세그먼트는 필터이자 지표다 — "전체 3,334 · 미배정 805 · 분석중 842".
+        // 그래서 이 화면에는 따로 지표 타일 줄을 두지 않는다.
         type: 'status-filter',
         col: 1,
         span: 12,
         row: 5,
         rowSpan: 3,
-        props: { title: '진행상태', param: 'status', options: [{ label: '전체', value: '' }, ...claimStatus.map((v) => ({ label: v, value: v }))] },
+        props: {
+          title: '진행상태',
+          param: 'status',
+          showCounts: true,
+          options: [{ label: '전체', value: '' }, ...claimStatus.map((v) => ({ label: v, value: v }))],
+        },
+        bind: { mode: 'group', table: 'claims', groupField: 'claim_status', fn: 'count', filters: [], orderBy: 'value', limit: 20 },
       },
-      kpi(1, 8, '미배정(접수)', 'claims', 'count', [{ col: 'claim_status', op: 'eq', source: 'fixed', value: '접수' }], {
-        secondary: { label: '그중 Critical', filters: [{ col: 'claim_status', op: 'eq', source: 'fixed', value: '접수' }, { col: 'severity', op: 'eq', source: 'fixed', value: 'Critical' }] },
-      }),
-      kpi(4, 8, '분석 진행 중', 'claims', 'count', [{ col: 'claim_status', op: 'in', source: 'fixed', value: ['배정', '분석중'] }], {
-        secondary: { label: '마감 지남', filters: [{ col: 'claim_status', op: 'in', source: 'fixed', value: ['배정', '분석중'] }, { col: 'due_date', op: 'lt', source: 'query', ref: 'today' }] },
-      }),
-      kpi(7, 8, '보고완료·종결', 'claims', 'count', [{ col: 'claim_status', op: 'in', source: 'fixed', value: ['보고완료', '종결'] }]),
-      kpi(10, 8, 'TAT 20일 초과', 'claims', 'count', [{ col: 'tat_days', op: 'gt', source: 'fixed', value: 20 }], {
-        secondary: { label: '그중 미완료', filters: [{ col: 'tat_days', op: 'gt', source: 'fixed', value: 20 }, { col: 'claim_status', op: 'in', source: 'fixed', value: ['접수', '배정', '분석중', '보류'] }] },
-      }),
       {
         type: 'search-filter',
         col: 1,
         span: 4,
-        row: 15,
+        row: 8,
         rowSpan: 3,
         props: { label: '통합 검색', placeholder: 'FAR No · 고객사 · 모델', param: 'q' },
       },
@@ -328,7 +326,7 @@ function claimAnalysis(claimStatus: string[]): PagePlan {
         type: 'select-filter',
         col: 5,
         span: 3,
-        row: 15,
+        row: 8,
         rowSpan: 3,
         props: { label: '담당자', param: 'owner', allLabel: '전체 담당자', options: '' },
         bind: { mode: 'group', table: 'claims', groupField: 'owner', fn: 'count', filters: [], orderBy: 'value', limit: 30 },
@@ -337,7 +335,7 @@ function claimAnalysis(claimStatus: string[]): PagePlan {
         type: 'data-table',
         col: 1,
         span: 7,
-        row: 18,
+        row: 11,
         rowSpan: 28,
         props: { title: 'Claim 작업 목록', showSearch: false, showExport: false, selectable: false, density: 'default', emptyText: '조건에 맞는 Claim이 없습니다', selectParam: 'sel', selectFieldId: 'far_no' },
         bind: {
@@ -357,7 +355,7 @@ function claimAnalysis(claimStatus: string[]): PagePlan {
         type: 'record-detail',
         col: 8,
         span: 5,
-        row: 18,
+        row: 11,
         rowSpan: 15,
         props: { title: '선택 Claim', emptyText: '왼쪽 목록에서 Claim을 선택하세요', subtitleCount: 2 },
         bind: {
@@ -373,7 +371,7 @@ function claimAnalysis(claimStatus: string[]): PagePlan {
         type: 'record-timeline',
         col: 8,
         span: 5,
-        row: 33,
+        row: 26,
         rowSpan: 13,
         props: { title: 'FA 배정·인수인계 이력', emptyText: '선택한 Claim의 이력이 없습니다', maxItems: 6 },
         bind: {
@@ -389,7 +387,7 @@ function claimAnalysis(claimStatus: string[]): PagePlan {
         type: 'list-panel',
         col: 1,
         span: 6,
-        row: 46,
+        row: 39,
         rowSpan: 12,
         props: { title: '이 Claim의 분석 의뢰', subtitle: '개발실·Auto·DRAM·pFA', emptyText: '연결된 의뢰가 없습니다', maxItems: 6, badgeSuffix: '' },
         bind: {
@@ -405,7 +403,7 @@ function claimAnalysis(claimStatus: string[]): PagePlan {
         type: 'list-panel',
         col: 7,
         span: 6,
-        row: 46,
+        row: 39,
         rowSpan: 12,
         props: { title: '이 Claim의 Reball 의뢰', subtitle: '반출~반입 일정', emptyText: '연결된 Reball 의뢰가 없습니다', maxItems: 6, badgeSuffix: '' },
         bind: {
@@ -422,7 +420,7 @@ function claimAnalysis(claimStatus: string[]): PagePlan {
         type: 'form-card',
         col: 1,
         span: 12,
-        row: 58,
+        row: 51,
         rowSpan: 14,
         props: {
           title: '다음 행동',
@@ -534,7 +532,13 @@ function faStatus(status: string[], priority: string[]): PagePlan {
         span: 12,
         row: 5,
         rowSpan: 3,
-        props: { title: '진행상태', param: 'fastatus', options: [{ label: '전체', value: '' }, ...status.map((v) => ({ label: v, value: v }))] },
+        props: {
+          title: '진행상태',
+          param: 'fastatus',
+          showCounts: true,
+          options: [{ label: '전체', value: '' }, ...status.map((v) => ({ label: v, value: v }))],
+        },
+        bind: { mode: 'group', table: 'fa_assignments', groupField: 'fa_status', fn: 'count', filters: [], orderBy: 'value', limit: 20 },
       },
       kpi(1, 8, '분석중', 'fa_assignments', 'count', [{ col: 'fa_status', op: 'eq', source: 'fixed', value: '분석중' }], {
         // 청사진 04의 "지연 위험 37건" — 오늘을 서버가 넣어 주므로 설계에 날짜를 박지 않는다.
@@ -952,8 +956,10 @@ function reballStatus(): PagePlan {
         props: {
           title: '진행 단계',
           param: 'rbstatus',
+          showCounts: true,
           options: [{ label: '전체', value: '' }, ...['의뢰', '반출', '작업중', '반입', '완료', '취소'].map((v) => ({ label: v, value: v }))],
         },
+        bind: { mode: 'group', table: 'reball_requests', groupField: 'reball_status', fn: 'count', filters: [], orderBy: 'value', limit: 20 },
       },
       {
         type: 'gantt-chart',
@@ -1128,7 +1134,21 @@ function requestHub(reqPriority: string[]): PagePlan {
         span: 5,
         row: 26,
         rowSpan: 3,
-        props: { title: '긴급도', param: 'priority', options: [{ label: '전체', value: '' }, ...reqPriority.map((v) => ({ label: v, value: v }))] },
+        props: {
+          title: '긴급도',
+          param: 'priority',
+          showCounts: true,
+          options: [{ label: '전체', value: '' }, ...reqPriority.map((v) => ({ label: v, value: v }))],
+        },
+        bind: {
+          mode: 'group',
+          table: 'analysis_requests',
+          groupField: 'priority',
+          fn: 'count',
+          filters: [{ col: 'req_status', op: 'in', source: 'fixed', value: ['접수', '진행중', '보류'] }],
+          orderBy: 'value',
+          limit: 20,
+        },
       },
       {
         type: 'search-filter',
@@ -1350,7 +1370,13 @@ function requestPage(type: RequestType, reqStatus: string[], reqPriority: string
         span: 8,
         row: 12,
         rowSpan: 3,
-        props: { title: '진행상태', param: 'rstatus', options: [{ label: '전체', value: '' }, ...reqStatus.map((v) => ({ label: v, value: v }))] },
+        props: {
+          title: '진행상태',
+          param: 'rstatus',
+          showCounts: true,
+          options: [{ label: '전체', value: '' }, ...reqStatus.map((v) => ({ label: v, value: v }))],
+        },
+        bind: { mode: 'group', table: 'analysis_requests', groupField: 'req_status', fn: 'count', filters: [typeFilter], orderBy: 'value', limit: 20 },
       },
       {
         type: 'data-table',
@@ -1462,7 +1488,13 @@ function tips(categories: string[]): PagePlan {
         span: 8,
         row: 5,
         rowSpan: 3,
-        props: { title: '분류', param: 'cat', options: [{ label: '전체', value: '' }, ...categories.map((v) => ({ label: v, value: v }))] },
+        props: {
+          title: '분류',
+          param: 'cat',
+          showCounts: true,
+          options: [{ label: '전체', value: '' }, ...categories.map((v) => ({ label: v, value: v }))],
+        },
+        bind: { mode: 'group', table: 'tips', groupField: 'category', fn: 'count', filters: [], orderBy: 'value', limit: 20 },
       },
       {
         type: 'search-filter',

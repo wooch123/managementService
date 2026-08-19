@@ -1611,9 +1611,12 @@ export const nodeMeta: Record<string, NodeMeta> = {
     "defaultProps": {
       "title": "",
       "param": "status",
-      "options": []
+      "options": [],
+      "showCounts": true
     },
-    "bindingModes": [],
+    "bindingModes": [
+      "group"
+    ],
     "events": []
   },
   "stat-tile": {

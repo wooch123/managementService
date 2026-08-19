@@ -4,6 +4,7 @@ import { ArrowRight, MousePointerClick } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { statusBadgeClass } from '@/lib/status-tone';
 import { toRecordRow, toRecordRows, type RecordField, type RecordRow } from '@/lib/record-view';
+import { toLabelValueSeries } from '@/lib/chart-series';
 import { StatusFilter, StatusFilterPreview } from '@/components/runtime/StatusFilter';
 import { defineComponent, type ComponentDef } from '@/lib/registry/types';
 
@@ -513,18 +514,34 @@ export const workbenchComponents = [
     isContainer: false,
     // 좁은 폭에서 세그먼트가 두세 줄로 접힌다 — 접힌 만큼 칸이 늘어나야 한다(기간 필터와 같음).
     growsWithContent: true,
-    bindingModes: [],
+    /**
+     * 항목별 집계를 물리면 각 세그먼트에 **건수가 붙는다**("미배정 805"). 청사진의 세그먼트는
+     * 필터이자 지표다 — 건수가 없으면 어느 상태에 일이 몰렸는지 눌러 보기 전에는 알 수 없다.
+     */
+    bindingModes: ['group'],
     events: [],
     propsSchema: z.object({
       title: z.string().default(''),
       /** 주소 파라미터 이름 — 바인딩 필터에서 `주소 쿼리` 소스로 이 이름을 지목한다. */
       param: z.string().default('status'),
       options: z.array(z.object({ label: z.string(), value: z.string().default('') })).default([]),
+      /** 집계를 물렸을 때 세그먼트에 건수를 함께 보여줄지 */
+      showCounts: z.boolean().default(true),
     }),
-    defaultProps: { title: '', param: 'status', options: [] },
+    defaultProps: { title: '', param: 'status', options: [], showCounts: true },
     defaultGrid: { span: 12, rowSpan: 3 },
-    render: ({ props, onValueChange }) => {
-      const options = props.options.length > 0 ? props.options : [{ label: '전체', value: '' }];
+    render: ({ props, data, onValueChange }) => {
+      const base = props.options.length > 0 ? props.options : [{ label: '전체', value: '' }];
+      const counts =
+        props.showCounts && data !== undefined ? new Map(toLabelValueSeries(data).map((s) => [s.label, s.value])) : null;
+      const total = counts ? [...counts.values()].reduce((sum, n) => sum + n, 0) : null;
+      const options = base.map((option) => {
+        if (!counts) return option;
+        // 빈 값('전체')에는 총합을, 나머지에는 그 값의 건수를 붙인다. 집계에 없는 값은 0으로 —
+        // 라벨이 사라지면 "그 상태가 없다"가 아니라 "필터가 없다"로 읽힌다.
+        const count = option.value === '' ? total : (counts.get(option.value) ?? 0);
+        return { ...option, label: count === null ? option.label : `${option.label} ${count.toLocaleString('ko-KR')}` };
+      });
       // onValueChange가 있으면 운영/미리보기 런타임이다(주소를 바꿀 수 있다).
       return typeof onValueChange === 'function' ? (
         <StatusFilter title={props.title} param={props.param} options={options} />
