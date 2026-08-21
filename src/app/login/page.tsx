@@ -7,7 +7,10 @@ import { getAppSettings } from '@/lib/db/app-settings';
  * 보이면 다른 사이트에 온 것처럼 읽힌다. */
 export async function generateMetadata(): Promise<Metadata> {
   const { siteTitle } = await getAppSettings();
-  return { title: `${siteTitle} - 로그인` };
+  // absolute: 루트 레이아웃의 템플릿("WebApp_V1 - %s")을 건너뛴다 — 그대로 두면 이름이
+  // 두 번 붙어 "WebApp_V1 - eStorage Task - 로그인"이 된다. 이 화면은 사이드바가 없어
+  // 영역 레이아웃의 템플릿을 받지 못하므로 제목을 통째로 만든다.
+  return { title: { absolute: `${siteTitle} - 로그인` } };
 }
 
 export default async function LoginPage({
