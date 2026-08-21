@@ -1,7 +1,14 @@
+import type { Metadata } from 'next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoginForm } from '@/components/shell/LoginForm';
+import { getAppSettings } from '@/lib/db/app-settings';
 
-export const metadata = { title: '로그인' };
+/** 로그인 화면에는 사이드바가 없지만 탭 제목은 같은 이름을 쓴다 — 로그인 전후로 이름이 달라
+ * 보이면 다른 사이트에 온 것처럼 읽힌다. */
+export async function generateMetadata(): Promise<Metadata> {
+  const { siteTitle } = await getAppSettings();
+  return { title: `${siteTitle} - 로그인` };
+}
 
 export default async function LoginPage({
   searchParams,
