@@ -7,6 +7,8 @@ import { computeDeploySchemaDiff, toDestructiveDescriptor } from '@/lib/deploy/m
 import { computeDeployPreview } from '@/lib/deploy/preview-diff';
 import type { PublishedSpec } from '@/types/spec';
 
+export const metadata = { title: '배포' };
+
 export default async function DeployPage() {
   const [latestRun, draft, revisions, deployment] = await Promise.all([
     prisma.validationRun.findFirst({ orderBy: { startedAt: 'desc' } }),

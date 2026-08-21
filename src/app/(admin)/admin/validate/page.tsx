@@ -6,6 +6,8 @@ import { computeSpecHash } from '@/lib/validation/spec-hash';
 import { countSpecItems } from '@/lib/validation/helpers';
 import type { ValidationIssue } from '@/lib/validation/types';
 
+export const metadata = { title: '구성 검증' };
+
 export default async function ValidatePage() {
   const [latest, spec] = await Promise.all([prisma.validationRun.findFirst({ orderBy: { startedAt: 'desc' } }), loadDraftSpec()]);
 

@@ -16,8 +16,13 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+/**
+ * 여기 제목은 **마지막 안전망**이다. 실제 탭 제목은 각 영역의 레이아웃이 사이트 설정에서 읽은
+ * 이름으로 덮어쓴다(운영·관리자 레이아웃의 generateMetadata) — 사이드바 헤더와 같은 값이라
+ * 관리자가 이름을 바꾸면 탭 제목도 함께 바뀐다. 이 값은 그 레이아웃 밖의 경로에서만 쓰인다.
+ */
 export const metadata: Metadata = {
-  title: "WebApp_V1",
+  title: { template: "WebApp_V1 - %s", default: "WebApp_V1" },
   description: "사내 업무용 노코드 웹 애플리케이션 빌더",
 };
 

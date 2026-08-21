@@ -1,9 +1,16 @@
+import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/shell/AppSidebar';
 import { getAppSettings } from '@/lib/db/app-settings';
 import { getPageTree } from '@/lib/db/page-tree';
 import { getSession } from '@/lib/auth/session';
+
+/** 탭 제목을 사이드바 헤더와 같은 이름으로 — "사이트 이름 - 지금 보는 화면"((public)/layout.tsx 참고). */
+export async function generateMetadata(): Promise<Metadata> {
+  const { siteTitle } = await getAppSettings();
+  return { title: { template: `${siteTitle} - %s`, default: `${siteTitle} - 관리자` } };
+}
 
 export default async function AdminLayout({
   children,

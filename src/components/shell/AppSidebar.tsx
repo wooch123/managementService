@@ -35,7 +35,6 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import type { PageTreeNode } from '@/lib/db/page-tree';
 
 export function AppSidebar({
@@ -73,27 +72,37 @@ export function AppSidebar({
               제목 버튼과 형제로 나란히 놓는다. 접힌 상태에서는 자리가 없어 감추고, 그때는
               본문 헤더의 버튼이 대신 나타난다(AppHeader). */}
           <SidebarMenuItem className="flex items-center gap-1">
-            {/* 관리자 화면에서는 이 영역을 눌러 사이트 이름/부제를 바로 수정한다(운영 화면은 표시 전용). */}
+            {/* 헤더(로고 + 사이트 이름)를 누르면 홈으로 간다 — 어느 화면에서든 처음으로 돌아가는
+                가장 익숙한 길이다. 관리자 화면의 홈은 빌더(/admin), 운영 화면의 홈은 /home. */}
             <SidebarMenuButton
+              asChild
               size="lg"
-              onClick={mode === 'admin' ? () => setTitleEditOpen(true) : undefined}
-              title={mode === 'admin' ? '클릭해서 사이트 이름 수정' : undefined}
-              className={cn(
-                'min-w-0 flex-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0',
-                mode === 'public' && 'cursor-default'
-              )}
+              className="min-w-0 flex-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0"
             >
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground group-data-[collapsible=icon]:size-8">
-                <LayoutGrid className="size-5 group-data-[collapsible=icon]:size-4" />
-              </div>
-              <div className="sidebar-fade flex flex-col gap-0.5 leading-none">
-                <span className="truncate font-medium">{siteTitle}</span>
-                {siteSubtitle && <span className="truncate text-xs text-muted-foreground">{siteSubtitle}</span>}
-              </div>
-              {mode === 'admin' && (
-                <Pencil className="ml-auto size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/menu-button:opacity-100 group-data-[collapsible=icon]:hidden" />
-              )}
+              <Link href={mode === 'admin' ? '/admin' : '/home'} title="홈으로">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground group-data-[collapsible=icon]:size-8">
+                  <LayoutGrid className="size-5 group-data-[collapsible=icon]:size-4" />
+                </div>
+                <div className="sidebar-fade flex flex-col gap-0.5 leading-none">
+                  <span className="truncate font-medium">{siteTitle}</span>
+                  {siteSubtitle && <span className="truncate text-xs text-muted-foreground">{siteSubtitle}</span>}
+                </div>
+              </Link>
             </SidebarMenuButton>
+            {/* 사이트 이름 수정은 헤더 클릭에 얹혀 있었는데, 이제 헤더는 홈으로 간다 —
+                버튼 안에 버튼을 넣을 수 없으므로 형제로 떼어 낸다(관리자 화면에서만). */}
+            {mode === 'admin' && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-7 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden"
+                onClick={() => setTitleEditOpen(true)}
+                title="사이트 이름 수정"
+              >
+                <Pencil className="size-3.5" />
+                <span className="sr-only">사이트 이름 수정</span>
+              </Button>
+            )}
             {/* 접힌 상태에서는 완전히 없앤다 — 투명하게만 두면 눈에 안 보이는 버튼에 키보드
                 포커스가 걸린다. 이 버튼은 글자가 아니라 아이콘이라 사라짐이 눈에 거슬리지 않는다. */}
             <SidebarTrigger className="shrink-0 group-data-[collapsible=icon]:hidden" title="사이드바 접기" />

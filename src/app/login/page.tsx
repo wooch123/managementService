@@ -1,6 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoginForm } from '@/components/shell/LoginForm';
 
+export const metadata = { title: '로그인' };
+
 export default async function LoginPage({
   searchParams,
 }: {

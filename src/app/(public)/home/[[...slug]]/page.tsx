@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { LayoutDashboard, FileQuestion } from 'lucide-react';
 import { getActiveSpec } from '@/lib/runtime/spec-cache';
@@ -9,7 +10,7 @@ import { AppHeader } from '@/components/shell/AppHeader';
 import { RuntimeRenderer } from '@/components/runtime/RuntimeRenderer';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
-import type { ComponentNodeSpec } from '@/types/spec';
+import type { ComponentNodeSpec, PublishedSpec } from '@/types/spec';
 
 /** 기간 필터 컴포넌트의 카탈로그 키 — 런타임이 이 타입을 보고 페이지의 조회 기간을 정한다. */
 const PERIOD_FILTER_TYPE = 'date-range-filter';
@@ -48,6 +49,26 @@ function findPeriodFilter(nodes: ComponentNodeSpec[]): ComponentNodeSpec | null 
   return [...filters].sort((a, b) => a.grid.row - b.grid.row || a.grid.col - b.grid.col)[0];
 }
 
+/** 배포된 스펙에서 이 주소가 가리키는 화면을 찾는다(slug가 없으면 홈). */
+function findActivePage(spec: PublishedSpec | null, slug: string[] | undefined) {
+  if (!spec) return undefined;
+  // slug 없음 → isHome. 매칭 실패 → 404. isVisible=false인 페이지도 직접 URL 접근은 허용한다
+  // (메뉴에서만 숨기는 일반적인 CMS 관례 — §12.1은 매칭 자체를 isVisible로 제한하지 않는다).
+  return slug?.length ? spec.pages.find((p) => p.slug === slug[slug.length - 1]) : spec.pages.find((p) => p.isHome);
+}
+
+/**
+ * 탭 제목에 **지금 보고 있는 화면 이름**을 넣는다 — 앞부분("사이트 이름 - ")은 (public)/layout의
+ * 템플릿이 붙인다. 이름은 사이드바 메뉴에 쓰는 그 제목(배포된 스펙의 Page.title)이라, 메뉴에서
+ * 읽은 이름과 탭에 뜨는 이름이 항상 같다.
+ */
+export async function generateMetadata({ params }: { params: Promise<{ slug?: string[] }> }): Promise<Metadata> {
+  const [{ slug }, spec] = await Promise.all([params, getActiveSpec()]);
+  const page = findActivePage(spec, slug);
+  // 찾지 못하면 제목을 비워 레이아웃의 기본값(사이트 이름)이 그대로 쓰이게 둔다.
+  return page ? { title: page.title } : {};
+}
+
 export default async function HomePage({
   params,
   searchParams,
@@ -72,9 +93,7 @@ export default async function HomePage({
     );
   }
 
-  // slug 없음 → isHome. 매칭 실패 → 404. isVisible=false인 페이지도 직접 URL 접근은 허용한다
-  // (메뉴에서만 숨기는 일반적인 CMS 관례 — §12.1은 매칭 자체를 isVisible로 제한하지 않는다).
-  const activePage = slug?.length ? spec.pages.find((p) => p.slug === slug[slug.length - 1]) : spec.pages.find((p) => p.isHome);
+  const activePage = findActivePage(spec, slug);
 
   if (!activePage) {
     return (

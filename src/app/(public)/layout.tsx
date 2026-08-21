@@ -1,9 +1,28 @@
+import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/shell/AppSidebar';
 import { getAppSettings } from '@/lib/db/app-settings';
 import { getActiveSpec } from '@/lib/runtime/spec-cache';
 import { buildPublishedPageTree } from '@/lib/runtime/published-page-tree';
+
+/**
+ * 브라우저 탭 제목을 **사이드바 헤더와 같은 이름**으로 맞춘다 — "사이트 이름 - 지금 보는 화면".
+ *
+ * 이름을 코드에 박지 않고 앱 설정(사이드바 헤더가 읽는 그 값)에서 가져온다. 그래야 관리자가
+ * 사이드바에서 이름을 바꾸면 탭 제목도 함께 바뀐다 — 두 곳에 따로 적으면 반드시 어긋난다.
+ * 화면 이름은 각 페이지의 `generateMetadata`가 채우고, 여기 템플릿이 앞부분을 붙인다.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const { siteTitle } = await getAppSettings();
+  return {
+    title: {
+      template: `${siteTitle} - %s`,
+      // 화면 이름을 주지 않는 경로(예: 404)에서는 사이트 이름만 남는다.
+      default: siteTitle,
+    },
+  };
+}
 
 export default async function PublicLayout({
   children,

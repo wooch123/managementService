@@ -2,6 +2,8 @@ import { AdminHeader } from '@/components/shell/AdminHeader';
 import { BuilderShell } from '@/components/builder/BuilderShell';
 import { getPageTree } from '@/lib/db/page-tree';
 
+export const metadata = { title: '화면 구성' };
+
 export default async function BuilderPage({
   searchParams,
 }: {

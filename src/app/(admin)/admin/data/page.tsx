@@ -2,6 +2,8 @@ import { AdminHeader } from '@/components/shell/AdminHeader';
 import { DataShell } from '@/components/data/DataShell';
 import { getEntityList } from '@/lib/db/entities';
 
+export const metadata = { title: 'DB 설계' };
+
 export default async function DataDesignPage({
   searchParams,
 }: {

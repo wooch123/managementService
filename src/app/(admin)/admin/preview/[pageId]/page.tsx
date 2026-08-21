@@ -3,6 +3,8 @@ import { prisma } from '@/lib/db/prisma';
 import { getPageNodes } from '@/lib/db/nodes';
 import { PreviewRuntime } from '@/components/runtime/PreviewRuntime';
 
+export const metadata = { title: '미리보기' };
+
 export const dynamic = 'force-dynamic';
 
 export default async function AdminPagePreview({

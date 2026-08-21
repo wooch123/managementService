@@ -2,6 +2,8 @@ import { AdminHeader } from '@/components/shell/AdminHeader';
 import { GraphShell } from '@/components/graph/GraphShell';
 import { getGraphData } from '@/lib/db/graph';
 
+export const metadata = { title: '관계도' };
+
 export default async function GraphPage({
   searchParams,
 }: {
