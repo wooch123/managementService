@@ -48,15 +48,18 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 
-# WebApp_V1: operational data + meta db (never commit business data)
-/data/
-/prisma/meta.db
-/prisma/meta.db-journal
-/prisma/meta.db-wal
-/prisma/meta.db-shm
+# WebApp_V1: 설계·운영 데이터는 **함께 올린다** — 다른 PC에서 받아 바로 같은 화면을 보기 위해서다.
+#   포함: prisma/meta.db(설계·리비전·게시판) · data/app.db(업무 데이터) · data/uploads(첨부 이미지)
+#   제외: 아래처럼 실행 중 생기거나 계속 커지는 것들.
+# SQLite가 실행 중에 만드는 임시 파일 — 커밋하면 다른 PC에서 DB를 열 때 어긋난다(본체에 체크포인트해 둔다).
+*.db-wal
+*.db-shm
+*.db-journal
+# 매 실행 재생성되는 E2E 전용 DB
+/prisma/test-meta.db
+/data/test-app.db
+# 계속 쌓이는 것들
+/data/backups/
+/data/logs/
 /data/action.log
 
-# WebApp_V1: E2E 전용 DB (매 실행 재생성)
-/prisma/test-meta.db
-/prisma/test-meta.db-wal
-/prisma/test-meta.db-shm

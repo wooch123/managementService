@@ -4,11 +4,42 @@
 
 SPEC.md에 정의된 8개 Phase(P0~P8) 구현이 전부 완료되었고, 실제 운영 배포까지 마친 상태다.
 현재 운영 중인 구성은 이 빌더로 만든 **반도체 스토리지(eMMC·UFS) Claim 통합 분석 서비스**다 —
-페이지 16개 · 배치된 컴포넌트 156개 · 엔티티 8종 · 액션 21개로, Claim 접수부터 FA 분석 · Reball ·
-개발실 의뢰까지를 한 사이트에서 관리한다(운영 데이터 약 2만 건, 배포 리비전 #31 기준).
+페이지 16개 · 배치된 컴포넌트 284개 · 엔티티 8종 · 액션 33개로, Claim 접수부터 FA 분석 · Reball ·
+개발실 의뢰까지를 한 사이트에서 관리한다(운영 데이터 약 2만 건, 배포 리비전 #45 기준).
 
 - **운영 사이트**: https://demo.dove9999.com
 - **관리자**: https://demo.dove9999.com/admin (초기 계정 `admin` / `123456` — 반드시 변경할 것, [배포 가이드](deploy/README.md#3-운영-환경-설정) 참고)
+
+---
+
+## 다른 PC에서 받아 바로 보기
+
+**설계와 데이터가 저장소에 함께 들어 있다.** 받아서 세 줄이면 지금 운영 중인 것과 같은 화면이 뜬다.
+
+```bash
+git clone https://github.com/wooch123/managementService.git && cd managementService
+pnpm install
+pnpm setup:local
+pnpm dev
+```
+
+→ http://localhost:3000/home (운영 화면) · http://localhost:3000/admin (관리자, `admin` / `123456`)
+
+무엇이 함께 들어 있는지:
+
+| 파일 | 내용 |
+|---|---|
+| `prisma/meta.db` | 설계 전체 — 페이지 16 · 컴포넌트 284 · 엔티티 8 · 액션 33 · 관계 193, 배포 리비전 45개, 게시판 대화와 채팅 |
+| `data/app.db` | 업무 데이터 20,325행(Claim 5,000 · FA 배정 4,000 · Tech Report 2,500 · Reball 2,000 · 의뢰 3,000 · Tip 300 등) |
+| `data/uploads/board/` | 게시판에 붙은 이미지 25장 |
+
+`pnpm setup:local`이 하는 일은 **저장소에 담을 수 없는 것**을 만드는 것뿐이다 — 세션 서명 키
+(`.env.local`, 비밀이라 올리지 않는다), Prisma 클라이언트(node_modules 산출물), 빈 폴더.
+
+> ⚠️ **받은 직후 관리자 비밀번호를 바꾸세요.** 설계 DB가 저장소에 함께 있어 비밀번호 해시도
+> 공개된다. `pnpm admin:password "새 비밀번호"`
+
+데이터를 손대며 시험할 거라면 먼저 `pnpm db:backup`으로 스냅샷을 떠 두면 된다(`data/backups/`, 저장소에는 올라가지 않는다).
 
 ---
 

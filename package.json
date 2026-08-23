@@ -24,6 +24,8 @@
     "audit:wiring": "tsx scripts/audit-wiring.mts",
     "verify:actions": "node scripts/verify-actions.mjs",
     "verify:screens": "node scripts/verify-screens.mjs",
+    "setup:local": "node scripts/setup-local.mjs",
+    "admin:password": "node scripts/set-admin-password.mjs",
     "db:sync-schema": "tsx scripts/sync-schema.mts",
     "deploy:draft": "tsx scripts/deploy-draft.mts"
   },
