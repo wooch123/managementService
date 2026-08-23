@@ -1,8 +1,15 @@
 allowBuilds:
   '@prisma/client': true
   '@prisma/engines': true
-  better-sqlite3: true
   esbuild: true
   prisma: true
   sharp: true
   unrs-resolver: true
+
+# better-sqlite3는 여기 없다(예전에는 있었다).
+#
+# 이 패키지는 미리 빌드된 바이너리를 패키지 안에 함께 담아 배포한다(prebuilds/win32-x64.node 등
+# 8종). 그런데 빌드를 허용해 두면 pnpm이 설치할 때마다 node-gyp로 **소스에서 다시 빌드하려 들고**,
+# Python이나 C++ 빌드 도구가 없는 PC에서는 그 단계가 실패해 `pnpm install`이 오류로 끝난다.
+# 실제로는 prebuilt로 잘 동작하는데도 받는 사람은 설치가 깨진 것으로 본다(새 PC에서 실측).
+# 목록에서 빼면 빌드를 시도하지 않고 담겨 온 바이너리를 그대로 쓴다.
