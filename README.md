@@ -25,6 +25,9 @@ pnpm dev
 
 → http://localhost:3000/home (운영 화면) · http://localhost:3000/admin (관리자, `admin` / `123456`)
 
+필요한 것은 **Node 20 이상과 pnpm**뿐이다. C++ 빌드 도구나 Python은 필요 없다 —
+SQLite 드라이버가 미리 빌드된 바이너리를 담아 오기 때문이다(새 PC에서 clone → install → 실행까지 실측).
+
 무엇이 함께 들어 있는지:
 
 | 파일 | 내용 |

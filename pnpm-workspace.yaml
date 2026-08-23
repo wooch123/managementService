@@ -1,4 +1,7 @@
 allowBuilds:
+  # false = "빌드하지 않기로 정했다". 목록에서 아예 빼면 pnpm이 "결정되지 않았다"고 보고
+  # ERR_PNPM_IGNORED_BUILDS로 install을 실패시킨다(pnpm 11에서 실측).
+  better-sqlite3: false
   '@prisma/client': true
   '@prisma/engines': true
   esbuild: true
@@ -6,7 +9,7 @@ allowBuilds:
   sharp: true
   unrs-resolver: true
 
-# better-sqlite3는 여기 없다(예전에는 있었다).
+# better-sqlite3를 true에서 false로 바꾼 이유:
 #
 # 이 패키지는 미리 빌드된 바이너리를 패키지 안에 함께 담아 배포한다(prebuilds/win32-x64.node 등
 # 8종). 그런데 빌드를 허용해 두면 pnpm이 설치할 때마다 node-gyp로 **소스에서 다시 빌드하려 들고**,
