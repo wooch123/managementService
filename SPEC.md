@@ -1093,50 +1093,43 @@ type ValidationIssue = {
 
 ---
 
-## 13. 배포
+## 13. 실행
 
-### 13.1 도메인과 터널
+> 이 저장소는 **로컬 실행만** 담는다. 원래 이 절에는 도메인·터널·프로세스 관리자·자동 기동을 포함한
+> 외부 공개 절차가 있었지만, 그것은 운영하는 PC의 사정이라 저장소에서 제외했다.
 
-`demo1.dove9999.com` → 로컬 PC의 `localhost:3000`.
+### 13.1 받아서 띄우기
 
-```yaml
-# deploy/cloudflared/config.yml
-tunnel: webapp-v1
-credentials-file: C:\Users\<user>\.cloudflared\<tunnel-id>.json
-ingress:
-  - hostname: demo1.dove9999.com
-    service: http://localhost:3000
-  - service: http_status:404
+```bash
+pnpm install
+pnpm setup:local     # 세션 키·Prisma 클라이언트·빈 폴더 준비(저장소에 담을 수 없는 것만)
+pnpm dev             # 개발 서버 → http://localhost:3000/home
 ```
 
-절차 (`deploy/README.md`에 그대로 기록):
+로컬 프로덕션 모드는 `pnpm build && pnpm start`. 두 모드는 출력 폴더가 분리되어 있어
+(`next.config.ts`의 `distDir`: `.next-dev` / `.next`) 동시에 켜 둬도 서로를 깨뜨리지 않는다.
 
-```powershell
-winget install --id Cloudflare.cloudflared
-cloudflared tunnel login
-cloudflared tunnel create webapp-v1
-cloudflared tunnel route dns webapp-v1 demo1.dove9999.com
-cloudflared service install          # Windows 서비스로 상시 실행
-```
+설계(`prisma/meta.db`)와 업무 데이터(`data/app.db`), 게시판 첨부(`data/uploads/`)가 저장소에 함께
+들어 있어 받은 즉시 같은 화면이 뜬다.
 
-### 13.2 앱 상시 실행
+### 13.2 설정
 
-```powershell
-pnpm build
-pnpm add -g pm2
-pm2 start "pnpm start" --name webapp-v1
-pm2 save
-pm2 startup                          # 부팅 시 자동 시작
-```
-
-### 13.3 운영 설정
-
-- `.env.production`: `SESSION_SECRET`(32바이트 랜덤), `NODE_ENV=production`, `APP_URL=https://demo1.dove9999.com`
-- Cloudflare Access로 `/admin/*`, `/login` 경로에 추가 보호를 걸 것을 권장(선택). 걸지 않을 경우 관리자 비밀번호가 유일한 방어선임을 `deploy/README.md`에 명시한다.
-- 백업: `app.db`와 `meta.db`를 매일 03:00에 `data/backups/`로 복사하는 Windows 예약 작업 스크립트(`deploy/backup.ps1`). 30일 보관.
+- `.env.local`의 `SESSION_SECRET`(32바이트 랜덤) — `pnpm setup:local`이 PC마다 새로 만든다.
+  비밀이라 저장소에 넣지 않는다(넣으면 남이 세션을 위조할 수 있다).
+- 관리자 초기 계정은 `admin` / `123456`. 설계 DB가 저장소에 함께 있어 비밀번호 해시도 함께 공개되므로,
+  받은 직후 `pnpm admin:password "새 비밀번호"`로 바꾼다.
+- 백업: `pnpm db:backup` — 두 DB를 `data/backups/`에 복사(30일 보관, 저장소에는 올라가지 않는다).
 - 헬스체크: `GET /api/health` → `{ ok, revisionNo, uptime }`.
 
-### 13.4 보안 체크리스트 (배포 전 필수 확인)
+### 13.3 외부에 공개할 때 (저장소 범위 밖)
+
+리버스 프록시나 터널을 앞에 두고 `pnpm build && pnpm start`를 상시 실행하면 된다. 그때 반드시:
+
+- `SESSION_SECRET`을 그 환경 전용 값으로 새로 만든다
+- 관리자 비밀번호를 바꾼다
+- `/admin/*`과 `/login`에 접근 제어를 한 겹 더 두는 것을 권장한다. 걸지 않으면 관리자 비밀번호가 유일한 방어선이다
+
+### 13.4 보안 체크리스트
 
 - [ ] `SESSION_SECRET`이 기본값이 아니다
 - [ ] 관리자 비밀번호가 해시로만 저장된다
@@ -1388,7 +1381,7 @@ pm2 startup                          # 부팅 시 자동 시작
 8. `GET /api/admin/deploy/preview`, `POST /api/admin/deploy`, `/api/admin/revisions/:id/activate`
 9. `unstable_cache` + `revalidateTag('published-spec')`
 10. `GET /api/health`
-11. 배포 산출물: `deploy/cloudflared/config.yml`, `deploy/README.md`, `deploy/backup.ps1`
+11. 실행 산출물: `scripts/setup-local.mjs`(받은 뒤 준비), `scripts/backup-db.ts`(DB 백업)
 12. §13.4 보안 체크리스트 전 항목 실측 확인
 
 **수용 기준**
@@ -1401,8 +1394,8 @@ pm2 startup                          # 부팅 시 자동 시작
 - [ ] 배포 중 SQL 오류 유발 → 백업 복원 + 리비전 미생성 + 활성 리비전 불변 (실패 시나리오 테스트)
 - [ ] 리비전 롤백 → `/home`이 이전 구성으로 즉시 복귀
 - [ ] 한 컴포넌트가 예외를 던져도 페이지의 나머지가 정상 렌더
-- [ ] `https://demo1.dove9999.com` 외부 접근 성공, HTTPS 유효
-- [ ] PC 재부팅 후 pm2 + cloudflared 자동 복구
+- [ ] `http://localhost:3000`에서 운영 화면과 관리자 화면이 모두 뜬다
+- [ ] 새 PC에서 clone → `pnpm install` → `pnpm setup:local` → `pnpm dev`로 같은 화면이 뜬다
 - [ ] `/api/health`가 활성 리비전 번호 반환
 - [ ] §13.4 체크리스트 6항목 전부 확인 완료
 - [ ] 운영 모드 초기 JS 번들에 빌더/React Flow 코드 미포함 (bundle-analyzer 확인)
@@ -1456,7 +1449,7 @@ pm2 startup                          # 부팅 시 자동 시작
 |---|---|---|---|
 | R1 | 현업 업무 전반을 진행할 웹 애플리케이션 | §1.1, §1.4 | 전체 |
 | R2 | local PC가 호스팅 | §13.2 (pm2), CLAUDE.md §2 | P8 |
-| R3 | `demo1.dove9999.com`으로 배포 | §13.1 (Cloudflare Tunnel) | P8 |
+| R3 | 로컬에서 실행 가능 | §13.1 (받아서 띄우기) | P8 |
 | R4 | 구현 수준 %와 예상 남은 시간을 중간중간 공유 | **CLAUDE.md §6** (보고 프로토콜), §14 가중치 표 | 전체 |
 | R5 | 본문 좌측에 페이지 내비게이션이 있는 레이아웃, 샘플 이미지 참조 | §4 전체 (§4.1 구조도, §4.2 사이드바) | P1 |
 | R6 | 운영 `/home` + 관리자 `/admin` 구성 | §1.2, §8, §12 | P1, P8 |
@@ -1497,7 +1490,7 @@ pm2 startup                          # 부팅 시 자동 시작
 | 프레임워크 | Next.js 15 App Router | shadcn/ui 공식 지원, 단일 앱으로 `/home`+`/admin` 처리 |
 | 배포 방식 | 스펙 인터프리터 (codegen 아님) | 재빌드 없는 즉시 배포·원자적 롤백. §2.1 |
 | DB 분리 | meta.db(Prisma) + app.db(동적) | Prisma 스키마는 런타임 변경 불가. §2.2 |
-| 도메인 노출 | Cloudflare Tunnel | 포트포워딩·고정IP·인증서 관리 불필요 |
+| 배포 범위 | 로컬 실행만 | 도메인·터널·프로세스 관리자는 운영하는 PC의 사정이라 저장소에 담지 않는다 |
 | 계정 | 관리자 1계정, 운영 익명 | 요구사항에 다중 계정 언급 없음 |
 | 아이콘 | lucide-react | shadcn 기본 아이콘 세트 |
 
@@ -1505,6 +1498,6 @@ pm2 startup                          # 부팅 시 자동 시작
 
 1. **Figma 킷 접근**: 커뮤니티 파일이므로 MCP로 직접 읽지 못할 수 있다. 시각 스펙이 코드 기본값과 다를 경우 스크린샷 기준으로 맞추고, 판단이 어려우면 사용자에게 해당 컴포넌트 스크린샷을 요청한다.
 2. **한글 slug**: `/home/재고-관리` 같은 한글 URL을 허용할지, 로마자 변환할지. 기본은 **한글 허용**(URL 인코딩)으로 구현하고, 문제 발생 시 로마자 변환 옵션을 페이지 속성에 추가.
-3. **운영 모드 접근 제어**: 현재 익명 공개. 사내 데이터가 들어가면 Cloudflare Access 또는 별도 사용자 인증이 필요해진다 — P8 배포 시 사용자에게 명시적으로 확인한다.
+3. **운영 모드 접근 제어**: 현재 익명 공개. 사내 데이터가 들어가고 외부에 공개한다면 프록시 단의 접근 제어나 별도 사용자 인증이 필요해진다.
 4. **동시 편집**: 관리자 1명 전제. 두 브라우저에서 동시 편집하면 마지막 저장이 이긴다. V1에서 락을 구현하지 않되, 배포 시 `specHash`를 비교해 다른 세션의 변경이 있으면 경고한다.
 5. **파일 업로드 컴포넌트(`attachment`)**: 실제 파일 저장 위치(`data/uploads/`)와 용량 제한을 P3에서 결정한다.

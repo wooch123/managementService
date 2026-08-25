@@ -9,12 +9,11 @@
 ## 1. 한 줄 요약
 
 관리자가 **화면·컴포넌트·DB·동작을 GUI로 설계**하면 검증을 거쳐 운영 사이트(`/home`)에 배포되는 노코드 웹 애플리케이션 빌더이고,
-그 빌더 위에 **반도체 스토리지(eMMC/UFS) Claim 통합 분석 서비스**가 올라가 실제로 서비스되고 있다.
+그 빌더 위에 **반도체 스토리지(eMMC/UFS) Claim 통합 분석 서비스**가 설계·데이터째로 함께 담겨 있다.
 
 | 항목 | 현재 값 |
 |---|---|
-| 공개 주소 | https://demo.dove9999.com (Cloudflare Tunnel → 로컬 pm2) |
-| 배포 리비전 | **#44** |
+| 활성 리비전 | **#45** |
 | 페이지 / 배치된 컴포넌트 | 16개 / 284개(최상위 163 + 폼·머리 안 121) |
 | 엔티티 / 액션 / 관계 | 8개 / 33개 / 193개 |
 | 운영 데이터 | app.db 20,325행(인덱스 34개) + 게시판 대화 21건(이미지 17장 · 10MB) |
@@ -64,25 +63,26 @@
 | `data/backups/` | 두 DB의 일별 백업(30일 보관) | `pnpm db:backup` |
 
 > 이미지 바이트를 SQLite에 넣지 않는 이유: DB가 급격히 커지고 WAL·일별 백업이 함께 무거워진다.
-> `data/`는 빌드 폴더(.next-a/.next-b) 밖이라 무중단 배포로 프로세스를 옮겨도 그대로 남는다.
+> `data/`는 빌드 폴더(.next / .next-dev) 밖이라 다시 빌드해도 그대로 남는다.
 
-### 2.3 런타임 · 배포 구성
+### 2.3 실행 구성
 
 ```
-Cloudflare Tunnel (cloudflared, pm2 fork 1개)
-        │  demo.dove9999.com → 127.0.0.1:3000
-        ▼
-pm2 cluster — webapp-v1 워커 4개 (next start)
-        │        환경변수 NEXT_DIST_DIR = .next-a | .next-b
-        ├── meta.db (WAL, busy_timeout 5s)
-        └── app.db  (WAL, busy_timeout 5s)
+next dev  (개발)      →  .next-dev  ┐
+next start(프로덕션)  →  .next      ┘ 같은 두 DB를 본다
+                                    ├── meta.db (WAL, busy_timeout 5s)
+                                    └── app.db  (WAL, busy_timeout 5s)
 ```
 
-- **무중단 배포**: 지금 서비스 중이 아닌 폴더에 빌드하고, 다 만든 뒤 프로세스만 그쪽으로 옮긴다(`deploy/redeploy.ps1`).
-  헬스체크에 실패하면 이전 빌드로 자동 롤백하고, 배포 끝에 인덱스를 스펙과 맞춘다.
-- **자동 기동**: Windows 작업 스케줄러 `WebApp_V1-autohost` — 로그온 30초 후 1회 + 10분마다 감시.
-  이미 정상이면 아무것도 하지 않고, 죽어 있으면 되살린다. 로그는 `data/logs/autostart.log`.
-- **다중 워커 대응**: 두 DB 모두 WAL + 잠금 대기, 실시간 채팅은 DB를 통해 워커 간 전파(§4.4).
+이 저장소는 **로컬 실행만** 담는다 — 도메인·터널·프로세스 관리자·자동 기동 같은 외부 공개 설정은
+운영하는 PC의 사정이라 포함하지 않았다.
+
+- **개발과 프로덕션의 출력 폴더를 나눈다**(`next.config.ts`의 `distDir`). 같은 `.next/`를 동시에 쓰면
+  서로의 산출물을 깨뜨린다 — routes-manifest 손상, 기동 실패를 실제로 겪었다.
+- **두 DB는 WAL + 잠금 대기**로 열어, 프로세스가 여럿이어도(개발 서버 + 프로덕션) 서로 막히지 않는다.
+  실시간 채팅도 DB를 통해 프로세스 간에 전파된다(§4.4).
+- 외부에 공개하려면 리버스 프록시나 터널을 앞에 두고 `pnpm build && pnpm start`를 상시 실행한다.
+  그때는 `SESSION_SECRET`을 그 환경 전용 값으로 새로 만들고 관리자 비밀번호를 반드시 바꾼다.
 
 ### 2.4 디렉토리 (핵심만)
 
@@ -101,7 +101,6 @@ src/
    ├─ theme/         테마 팔레트 20종
    └─ db/            prisma·app-db·board-search·paths
 scripts/   점검·유지보수 도구(§6)
-deploy/    ecosystem.json · redeploy.ps1 · start-hosting.ps1 · pm2-status.cjs
 ```
 
 ---
@@ -406,16 +405,9 @@ pnpm verify:screens      # 16화면을 실제로 열고 눌러 본다
 > 고치면 설계에는 있고 표에는 없는 상태가 된다 — 그 컬럼을 읽는 화면은 조회가 실패해 조용히 빈
 > 카드로 그려진다. 배포는 이 차이를 확인만 하지 스스로 컬럼을 만들지 않는다.
 
-```powershell
-# 무중단 재배포(빌드 → 프로세스 전환 → 헬스체크 → 실패 시 롤백 → 인덱스 정리)
-powershell -NoProfile -ExecutionPolicy Bypass -File F:\Claude\WebApp_V1\deploy\redeploy.ps1
-
-# 자동 기동 상태 확인
-Get-ScheduledTaskInfo -TaskName WebApp_V1-autohost
-Get-Content F:\Claude\WebApp_V1\data\logs\autostart.log -Tail 20
-```
-
-> **배포 규칙**: 빌드·배포 전에는 **항상 먼저 git commit + push**한다. 배포 후 문제가 보이면 직전 커밋으로 되돌려 재배포한다.
+> **설계 배포와 코드 배포는 다르다.** 위의 `pnpm deploy:draft`는 **앱 안의 기능**이다 —
+> 관리자가 만든 설계(초안)를 리비전으로 굳혀 운영 화면(`/home`)에 반영한다. 코드를 고쳤을 때는
+> `pnpm build && pnpm start`로 다시 띄우면 된다.
 
 ---
 
@@ -423,7 +415,6 @@ Get-Content F:\Claude\WebApp_V1\data\logs\autostart.log -Tail 20
 
 | 증상 | 원인 | 조치 |
 |---|---|---|
-| 재부팅 후 사이트가 안 뜸 | Run 키 트리거 미발화 + 비대화형에서 `%APPDATA%\npm`이 비어 보임 | 작업 스케줄러 + F: 드라이브 pm2 사본, 전 과정 로깅 |
 | 감시가 10분마다 서비스 재시작 | PowerShell 5.1 `ConvertFrom-Json`이 대소문자 중복 키(`username`/`USERNAME`)에서 실패 → 상태 조회가 늘 빈 값 | 상태 파싱을 node로 이관 |
 | 운영 차트 6개가 "렌더링 오류" | 새 속성(`yLabel`) 추가 후 기존 노드에 그 값이 없어 `undefined.trim()` | 런타임·캔버스가 카탈로그 기본값을 먼저 깔도록 수정 + `audit:catalog` 상시화 |
 | 서체가 안 먹음 | `--font-sans: var(--font-sans)` 순환 + 폰트 변수가 `<body>`에만 있음 | 변수를 직접 가리키게 하고 `<html>`로 이동 |
@@ -444,14 +435,13 @@ Get-Content F:\Claude\WebApp_V1\data\logs\autostart.log -Tail 20
 
 ## 9. 알려진 한계 · 다음 후보
 
-- **자동 기동은 로그인 후에 동작한다**(작업 스케줄러 "사용자 로그온 시"). 로그인 없이 부팅부터 띄우려면 관리자 권한으로 Windows 서비스 등록이 필요하다.
 - **게시판 2글자 검색은 여전히 LIKE 전체 스캔**이다(trigram 한계). 글이 수만 건이 되고 짧은 검색어가 잦다면 별도 색인이 필요하다.
 - **게시판 첨부 파일은 지워도 디스크에 남는다.** 메시지를 지우면 `BoardAttachment` 행은 함께 사라지지만
   `data/uploads/board/`의 파일은 그대로다(업로드가 파일 삭제 실패로 막히지 않게 한 선택). 용량이
   문제가 되면 참조 없는 파일을 훑어 지우는 정리 작업이 필요하다.
 - **프리즈마 마이그레이션은 손으로 쓴다.** `prisma migrate dev`가 스키마에 없는 FTS5 가상 테이블을
   표류로 보고 검색 색인을 통째로 지우려 들기 때문에, 변경분만 적어 `migrate deploy`로 적용한다.
-  DB가 pm2 워커에 잠겨 있으면 `prisma generate`도 막히므로 잠깐 멈췄다 다시 띄워야 한다.
+  DB가 실행 중인 서버에 잠겨 있으면 `prisma generate`도 막히므로 잠깐 멈췄다 다시 띄워야 한다.
 - **검증 경고 36건**(오류 0)은 셋으로 나뉜다. 어느 것도 배포를 막지 않는다.
   - 15건: 홈에서 NAVIGATES로 도달 불가 — 이 앱은 사이드바로 이동하는 구조라 규칙과 어긋난다. 관계를 억지로 만들지 않았다.
   - 19건(W-ACT-011): 저장 액션에 **명시적** 후속 처리가 없다. 규칙이 잡으려던 실제 문제(저장 후 아무 반응이 없음)는
@@ -472,4 +462,4 @@ Get-Content F:\Claude\WebApp_V1\data\logs\autostart.log -Tail 20
   캔버스 안에서 옮기는 방식이다. 정밀한 배치 작업은 여전히 넓은 화면이 훨씬 편하다.
 - **캔버스는 좁은 창에서도 12칼럼 데스크톱 배치를 그대로 보여준다.** 설계 결과를 있는 그대로 보여주는
   WYSIWYG 면이라 의도된 동작이고, 운영 화면(`/home`)의 좁은 폭 쌓기와는 다르다.
-- 동시 접속이 지금보다 크게 늘면 워커 수 상향(현재 4/24코어)이 첫 번째 카드다.
+- 동시 접속이 크게 늘면 여러 워커로 띄우는 것이 첫 번째 카드다(두 DB 모두 WAL + 잠금 대기라 이미 다중 프로세스를 견딘다).

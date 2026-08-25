@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
  * 방(room)별 실시간 스트림. 브라우저의 표준 EventSource가 붙는다.
  * - `message` 이벤트: 새 채팅 메시지
  * - `presence` 이벤트: 현재 접속자 수
- * - 25초마다 주석(`:ping`)을 보내 프록시가 유휴 연결을 끊지 않게 한다(Cloudflare Tunnel 대응).
+ * - 25초마다 주석(`:ping`)을 보내 프록시가 유휴 연결을 끊지 않게 한다(터널·리버스 프록시 대응).
  */
 export async function GET(request: NextRequest) {
   const room = request.nextUrl.searchParams.get('room') ?? 'default';

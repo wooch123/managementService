@@ -27,7 +27,7 @@
 | 상태 | **zustand** (에디터 로컬 상태) | 서버 상태는 Server Actions + `revalidateTag` |
 | 인증 | **iron-session** 기반 쿠키 세션 | 관리자 1계정, SPEC.md §7.1 |
 | 테스트 | **vitest** (단위) + **@playwright/test** (E2E) | |
-| 배포 | **`next start` + Cloudflare Tunnel** | `demo.dove9999.com` (2026-08-18, 기존 `dove-web-service` 터널 재사용으로 확정 — 최초 계획이던 `demo1.`이 아님) |
+| 실행 | **`next dev`(개발) · `next start`(로컬 프로덕션)** | 이 저장소는 로컬 실행만 담는다 — 도메인·터널·프로세스 관리자 설정은 포함하지 않는다 |
 
 > 위 표에 없는 라이브러리를 새로 추가해야 하면, 추가 **전에** 사용자에게 이유와 대안을 보고하고 승인받는다.
 
@@ -71,12 +71,9 @@ WebApp_V1/
 │  │  ├─ auth/
 │  │  └─ db/                  # prisma client, sqlite client
 │  └─ types/                  # 공유 타입 (spec 스키마 zod 정의 포함)
-├─ tests/
+└─ tests/
 │  ├─ unit/
 │  └─ e2e/
-└─ deploy/
-   ├─ cloudflared/config.yml
-   └─ README.md
 ```
 
 ---
