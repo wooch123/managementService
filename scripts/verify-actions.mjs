@@ -10,14 +10,23 @@
  *
  * 실행: node scripts/verify-actions.mjs  (운영 서버가 떠 있어야 한다)
  */
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import { PrismaClient } from '@prisma/client';
 
 const BASE = process.env.VERIFY_BASE ?? 'http://127.0.0.1:3000';
 const MARK = '검증용';
 
-const db = new Database('F:/Claude/WebApp_V1/data/app.db');
-const prisma = new PrismaClient({ datasourceUrl: 'file:F:/Claude/WebApp_V1/prisma/meta.db' });
+// 경로는 저장소 위치에서 잡는다(절대 경로를 박으면 다른 PC·OS에서 깨진다).
+// src/lib/db/paths.ts와 같은 기본값을 쓰고, 환경변수 재정의도 그대로 따른다.
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
+const resolveFromRoot = (value) => (path.isAbsolute(value) ? value : path.join(ROOT, value));
+const APP_DB = resolveFromRoot(process.env.APP_DB_PATH ?? path.join('data', 'app.db'));
+const META_DB = resolveFromRoot(process.env.META_DB_PATH ?? path.join('prisma', 'meta.db'));
+
+const db = new Database(APP_DB);
+const prisma = new PrismaClient({ datasourceUrl: `file:${META_DB}` });
 const deployment = await prisma.deployment.findUnique({ where: { id: 'singleton' } });
 const revision = await prisma.revision.findUnique({ where: { id: deployment.activeRevisionId } });
 const spec = JSON.parse(revision.specJson);

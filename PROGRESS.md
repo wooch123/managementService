@@ -1635,3 +1635,53 @@ KPI에는 **직전 같은 길이 기간 대비 증감**을 붙였다(419건 +14%
 - 추적 파일·DB 안에 도메인 문자열 **0건**
 - `.env*`는 원래부터 추적 대상이 아니었음(세션 키는 저장소에 없다)
 - `pnpm typecheck` / `lint` / `test`(296건) 통과, 로컬 `/home` 200
+
+---
+
+## 2026-08-19 — Ubuntu용 `run.sh`
+
+📊 **진행 상황**
+```
+├ 이번 작업: 우분투에서 받은 그대로 서비스 상태까지 올리는 실행 스크립트
+├ 상태: 구현 완료 · 검증은 아래 「확인한 것과 못 한 것」 참고
+└ 리스크: 실제 우분투에서 전 구간을 돌려보지 못했다(이 PC에 리눅스가 없다)
+```
+
+### 하는 일
+
+`./run.sh` 한 줄로 Node 설치부터 서버 기동까지 이어 붙인다. 이미 갖춰진 단계는 건너뛰므로
+몇 번을 실행해도 결과가 같다.
+
+| 단계 | 처리 |
+|---|---|
+| 기본 도구 | `curl`·`openssl`(Prisma 엔진이 쓴다) 없으면 apt로 |
+| Node 20+ | NodeSource(apt) → **sudo가 없으면 nvm으로 홈에** 설치 |
+| pnpm | corepack → npm 전역 → npm 사용자 홈 순으로 시도 |
+| 의존성 | `--frozen-lockfile`, 잠금이 안 맞으면 한 번 더 완화해 시도 |
+| 준비 | `pnpm setup:local`(세션 키·Prisma 클라이언트·빈 폴더) |
+| 실행 | 기본 프로덕션(빌드 후 start), `dev`면 개발 서버 |
+
+### 함께 고친 이식성 문제
+
+| 문제 | 조치 |
+|---|---|
+| `scripts/audit-ui.mjs`·`verify-actions.mjs`에 **Windows 절대 경로 하드코딩** | 파일 위치 기준 상대 경로로. 다른 OS에서 그대로 깨지던 것 |
+| `.sh`가 CRLF로 체크아웃되면 리눅스에서 `bad interpreter: ^M` | `.gitattributes`로 `*.sh text eol=lf` 못 박음 |
+| 실행 비트 없이 커밋되면 `Permission denied` | `git update-index --chmod=+x run.sh` (100755 확인) |
+| corepack이 pnpm 버전을 못 정함 | `package.json`에 `packageManager`·`engines` 명시 |
+
+### 코드 검토로 잡은 실제 버그
+
+`set -euo pipefail` 아래에서 **`A && B` 단독 문장은 A가 거짓이면 문장 전체가 실패해 스크립트가 죽는다.**
+"이 방법은 건너뛴다"가 "스크립트 종료"가 되는 자리가 세 곳 있었다(pnpm 설치 폴백 2곳, 접속 주소 계산).
+전부 `if` 문으로 바꿨다. Node 버전 판정도 빈 값이 오면 `[ -ge ]`가 오류를 내던 것을 숫자 검사로 막았다.
+
+### 확인한 것과 못 한 것
+
+**확인** — `bash -n` 문법 검사, 옵션 처리(잘못된 포트·모르는 옵션 거부), 버전 판정 함수 단위 테스트
+(v24 통과 · v18 거부 · 이상한 값도 오류 없이 거부), 그리고 **이 PC에서 `./run.sh setup`과
+`./run.sh dev --port 3009`를 실제로 실행**해 사전 확인 → Node/pnpm 감지 → install → setup:local →
+서버 기동 → `/home` 200(제목 `eStorage Task - Claim 종합 현황`)까지 통과.
+
+**못 함** — 이 PC에 리눅스 배포판이 없다(WSL 미설치, Docker 없음). 그래서 **apt·NodeSource·nvm 설치
+분기는 실제로 돌려보지 못했다.** 그 부분은 코드 검토로만 확인했다.

@@ -16,8 +16,16 @@ SPEC.md에 정의된 8개 Phase(P0~P8) 구현이 전부 완료되었고, 실제 
 
 **설계와 데이터가 저장소에 함께 들어 있다.** 받아서 세 줄이면 지금 운영 중인 것과 같은 화면이 뜬다.
 
+**Ubuntu·데비안 계열**이라면 한 줄이면 된다. Node·pnpm이 없으면 알아서 받아 설치한다.
+
 ```bash
 git clone https://github.com/wooch123/managementService.git && cd managementService
+./run.sh
+```
+
+**Windows·macOS**나 이미 Node·pnpm이 갖춰진 환경이라면:
+
+```bash
 pnpm install
 pnpm setup:local
 pnpm dev
@@ -27,6 +35,20 @@ pnpm dev
 
 필요한 것은 **Node 20 이상과 pnpm**뿐이다. C++ 빌드 도구나 Python은 필요 없다 —
 SQLite 드라이버가 미리 빌드된 바이너리를 담아 오기 때문이다(새 PC에서 clone → install → 실행까지 실측).
+
+`run.sh` 옵션:
+
+| 명령 | 하는 일 |
+|---|---|
+| `./run.sh` | 설치·준비 후 **빌드해서 실행**(프로덕션) |
+| `./run.sh dev` | 개발 서버(파일을 고치면 바로 반영) |
+| `./run.sh --port 8080` | 포트 지정 |
+| `./run.sh --host` | `0.0.0.0`에 바인딩 — 같은 망의 다른 기기에서 접속 |
+| `./run.sh setup` | 설치·준비까지만 하고 실행하지 않음 |
+| `./run.sh --skip-build` | 이미 빌드해 뒀을 때 빌드를 건너뛴다 |
+
+Node가 없으면 NodeSource(apt)로 설치하고, `sudo`를 쓸 수 없으면 nvm으로 홈 디렉터리에 설치한다.
+이미 갖춰진 단계는 건너뛰므로 몇 번을 실행해도 결과가 같다.
 
 무엇이 함께 들어 있는지:
 

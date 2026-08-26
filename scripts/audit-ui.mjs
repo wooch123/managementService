@@ -11,7 +11,8 @@
  * 사용: pnpm audit:ui [베이스URL]   (기본 http://localhost:3100)
  */
 import { createRequire } from 'node:module';
-const require = createRequire('F:/Claude/WebApp_V1/package.json');
+// 저장소 위치는 이 파일 기준으로 잡는다 — 절대 경로를 박으면 다른 PC나 OS에서 바로 깨진다.
+const require = createRequire(new URL('../package.json', import.meta.url));
 const { chromium } = require('@playwright/test');
 import { IN_PAGE } from './ui-audit-rules.mjs';
 
