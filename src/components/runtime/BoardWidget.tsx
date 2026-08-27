@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown,
+  ChevronDown,
+  ChevronUp,
   Images,
   Loader2,
   MessageSquare,
@@ -155,6 +157,73 @@ function bumpSummary(summary: ThreadSummary | null, author: string, at: string):
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// 긴 본문 접기
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * 세 줄이 넘는 본문은 접어 두고 "더보기"로 펼친다.
+ *
+ * 왜: 긴 글 하나가 화면을 통째로 먹으면 그 위아래의 대화가 함께 밀려 안 보인다. 게시판은 흐름을
+ * 훑는 화면이라, 긴 글은 **거기 길게 있다는 것만** 보이고 필요할 때 펼치는 편이 공간을 잘 쓴다.
+ *
+ * `-webkit-line-clamp` 대신 **높이로 자른다**. line-clamp는 상자를 `-webkit-box`로 바꾸는데,
+ * 본문에는 문단만 오는 게 아니라 목록·인용·코드 블록도 온다 — 표시 모델을 바꾸면 그것들이
+ * 흐트러진다. 높이로 자르면 안쪽 구조는 그대로다. **몇 줄에서 자르는지는 globals.css의
+ * `.board-clamp` 한 곳에만 둔다** — 줄 높이와 곱해야 나오는 값이라 CSS 쪽이 진실 공급원이다.
+ *
+ * 잘린 티는 **색 그라데이션이 아니라 마스크**로 낸다. 줄 배경은 가리키면 바뀌고(hover) 검색으로
+ * 짚으면 또 바뀌는데, 배경색으로 덧칠하면 그 세 가지를 다 따라다녀야 한다. 마스크는 글자 자체를
+ * 투명하게 만들어 배경이 무엇이든 맞는다.
+ */
+function CollapsibleBody({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [clipped, setClipped] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const measure = () => {
+      // 접혀 있을 때만 잴 수 있다 — 펼치면 잘릴 것이 없어 두 높이가 같아진다.
+      if (el.dataset.clamped !== 'true') return;
+      setClipped(el.scrollHeight - el.clientHeight > 1);
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    // 폭이 바뀌면 줄 수가 달라진다 — 스레드를 열면 채널이 좁아지고, 창을 줄여도 그렇다.
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [text, expanded]);
+
+  return (
+    <>
+      <div ref={ref} data-clamped={!expanded} className={expanded ? undefined : 'board-clamp'}>
+        <Markdown text={text} className="space-y-2 text-sm" />
+      </div>
+      {/* 펼친 뒤에는 다시 접을 길이 있어야 하므로, 접었을 때 잘렸던 글에는 계속 단추를 둔다. */}
+      {(clipped || expanded) && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-0.5 flex items-center gap-0.5 text-xs font-medium text-primary hover:underline"
+        >
+          {expanded ? (
+            <>
+              <ChevronUp className="size-3.5" /> 접기
+            </>
+          ) : (
+            <>
+              <ChevronDown className="size-3.5" /> 더보기
+            </>
+          )}
+        </button>
+      )}
+    </>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // 메시지 한 줄
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -250,7 +319,7 @@ function MessageRow({
 
         {/* 예전 게시글은 제목을 갖고 있다 — 대화에서는 첫 줄로 살린다. */}
         {message.title && <p className="text-sm font-semibold">{message.title}</p>}
-        {message.content && <Markdown text={message.content} className="space-y-2 text-sm" />}
+        {message.content && <CollapsibleBody text={message.content} />}
 
         {/* items-start: 한 줄에 놓인 그림들이 가장 큰 것 높이로 늘어나(flex 기본값 stretch)
             작은 그림 아래에 빈 칸이 생기던 것을 막는다. */}

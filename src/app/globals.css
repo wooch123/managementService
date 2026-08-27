@@ -303,3 +303,31 @@
     flex: 0 0 22rem;
   }
 }
+
+/**
+ * 게시판 — 세 줄이 넘는 본문 접기.
+ *
+ * 높이로 자른다(`-webkit-line-clamp` 아님). line-clamp는 상자를 `-webkit-box`로 바꾸는데,
+ * 본문에는 문단뿐 아니라 목록·인용·코드 블록도 오므로 표시 모델을 바꾸면 그것들이 흐트러진다.
+ *
+ * 잘린 티는 **마스크**로 낸다 — 줄 배경이 가리킬 때(hover)와 검색으로 짚었을 때 달라지는데,
+ * 배경색 그라데이션으로 덧칠하면 그 세 가지를 다 따라다녀야 한다. 마스크는 글자 자체를 투명하게
+ * 만들어 배경이 무엇이든 맞는다.
+ *
+ * `1.25rem`은 본문에 쓰는 `text-sm`의 줄 높이다.
+ */
+.board-clamp {
+  max-height: calc(3 * 1.25rem);
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
+}
+
+/* 움직임을 줄이는 설정과 무관하게, 마스크는 인쇄할 때는 방해가 된다 — 인쇄에서는 전부 보인다. */
+@media print {
+  .board-clamp {
+    max-height: none;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
