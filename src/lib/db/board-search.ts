@@ -37,6 +37,8 @@ export type BoardSearchRow = {
   author: string;
   category: string | null;
   viewCount: number;
+  /** 답글이면 부모 메시지 id — 검색 결과에서 그 스레드를 열어야 한다. */
+  parentId: string | null;
   createdAt: string | number;
   total: number;
 };
@@ -57,7 +59,7 @@ export function searchBoardPosts(params: {
 }): { rows: BoardSearchRow[]; total: number } {
   const match = `"${params.q.replace(/"/g, '""')}"`;
   const categorySql = params.category ? 'AND p."category" = ?' : '';
-  const sql = `SELECT p."id", p."title", p."content", p."author", p."category", p."viewCount", p."createdAt",
+  const sql = `SELECT p."id", p."title", p."content", p."author", p."category", p."viewCount", p."parentId", p."createdAt",
                       COUNT(*) OVER () AS total
                  FROM "BoardPost" p
                  JOIN "BoardPostFts" f ON f.rowid = p.rowid

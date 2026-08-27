@@ -31,7 +31,8 @@
     "setup:local": "node scripts/setup-local.mjs",
     "admin:password": "node scripts/set-admin-password.mjs",
     "db:sync-schema": "tsx scripts/sync-schema.mts",
-    "deploy:draft": "tsx scripts/deploy-draft.mts"
+    "deploy:draft": "tsx scripts/deploy-draft.mts",
+    "verify:board": "node scripts/verify-board.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

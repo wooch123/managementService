@@ -3,14 +3,16 @@ import { Board, BoardPreview } from '@/components/runtime/BoardWidget';
 import { defineComponent, type ComponentDef } from '@/lib/registry/types';
 
 /**
- * 게시판 프리셋 — **대화(채팅) 화면**.
+ * 게시판 프리셋 — **슬랙 스레드 화면**.
  *
  * 캔버스에 올리는 순간 동작한다 — 엔티티를 따로 설계하거나 액션을 연결할 필요가 없다. 메시지는
  * 플랫폼이 제공하는 BoardPost/BoardAttachment 표에 쌓이고, 어떤 게시판인지는 boardKey로
  * 구분한다(비워 두면 배치된 노드 id가 곧 게시판 id다).
  *
- * 원래는 목록 → 글 열기 → 글쓰기로 넘어가는 게시판이었다. 실제 쓰임이 "짧은 이야기를 계속
- * 주고받는" 쪽이라 대화 화면으로 바꿨고, 예전 글은 그대로 말풍선으로 보인다(제목이 있던 글은
+ * 처음에는 목록 → 글 열기 → 글쓰기로 넘어가는 게시판이었고, 실제 쓰임이 "짧은 이야기를 계속
+ * 주고받는" 쪽이라 대화 화면이 됐다. 지금은 한 걸음 더 가서 슬랙과 같은 스레드 구조다 —
+ * 채널에는 부모 메시지만 흐르고 답글은 스레드 안에만 쌓인다. 이야기가 길어져도 채널이 덮이지
+ * 않는 것이 이 구조를 쓰는 이유다. 예전 글은 그대로 채널 메시지로 보인다(제목이 있던 글은
  * 첫 줄에 굵게).
  */
 export const boardComponents = [
@@ -19,7 +21,7 @@ export const boardComponents = [
     label: '게시판',
     group: '게시판',
     icon: 'messages-square',
-    description: '배치 즉시 동작하는 대화형 게시판 — 이미지 붙여넣기 · 갤러리 · 검색 포함',
+    description: '배치 즉시 동작하는 슬랙형 스레드 게시판 — 답글 스레드 · 이미지 붙여넣기 · 갤러리 · 검색',
     isContainer: false,
     bindingModes: [],
     events: [],

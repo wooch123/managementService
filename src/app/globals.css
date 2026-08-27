@@ -266,3 +266,40 @@
     transition: none;
   }
 }
+
+/**
+ * 게시판(슬랙형) — 채널과 스레드를 나란히 놓을지, 스레드가 채널을 덮을지.
+ *
+ * 판정 기준은 **창 폭이 아니라 배치된 칸의 폭**이다. 이 컴포넌트는 페이지 그리드 안의 한 칸이라,
+ * 넓은 창에서도 3칼럼 칸에 놓이면 좁다 — 미디어 쿼리로는 그 차이를 알 수 없다.
+ *
+ * 자바스크립트(ResizeObserver)로 재지 않는 이유: 값이 첫 페인트 **뒤에** 와서 레이아웃이 한 번
+ * 튀고, 화면이 그려지지 않는 동안에는 콜백이 아예 오지 않는다(실측 — 683px짜리 칸인데 채널과
+ * 스레드가 각각 323px·352px로 나란히 남아 양쪽 다 읽기 어려웠다). 컨테이너 쿼리는 첫 렌더부터
+ * 맞고 자바스크립트가 멈춰도 맞다.
+ */
+.board-root {
+  container-type: inline-size;
+  container-name: board;
+}
+
+/* 좁을 때(기본): 스레드가 남은 자리를 다 쓰고, 열려 있으면 채널은 숨는다. */
+.board-thread {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.board-root[data-thread='open'] .board-channel {
+  display: none;
+}
+
+/* 채널(최소 340px) + 스레드(352px) + 사이 여백이 들어가는 폭부터 나란히 놓는다. */
+@container board (min-width: 720px) {
+  .board-root[data-thread='open'] .board-channel {
+    display: flex;
+  }
+
+  .board-thread {
+    flex: 0 0 22rem;
+  }
+}

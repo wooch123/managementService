@@ -231,9 +231,19 @@ model BoardPost {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  /// 스레드 부모. null이면 채널에 바로 올라온 메시지, 값이 있으면 그 메시지에 달린 답글이다.
+  /// 슬랙과 같은 **한 단계** 스레드다 — 답글에 답글을 달아도 같은 스레드에 이어 붙는다(트리로 자라지 않는다).
+  parentId String?
+  parent   BoardPost?  @relation("BoardThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  BoardPost[] @relation("BoardThread")
+
   attachments BoardAttachment[]
 
   @@index([boardKey, createdAt])
+  /// 채널 목록은 부모 메시지만 읽는다 — boardKey+parentId로 좁히는 경로가 가장 잦다.
+  @@index([boardKey, parentId, createdAt])
+  /// 스레드를 펼칠 때 답글만 시간순으로 읽는다.
+  @@index([parentId, createdAt])
 }
 
 /// 게시판 메시지에 붙는 이미지.

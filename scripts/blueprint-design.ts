@@ -1807,46 +1807,21 @@ function feedback(): PagePlan {
       title(1, '제품 피드백', '개선 요청과 불편을 자유롭게 남겨 주세요. 화면·재현 조건·스크린샷이 함께 있으면 훨씬 빨리 반영됩니다.', [
         goButton('분석 Tip 보기', 'act-go-tips'),
       ]),
+      /**
+       * 게시판 하나가 12칼럼을 다 쓴다.
+       *
+       * 예전에는 9칼럼만 쓰고 오른쪽 3칼럼에 안내 카드 두 장("남길 때 함께 적어 주세요",
+       * "이렇게 처리됩니다")이 있었다. 게시판이 슬랙형 스레드가 되면서 그 자리는 **스레드 패널**이
+       * 쓴다 — 답글을 열면 오른쪽에 나란히 뜬다. 안내 카드는 늘 같은 말을 하면서 자리를 차지했고,
+       * 스레드와 자리를 다투면 둘 다 좁아진다. 사용자 결정으로 걷어냈다(2026-08-27).
+       */
       {
         type: 'board',
         col: 1,
-        span: 9,
+        span: 12,
         row: 5,
         rowSpan: 44,
         props: { title: '피드백 대화', description: '', boardKey: LEGACY_BOARD_KEY, pageSize: 10, allowWrite: true, searchable: true, categories: '' },
-      },
-      {
-        type: 'checklist',
-        col: 10,
-        span: 3,
-        row: 5,
-        rowSpan: 16,
-        props: {
-          title: '남길 때 함께 적어 주세요',
-          subtitle: '이 네 가지면 재현이 됩니다',
-          items: [
-            { label: '어느 화면인지', description: '메뉴 이름 또는 주소', status: '필수' },
-            { label: '무엇을 했는지', description: '누른 순서대로', status: '필수' },
-            { label: '기대한 결과', description: '어떻게 되길 바랐는지', status: '필수' },
-            { label: '스크린샷', description: '붙여넣기(Ctrl+V)로 바로 첨부', status: '권장' },
-          ],
-        },
-      },
-      {
-        type: 'checklist',
-        col: 10,
-        span: 3,
-        row: 21,
-        rowSpan: 14,
-        props: {
-          title: '이렇게 처리됩니다',
-          subtitle: '',
-          items: [
-            { label: '접수', description: '남긴 글이 그대로 접수됩니다', status: '자동' },
-            { label: '검토', description: '재현 확인 후 답글을 답니다', status: '진행' },
-            { label: '반영', description: '고쳐지면 이 대화에 알립니다', status: '완료' },
-          ],
-        },
       },
     ],
   };
