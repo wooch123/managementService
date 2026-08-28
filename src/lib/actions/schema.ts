@@ -3,7 +3,19 @@ import { filterSchema } from '@/types/binding';
 
 export const valueSourceSchema = z.discriminatedUnion('from', [
   z.object({ from: z.literal('literal'), value: z.unknown() }),
-  z.object({ from: z.literal('component'), nodeId: z.string() }),
+  z.object({
+    from: z.literal('component'),
+    nodeId: z.string(),
+    /**
+     * 그 컴포넌트의 값이 **객체**일 때 꺼낼 키. 비우면 값 전체를 쓴다(지금까지의 동작).
+     *
+     * 입력 하나는 값 하나를 갖는다는 것이 기본이지만, 여러 칸이 함께 정해지는 값이 있다 —
+     * Reball 의뢰서의 시료당 가격이 그렇다(작업 항목 · 볼 수 · 긴급 · 개수가 모두 걸린다).
+     * 그런 자리는 한 컴포넌트가 관련된 칸을 함께 들고 객체 하나를 값으로 내놓고, 액션은
+     * 여기서 키를 하나씩 집어 각 컬럼에 넣는다. 중첩은 지원하지 않는다(한 단계 키만).
+     */
+    path: z.string().optional(),
+  }),
   z.object({ from: z.literal('selection'), nodeId: z.string(), field: z.string() }),
   z.object({ from: z.literal('route'), param: z.string() }),
   z.object({ from: z.literal('now') }),

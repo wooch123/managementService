@@ -32,8 +32,14 @@ function resolveValueSource(source: ValueSource, ctx: ActionContext): unknown {
   switch (source.from) {
     case 'literal':
       return source.value;
-    case 'component':
-      return ctx.componentValues?.[source.nodeId];
+    case 'component': {
+      const value = ctx.componentValues?.[source.nodeId];
+      if (!source.path) return value;
+      // 값이 객체가 아니면(아직 아무것도 입력되지 않았거나 컴포넌트가 바뀐 경우) 조용히 비운다 —
+      // 여기서 던지면 폼 전체가 저장되지 않는다.
+      if (!value || typeof value !== 'object') return undefined;
+      return (value as Record<string, unknown>)[source.path];
+    }
     case 'selection':
       return ctx.selectionValues?.[source.nodeId]?.[source.field];
     case 'route':

@@ -12,7 +12,7 @@ function describeSource(source: ValueSource): string {
     case 'literal':
       return `"${String(source.value)}"`;
     case 'component':
-      return `입력#${source.nodeId.slice(-4)}`;
+      return `입력#${source.nodeId.slice(-4)}${source.path ? `.${source.path}` : ''}`;
     case 'selection':
       return `선택된 행의 ${source.field}`;
     case 'route':

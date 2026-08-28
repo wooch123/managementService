@@ -73,6 +73,10 @@ function opToSqlFragment(field: Field, op: Filter['op']): { sql: string; bind: (
       return { sql: `${col} LIKE ? ESCAPE '\\'`, bind: (v) => [`%${String(v).replace(/[\\%_]/g, '\\$&')}%`] };
     case 'isNull':
       return { sql: `${col} IS NULL`, bind: () => [] };
+    case 'isNotNull':
+      // 값이 채워졌다는 것 자체가 조건이 되는 자리가 있다 — 분석 결과가 들어온 건만 세는 식이다.
+      // `ne ''`로는 대신할 수 없다: SQL에서 NULL과의 비교는 참도 거짓도 아니다.
+      return { sql: `${col} IS NOT NULL`, bind: () => [] };
     case 'in':
       return { sql: '', bind: () => [] }; // 아래에서 개별 처리 (값 개수만큼 placeholder 필요)
   }

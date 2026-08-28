@@ -24,7 +24,11 @@ const OP_LABEL: Record<FilterOp, string> = {
   contains: '포함',
   in: '포함(목록)',
   isNull: '비어있음',
+  isNotNull: '값 있음',
 };
+
+/** 값을 받지 않는 연산 — 값·소스 칸을 아예 그리지 않는다. */
+const VALUELESS_OPS = new Set<FilterOp>(['isNull', 'isNotNull']);
 
 export function useEntities() {
   const [entities, setEntities] = useState<EntityListItem[]>([]);
@@ -188,7 +192,7 @@ export function FilterBuilder({ fields, filters, onChange }: { fields: Field[]; 
               ))}
             </SelectContent>
           </Select>
-          {f.op !== 'isNull' && (
+          {!VALUELESS_OPS.has(f.op) && (
             <Select value={f.source} onValueChange={(v) => updateFilter(i, { source: v as Filter['source'], value: '', ref: '' })}>
               <SelectTrigger className="h-8 w-[110px]">
                 <SelectValue />
@@ -202,7 +206,7 @@ export function FilterBuilder({ fields, filters, onChange }: { fields: Field[]; 
               </SelectContent>
             </Select>
           )}
-          {f.op !== 'isNull' &&
+          {!VALUELESS_OPS.has(f.op) &&
             (f.source === 'fixed' ? (
               <Input
                 className="h-8"

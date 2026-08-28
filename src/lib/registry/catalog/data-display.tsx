@@ -44,6 +44,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { categoricalXAxisProps, estimateTextWidth, yAxisLabelProps } from '@/lib/chart-axis';
 import { asSeriesResult, selectedColumns, toLabelValueSeries } from '@/lib/chart-series';
 import { cn } from '@/lib/utils';
+import { statusBadgeClass } from '@/lib/status-tone';
 import { defineComponent, type ComponentDef } from '@/lib/registry/types';
 
 /**
@@ -167,6 +168,40 @@ const sampleColumns: ColumnDef<SampleRow>[] = [
   { accessorKey: 'col2', header: '컬럼 2' },
 ];
 
+type CellFormat = 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'badge' | 'boolean';
+type CellAlign = 'left' | 'center' | 'right';
+
+const ALIGN_CLASS: Record<CellAlign, string> = { left: 'text-left', center: 'text-center', right: 'text-right' };
+
+/**
+ * 칸의 값을 사람이 읽는 문자열로.
+ *
+ * 조회 결과는 **저장 형태 그대로** 온다 — BOOLEAN은 0/1이고 숫자는 서식이 없다. 그대로 그리면
+ * "긴급 1", "총액 120000"이 되어 표가 읽히지 않는다. 어떤 서식을 쓸지는 설계(열의 `format`)가
+ * 정한다 — 같은 REAL이라도 EC 값과 가격은 다르게 읽혀야 하기 때문이다.
+ */
+function formatCellText(raw: unknown, format: CellFormat): string {
+  if (raw === null || raw === undefined || raw === '') return '—';
+  switch (format) {
+    case 'boolean':
+      return raw === true || Number(raw) === 1 ? 'Y' : 'N';
+    case 'number': {
+      const n = Number(raw);
+      return Number.isFinite(n) ? n.toLocaleString('ko-KR') : String(raw);
+    }
+    case 'currency': {
+      const n = Number(raw);
+      return Number.isFinite(n) ? `${Math.round(n).toLocaleString('ko-KR')}원` : String(raw);
+    }
+    case 'datetime': {
+      const text = String(raw);
+      return text.includes('T') ? text.replace('T', ' ').slice(0, 16) : text;
+    }
+    default:
+      return String(raw);
+  }
+}
+
 export const dataDisplayComponents = [
   defineComponent({
     key: 'table',
@@ -279,7 +314,21 @@ export const dataDisplayComponents = [
       );
       const columns: ColumnDef<Record<string, unknown>>[] =
         props.columns.length > 0
-          ? props.columns.map((c) => ({ accessorKey: columnNameByFieldId.get(c.fieldId) ?? c.fieldId, header: c.header }))
+          ? props.columns.map((c) => {
+              const align = (c.align ?? 'left') as CellAlign;
+              const format = (c.format ?? 'text') as CellFormat;
+              return {
+                accessorKey: columnNameByFieldId.get(c.fieldId) ?? c.fieldId,
+                header: () => <span className={cn('block', ALIGN_CLASS[align])}>{c.header}</span>,
+                cell: ({ getValue }: { getValue: () => unknown }) => {
+                  const raw = getValue();
+                  if (format === 'badge' && raw !== null && raw !== undefined && raw !== '') {
+                    return <span className={statusBadgeClass(String(raw))}>{String(raw)}</span>;
+                  }
+                  return <span className={cn('block', ALIGN_CLASS[align], format === 'number' || format === 'currency' ? 'tabular-nums' : '')}>{formatCellText(raw, format)}</span>;
+                },
+              };
+            })
           : sampleColumns as unknown as ColumnDef<Record<string, unknown>>[];
       const rows =
         data && typeof data === 'object' && Array.isArray((data as { rows?: unknown }).rows)

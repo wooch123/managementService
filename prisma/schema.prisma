@@ -274,3 +274,26 @@ model BoardAttachment {
   @@index([boardKey, createdAt])
   @@index([postId])
 }
+
+/// 운영 사이트의 화면 방문 기록 — '접속자 통계' 화면이 읽는 유일한 원본이다.
+///
+/// 관리자가 설계하는 업무 데이터(app.db)가 아니라 **플랫폼이 스스로 남기는 기록**이라 메타 DB에
+/// 둔다(BoardPost·ChatMessage와 같은 이유 — 스키마가 마이그레이션으로만 바뀐다).
+model PageVisit {
+  id        String   @id @default(cuid())
+  /// 방문한 화면의 slug. 화면이 지워져도 기록은 남아야 하므로 Page와 관계로 묶지 않는다.
+  slug      String
+  /// 그때 보이던 화면 이름. 나중에 제목이 바뀌어도 당시 통계를 그대로 읽기 위해 함께 적는다.
+  title     String
+  /// 브라우저마다 하나씩 발급하는 익명 열쇠(httpOnly 쿠키). 개인을 식별하지 않는다 —
+  /// "며칠에 몇 명이 왔는가"를 세기 위한 최소한의 구분자다.
+  visitorId String
+  /// 'YYYY-MM-DD'(서버 로컬 시간대). 일간 집계를 문자열 비교만으로 끝내려고 미리 적어 둔다.
+  day       String
+  createdAt DateTime @default(now())
+
+  /// 페이지별 이용률 — 하루 범위를 좁힌 뒤 화면별로 센다.
+  @@index([day, slug])
+  /// 일간 순 방문자 — 하루 안에서 서로 다른 브라우저 수를 센다.
+  @@index([day, visitorId])
+}

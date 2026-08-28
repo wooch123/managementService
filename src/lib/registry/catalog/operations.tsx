@@ -1,0 +1,104 @@
+import { z } from 'zod';
+import { FailRateCalculator, FailRateCalculatorPreview } from '@/components/runtime/FailRateCalculator';
+import { VisitStats, VisitStatsPreview } from '@/components/runtime/VisitStats';
+import { ReballCost, ReballCostPreview, toCostRow, type ReballWorkValue } from '@/components/runtime/ReballCost';
+import { defineComponent, type ComponentDef } from '@/lib/registry/types';
+
+/**
+ * 업무 화면이 요구하는, 일반 폼으로는 표현되지 않는 컴포넌트들.
+ *
+ * 세 가지 모두 "배치하면 곧바로 동작한다"는 점에서 게시판·실시간 대화와 같은 성격이다. 다만
+ * 이유는 각각 다르다.
+ *   · 불량률 계산기 — 저장할 것이 없다. 입력을 받아 그 자리에서 계산할 뿐이라 바인딩이 없다.
+ *   · 접속자 통계   — 읽을 곳이 관리자가 설계한 표가 아니라 플랫폼이 남긴 방문 기록(메타 DB)이다.
+ *   · Reball 단가   — 시료 하나당 가격은 여러 칸이 **함께** 정해지는 값이라, 값 하나만 아는
+ *                     보통의 입력들로는 계산이 성립하지 않는다.
+ */
+export const operationsComponents = [
+  defineComponent({
+    key: 'fail-rate-calculator',
+    label: '불량률 계산기',
+    group: '통계 차트',
+    icon: 'calculator',
+    description: '불량률·DPPM·신뢰구간과 AFR·FIT·MTBF를 계산한다 — 저장 없이 그 자리에서',
+    isContainer: false,
+    growsWithContent: true,
+    bindingModes: [],
+    events: [],
+    propsSchema: z.object({
+      title: z.string().default('불량률 계산기'),
+      description: z.string().default(''),
+      defaultSample: z.number().int().min(1).max(100_000_000).default(10000),
+      defaultFailures: z.number().int().min(0).max(100_000_000).default(3),
+    }),
+    defaultProps: { title: '불량률 계산기', description: '', defaultSample: 10000, defaultFailures: 3 },
+    defaultGrid: { span: 12, rowSpan: 34 },
+    render: ({ props, onValueChange }) =>
+      typeof onValueChange === 'function' ? (
+        <FailRateCalculator
+          title={props.title}
+          description={props.description}
+          defaultSample={props.defaultSample}
+          defaultFailures={props.defaultFailures}
+        />
+      ) : (
+        <FailRateCalculatorPreview title={props.title} />
+      ),
+  }),
+
+  defineComponent({
+    key: 'visit-stats',
+    label: '접속자 통계',
+    group: '통계 차트',
+    icon: 'chart-line',
+    description: '일간 접속자 추이와 화면별 이용률 — 운영 화면 방문 기록을 집계한다',
+    isContainer: false,
+    growsWithContent: true,
+    bindingModes: [],
+    events: [],
+    propsSchema: z.object({
+      title: z.string().default('접속 현황'),
+      description: z.string().default(''),
+      days: z.number().int().min(7).max(180).default(30),
+    }),
+    defaultProps: { title: '접속 현황', description: '', days: 30 },
+    defaultGrid: { span: 12, rowSpan: 40 },
+    render: ({ props, onValueChange }) =>
+      typeof onValueChange === 'function' ? (
+        <VisitStats title={props.title} description={props.description} days={props.days} />
+      ) : (
+        <VisitStatsPreview title={props.title} />
+      ),
+  }),
+
+  defineComponent({
+    key: 'reball-cost',
+    label: 'Reball 작업·단가',
+    group: '입력',
+    icon: 'coins',
+    description: '작업 항목을 고르면 단가표를 참조해 시료당 가격과 총액을 계산한다 — 단가 수정 포함',
+    isContainer: false,
+    growsWithContent: true,
+    /** 단가표(행 하나짜리 설정 표)를 list로 읽는다. */
+    bindingModes: ['list'],
+    events: [],
+    propsSchema: z.object({
+      title: z.string().default('작업 내용 · 비용'),
+      description: z.string().default(''),
+    }),
+    defaultProps: { title: '작업 내용 · 비용', description: '' },
+    defaultGrid: { span: 12, rowSpan: 34 },
+    render: ({ node, props, data, onValueChange }) =>
+      typeof onValueChange === 'function' ? (
+        <ReballCost
+          nodeId={node.id}
+          title={props.title}
+          description={props.description}
+          cost={toCostRow(data)}
+          onValueChange={(value: ReballWorkValue) => onValueChange(value)}
+        />
+      ) : (
+        <ReballCostPreview title={props.title} />
+      ),
+  }),
+] satisfies ComponentDef[];

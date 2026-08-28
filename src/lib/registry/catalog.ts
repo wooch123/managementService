@@ -9,6 +9,7 @@ import { statisticsComponents } from '@/lib/registry/catalog/statistics';
 import { boardComponents } from '@/lib/registry/catalog/board';
 import { workbenchComponents } from '@/lib/registry/catalog/workbench';
 import { blueprintComponents } from '@/lib/registry/catalog/blueprint';
+import { operationsComponents } from '@/lib/registry/catalog/operations';
 import type { ComponentDef, ComponentGroup } from '@/lib/registry/types';
 import { COMPONENT_GROUPS } from '@/lib/registry/types';
 
@@ -28,6 +29,9 @@ const allComponents: ComponentDef[] = [
   // 청사진이 쓰는데 없던 것들 — 지표 타일 · 단계 막대 · 폼 카드 · 페이지 머리 ·
   // 통합 검색 · 선택 필터 · 지표 카드 · 강조 안내 · 이슈 목록.
   ...blueprintComponents,
+  // 업무 화면이 요구하는, 일반 폼으로는 표현되지 않는 것들 —
+  // 불량률 계산기 · 접속자 통계 · Reball 작업/단가.
+  ...operationsComponents,
 ];
 
 export const catalog: Record<string, ComponentDef> = Object.fromEntries(

@@ -64,7 +64,16 @@ function ValueSourceEditor({ value, onChange }: { value: ValueSource; onChange: 
         <Input className="h-8" value={String(value.value ?? '')} onChange={(e) => onChange({ from: 'literal', value: e.target.value })} placeholder="값" />
       )}
       {value.from === 'component' && (
-        <Input className="h-8" value={value.nodeId} onChange={(e) => onChange({ from: 'component', nodeId: e.target.value })} placeholder="컴포넌트 노드 id" />
+        <>
+          <Input className="h-8 w-32" value={value.nodeId} onChange={(e) => onChange({ ...value, nodeId: e.target.value })} placeholder="컴포넌트 노드 id" />
+          {/* 값이 객체인 컴포넌트(예: Reball 작업·단가)에서 키 하나만 집어 올 때 쓴다. 비우면 값 전체. */}
+          <Input
+            className="h-8 w-24"
+            value={value.path ?? ''}
+            onChange={(e) => onChange({ ...value, path: e.target.value || undefined })}
+            placeholder="키(선택)"
+          />
+        </>
       )}
       {value.from === 'selection' && (
         <>

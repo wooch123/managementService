@@ -75,10 +75,20 @@ export const inputComponents = [
     }),
     defaultProps: { label: '라벨', placeholder: '', rows: 4 },
     defaultGrid: { span: 6, rowSpan: 16 },
-    render: ({ node, props }) => (
+    // 한 줄 입력과 같은 규약 — 런타임에서는 제어 입력이 되어 값이 액션까지 간다.
+    // (그러지 않으면 화면에는 글이 보이는데 저장된 행의 그 칸만 비어 있다. 실제로 Reball
+    //  의뢰서의 '코멘트'가 그렇게 빠졌다.) 빌더 캔버스에서는 지금까지처럼 비제어로 둔다.
+    render: ({ node, props, value, onValueChange }) => (
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={node.id}>{props.label}</Label>
-        <Textarea id={node.id} placeholder={props.placeholder} rows={props.rows} />
+        <Textarea
+          id={node.id}
+          placeholder={props.placeholder}
+          rows={props.rows}
+          {...(onValueChange
+            ? { value: (value as string) ?? '', onChange: (e: ChangeEvent<HTMLTextAreaElement>) => onValueChange(e.target.value) }
+            : {})}
+        />
       </div>
     ),
   }),

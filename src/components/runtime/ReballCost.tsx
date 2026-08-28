@@ -1,0 +1,325 @@
+'use client';
+
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import type { ApiResult } from '@/types/auth';
+
+/**
+ * Reball 작업 항목 선택 + 단가 자동 계산.
+ *
+ * 왜 입력 하나짜리 컴포넌트가 아니라 이 덩어리인가: 시료 하나당 가격은 **여러 칸이 함께 정해지는
+ * 값**이다(어떤 작업을 하는지 · 볼 수가 200개를 넘는지 · 긴급인지 · 몇 개인지). 런타임에서 각
+ * 입력은 자기 값만 알기 때문에, 이 계산을 일반 폼으로는 표현할 수 없다. 그래서 계산에 필요한
+ * 칸들을 한 컴포넌트가 함께 들고 **하나의 값(객체)** 으로 내놓는다. 저장은 평소와 똑같이 액션이
+ * 한다 — 액션의 값 소스가 이 노드의 객체에서 키 하나씩 집어 간다(`from: 'component' + path`).
+ *
+ * 단가표는 이 노드의 **바인딩**(list, 한 줄)으로 읽는다. 값이 바뀔 수 있어 화면에서 고칠 수 있어야
+ * 한다는 요구가 있어(설계 문서 [Reball_Cost_Table]) '단가 수정'을 함께 둔다.
+ */
+
+export type CostRow = Record<string, number>;
+
+/** 계산에 쓰는 단가표의 칼럼 이름 — 설계 문서의 [Reball_Cost_Table]과 같다. */
+const COST_COLUMNS = ['upper_200ball', 'under_200ball', 'component_detach', 'underfill', 'grinding', 'urgent'] as const;
+type CostColumn = (typeof COST_COLUMNS)[number];
+
+const COST_LABELS: Record<CostColumn, string> = {
+  upper_200ball: '200ball 이상',
+  under_200ball: '200ball 미만',
+  component_detach: 'Component detach',
+  underfill: 'Underfill 제거',
+  grinding: 'Grinding',
+  urgent: '긴급 가산',
+};
+
+/** 서버가 넘겨준 list 바인딩 결과에서 단가 한 줄을 꺼낸다(없으면 전부 0). */
+export function toCostRow(data: unknown): CostRow {
+  const empty = Object.fromEntries(COST_COLUMNS.map((c) => [c, 0])) as CostRow;
+  if (!data || typeof data !== 'object') return empty;
+  const rows = (data as { rows?: unknown }).rows;
+  if (!Array.isArray(rows) || rows.length === 0) return empty;
+  const row = rows[0] as Record<string, unknown>;
+  for (const column of COST_COLUMNS) {
+    const value = Number(row[column]);
+    empty[column] = Number.isFinite(value) ? value : 0;
+  }
+  return empty;
+}
+
+export type ReballWorkValue = {
+  is_reball: boolean;
+  is_component_detach: boolean;
+  is_underfill: boolean;
+  is_grinding: boolean;
+  urgent: boolean;
+  count: number;
+  per_cost: number;
+  total_cost: number;
+};
+
+/** 고른 작업에 해당하는 단가를 더한다 — 시료 하나당 가격. */
+export function perSampleCost(
+  work: Omit<ReballWorkValue, 'count' | 'per_cost' | 'total_cost'>,
+  overBall: boolean,
+  cost: CostRow
+): number {
+  let sum = 0;
+  if (work.is_reball) sum += overBall ? cost.upper_200ball : cost.under_200ball;
+  if (work.is_component_detach) sum += cost.component_detach;
+  if (work.is_underfill) sum += cost.underfill;
+  if (work.is_grinding) sum += cost.grinding;
+  if (work.urgent) sum += cost.urgent;
+  return sum;
+}
+
+function won(n: number): string {
+  return `${Math.round(n).toLocaleString('ko-KR')}원`;
+}
+
+function Check({
+  label,
+  hint,
+  checked,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label
+      className={cn(
+        'flex cursor-pointer items-start gap-2 rounded-lg border p-2.5 transition-colors',
+        checked ? 'border-primary/50 bg-primary/5' : 'hover:bg-muted/50'
+      )}
+    >
+      <input type="checkbox" className="mt-0.5 size-4 accent-[var(--primary)]" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span className="flex min-w-0 flex-col">
+        <span className="text-sm font-medium">{label}</span>
+        <span className="text-xs text-muted-foreground">{hint}</span>
+      </span>
+    </label>
+  );
+}
+
+export function ReballCost({
+  nodeId,
+  title,
+  description,
+  cost,
+  onValueChange,
+}: {
+  nodeId: string;
+  title: string;
+  description: string;
+  cost: CostRow;
+  onValueChange: (value: ReballWorkValue) => void;
+}) {
+  const router = useRouter();
+  const [isReball, setIsReball] = useState(true);
+  const [detach, setDetach] = useState(false);
+  const [underfill, setUnderfill] = useState(false);
+  const [grinding, setGrinding] = useState(false);
+  const [urgent, setUrgent] = useState(false);
+  const [overBall, setOverBall] = useState(true);
+  const [count, setCount] = useState(1);
+
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<CostRow>(cost);
+  const [saving, setSaving] = useState(false);
+
+  /**
+   * 단가표는 **매 렌더마다 새 객체로** 만들어져 내려온다(카탈로그가 서버 데이터를 그때그때
+   * 풀어 준다). 그대로 의존성에 넣으면 값이 하나도 안 바뀌어도 아래 useMemo가 매번 새 결과를
+   * 만들고 → 부모에 알리고 → 다시 렌더되어 무한 갱신이 된다(실제로 그랬다).
+   * 그래서 **내용**을 문자열로 눌러 비교하고, 계산에는 최신 객체를 ref로 꺼내 쓴다.
+   */
+  const costRef = useRef(cost);
+  costRef.current = cost;
+  const costKey = COST_COLUMNS.map((column) => Number(cost[column] ?? 0)).join('|');
+
+  const value = useMemo<ReballWorkValue>(() => {
+    const work = {
+      is_reball: isReball,
+      is_component_detach: detach,
+      is_underfill: underfill,
+      is_grinding: grinding,
+      urgent,
+    };
+    const per = perSampleCost(work, overBall, costRef.current);
+    return { ...work, count, per_cost: per, total_cost: per * count };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReball, detach, underfill, grinding, urgent, overBall, count, costKey]);
+
+  // 액션이 집어 갈 값은 부모(런타임)의 componentValues에 있다. 부모의 콜백은 렌더마다 새로
+  // 만들어지므로 의존성에 넣지 않고 ref로 최신 것만 들고 있는다 — 넣으면 매 렌더마다 다시 돌아
+  // 무한 갱신이 된다.
+  const notify = useRef(onValueChange);
+  notify.current = onValueChange;
+  useEffect(() => {
+    notify.current(value);
+  }, [value]);
+
+  async function saveCost() {
+    setSaving(true);
+    try {
+      const res = await fetch('/api/runtime/cost-table', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nodeId, values: draft }),
+      });
+      const result = (await res.json()) as ApiResult<{ saved: number }>;
+      if (!result.ok) {
+        toast.error(result.error.message);
+        return;
+      }
+      toast.success('단가표를 저장했습니다');
+      setEditing(false);
+      // 저장한 값으로 다시 계산되어야 한다 — 서버가 준 바인딩 데이터를 새로 받아 온다.
+      router.refresh();
+    } catch {
+      toast.error('단가표를 저장하지 못했습니다');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto">
+      {(title || description) && (
+        <div className="shrink-0">
+          {title && <h3 className="text-sm font-medium">{title}</h3>}
+          {description && <p className="text-xs text-muted-foreground">{description}</p>}
+        </div>
+      )}
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Check label="Reball" hint={`볼 재작업 · ${won(overBall ? cost.upper_200ball : cost.under_200ball)}`} checked={isReball} onChange={setIsReball} />
+        <Check label="Component detach" hint={`부품 분리 · ${won(cost.component_detach)}`} checked={detach} onChange={setDetach} />
+        <Check label="Underfill 제거" hint={`언더필 제거 · ${won(cost.underfill)}`} checked={underfill} onChange={setUnderfill} />
+        <Check label="Grinding" hint={`연마 · ${won(cost.grinding)}`} checked={grinding} onChange={setGrinding} />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <label className="flex min-w-0 flex-col gap-1.5">
+          <span className="text-sm font-medium">Ball 수</span>
+          <select
+            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring"
+            value={overBall ? 'over' : 'under'}
+            onChange={(e) => setOverBall(e.target.value === 'over')}
+          >
+            <option value="over">200ball 이상</option>
+            <option value="under">200ball 미만</option>
+          </select>
+        </label>
+        <label className="flex min-w-0 flex-col gap-1.5">
+          <span className="text-sm font-medium">시료 개수</span>
+          <input
+            type="number"
+            min={1}
+            step={1}
+            className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm tabular-nums shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            value={count}
+            onChange={(e) => setCount(Math.max(0, Number(e.target.value) || 0))}
+          />
+        </label>
+        <label className="flex min-w-0 flex-col justify-end gap-1.5">
+          <span className="text-sm font-medium">긴급 여부</span>
+          <span
+            className={cn(
+              'flex h-9 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm transition-colors',
+              urgent ? 'border-amber-500/60 bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'hover:bg-muted/50'
+            )}
+          >
+            <input type="checkbox" className="size-4 accent-[var(--primary)]" checked={urgent} onChange={(e) => setUrgent(e.target.checked)} />
+            긴급 ({won(cost.urgent)} 가산)
+          </span>
+        </label>
+      </div>
+
+      <div className="flex flex-wrap items-end justify-between gap-3 rounded-lg border border-primary/40 bg-primary/5 p-3">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs text-muted-foreground">시료 1개당</span>
+          <span className="text-lg font-semibold tabular-nums">{won(value.per_cost)}</span>
+        </div>
+        <div className="flex flex-col gap-0.5 text-right">
+          <span className="text-xs text-muted-foreground">총액 ({count.toLocaleString('ko-KR')}개)</span>
+          <span className="text-2xl font-semibold tabular-nums">{won(value.total_cost)}</span>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <button
+          type="button"
+          className="self-start text-xs font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          onClick={() => {
+            setDraft(cost);
+            setEditing((v) => !v);
+          }}
+        >
+          {editing ? '단가 수정 닫기' : '단가 수정'}
+        </button>
+
+        {editing && (
+          <div className="flex flex-col gap-3 rounded-lg border p-3">
+            <p className="text-xs text-muted-foreground">
+              단가는 바뀔 수 있어 이 화면에서 고칠 수 있습니다. 저장하면 이후 작성하는 의뢰서의 계산에 바로 반영됩니다.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {COST_COLUMNS.map((column) => (
+                <label key={column} className="flex min-w-0 flex-col gap-1.5">
+                  <span className="text-xs font-medium">{COST_LABELS[column]}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={100}
+                    className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm tabular-nums shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    value={draft[column] ?? 0}
+                    onChange={(e) => setDraft((prev) => ({ ...prev, [column]: Math.max(0, Number(e.target.value) || 0) }))}
+                  />
+                </label>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void saveCost()}
+                className="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-60"
+              >
+                {saving ? '저장 중…' : '단가표 저장'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                className="h-9 rounded-md border px-4 text-sm font-medium hover:bg-muted/50"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** 빌더 캔버스·팔레트용 정적 미리보기. */
+export function ReballCostPreview({ title }: { title: string }) {
+  return (
+    <div className="flex h-full flex-col gap-2">
+      {title && <h3 className="text-sm font-medium">{title}</h3>}
+      <div className="grid gap-2 sm:grid-cols-2">
+        <div className="rounded-lg border border-primary/50 bg-primary/5 p-2.5 text-sm font-medium">Reball</div>
+        <div className="rounded-lg border p-2.5 text-sm font-medium">Component detach</div>
+      </div>
+      <div className="flex items-end justify-between rounded-lg border border-primary/40 bg-primary/5 p-3">
+        <span className="text-xs text-muted-foreground">시료 1개당</span>
+        <span className="text-xl font-semibold tabular-nums">단가표에서 자동 계산</span>
+      </div>
+    </div>
+  );
+}

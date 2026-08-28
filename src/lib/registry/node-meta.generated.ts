@@ -1804,5 +1804,52 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "list"
     ],
     "events": []
+  },
+  "fail-rate-calculator": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 34
+    },
+    "defaultProps": {
+      "title": "불량률 계산기",
+      "description": "",
+      "defaultSample": 10000,
+      "defaultFailures": 3
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "visit-stats": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 40
+    },
+    "defaultProps": {
+      "title": "접속 현황",
+      "description": "",
+      "days": 30
+    },
+    "bindingModes": [],
+    "events": []
+  },
+  "reball-cost": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 34
+    },
+    "defaultProps": {
+      "title": "작업 내용 · 비용",
+      "description": ""
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": []
   }
 };

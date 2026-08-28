@@ -8,6 +8,7 @@ import { resolveBindingData } from '@/lib/runtime/binding-query';
 import { DEFAULT_PERIOD_PRESET, periodQueryValues, resolvePeriod, toIsoDate, type PeriodPresetKey } from '@/lib/period';
 import { AppHeader } from '@/components/shell/AppHeader';
 import { RuntimeRenderer } from '@/components/runtime/RuntimeRenderer';
+import { VisitTracker } from '@/components/runtime/VisitTracker';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import type { ComponentNodeSpec, PublishedSpec } from '@/types/spec';
@@ -144,6 +145,9 @@ export default async function HomePage({
 
   return (
     <>
+      {/* 이 화면이 브라우저에 실제로 뜬 순간을 한 번 기록한다('접속자 통계'가 읽는 유일한 원본).
+          서버 렌더 중에 남기지 않는 이유는 VisitTracker의 주석 참고. */}
+      <VisitTracker slug={activePage.slug} />
       <AppHeader breadcrumbItems={breadcrumbItems} />
       {/* 폭이 좁을수록 여백을 줄인다 — 320px 창에서 좌우 24px씩은 본문의 15%를 먹는다. */}
       <div className="flex-1 overflow-y-auto p-3 sm:p-6">

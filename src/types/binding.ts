@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const filterOpSchema = z.enum(['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'contains', 'in', 'isNull']);
+export const filterOpSchema = z.enum(['eq', 'ne', 'gt', 'gte', 'lt', 'lte', 'contains', 'in', 'isNull', 'isNotNull']);
 export type FilterOp = z.infer<typeof filterOpSchema>;
 
 export const filterSchema = z.object({
