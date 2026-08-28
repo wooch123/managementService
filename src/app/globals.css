@@ -283,24 +283,71 @@
   container-name: board;
 }
 
-/* 좁을 때(기본): 스레드가 남은 자리를 다 쓰고, 열려 있으면 채널은 숨는다. */
+/**
+ * 스레드 패널 — 오른쪽에서 미끄러져 들어오고 나간다.
+ *
+ * **폭을 애니메이션하지 않는다.** 채널을 1087px에서 727px로 200ms에 걸쳐 줄이면 그 사이 내내
+ * 본문이 매 프레임 다시 줄바꿈되고, 긴 글 접기가 폭을 다시 재느라 메시지마다 상태 갱신이 열 번씩
+ * 일어난다. 사이드바 글자가 눌려 보이던 것과 같은 원인이다. 자리(레이아웃)는 **한 번에** 바뀌고,
+ * 움직이는 것은 합성으로 처리되는 transform·opacity뿐이다.
+ *
+ * 좁을 때는 채널 **위를 덮으며** 들어온다(모바일 상세 화면과 같다). 채널을 감추지 않으므로
+ * 나갈 때 그 아래에서 채널이 그대로 드러난다.
+ */
 .board-thread {
   min-width: 0;
-  flex: 1 1 auto;
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  animation: board-thread-in 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.board-root[data-thread='open'] .board-channel {
-  display: none;
+.board-thread[data-closing='true'] {
+  /* forwards: 끝난 자리에 그대로 머문다. 없으면 마지막 프레임에 제자리로 튀었다가 사라진다. */
+  animation: board-thread-out 200ms cubic-bezier(0.55, 0, 1, 0.45) forwards;
+  pointer-events: none;
 }
 
-/* 채널(최소 340px) + 스레드(352px) + 사이 여백이 들어가는 폭부터 나란히 놓는다. */
+/* 채널(최소 340px) + 스레드(352px) + 사이 여백이 들어가는 폭부터 나란히 놓는다.
+   이때는 덮지 않고 제 자리를 갖는다 — 자리는 열리는 순간 한 번에 생긴다. */
 @container board (min-width: 720px) {
-  .board-root[data-thread='open'] .board-channel {
-    display: flex;
+  .board-thread {
+    position: static;
+    flex: 0 0 22rem;
+  }
+}
+
+@keyframes board-thread-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes board-thread-out {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* 움직임을 줄이도록 설정한 사용자에게는 곧바로 나타나고 사라진다. */
+@media (prefers-reduced-motion: reduce) {
+  .board-thread,
+  .board-thread[data-closing='true'] {
+    animation: none;
   }
 
-  .board-thread {
-    flex: 0 0 22rem;
+  .board-thread[data-closing='true'] {
+    opacity: 0;
   }
 }
 

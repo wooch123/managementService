@@ -57,6 +57,8 @@ const BOTTOM_SLACK = 48;
 const TOP_TRIGGER = 120;
 /** 한 메시지에 붙일 수 있는 이미지 수 — 서버(POST /api/board/posts)의 상한과 같은 값이다. */
 const MAX_ATTACHMENTS = 10;
+/** 스레드가 미끄러져 들어오고 나가는 시간 — globals.css의 board-thread 애니메이션과 같은 값이어야 한다. */
+const THREAD_ANIM_MS = 200;
 
 /** 대화 안에서 그림이 차지할 최대 크기(원본은 눌러서 본다). */
 const THUMB_MAX_W = 240;
@@ -690,6 +692,9 @@ export function Board({
 
   // ── 스레드 ──
   const [threadRootId, setThreadRootId] = useState<string | null>(null);
+  /** 나가는 동작이 끝날 때까지 패널을 붙잡아 두는 동안 true. */
+  const [threadClosing, setThreadClosing] = useState(false);
+  const closeTimerRef = useRef<number | null>(null);
   const [threadParent, setThreadParent] = useState<Message | null>(null);
   const [replies, setReplies] = useState<Message[]>([]);
   const [threadLoading, setThreadLoading] = useState(false);
@@ -890,6 +895,12 @@ export function Board({
   // ── 스레드 열고 닫기 ──────────────────────────────────────────────────────
   const openThread = useCallback(
     async (id: string, highlightReplyId?: string) => {
+      // 나가는 중에 다시 열면 그 동작을 취소한다 — 아니면 잠시 뒤 타이머가 내용을 지운다.
+      if (closeTimerRef.current !== null) {
+        window.clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+      }
+      setThreadClosing(false);
       setThreadRootId(id);
       setThreadLoading(true);
       setReplies([]);
@@ -932,11 +943,32 @@ export function Board({
     [boardKey]
   );
 
+  /**
+   * 닫기는 두 걸음이다 — 논리적으로는 바로 닫히고, 화면에서는 미끄러져 나간 뒤에 사라진다.
+   *
+   * 곧바로 언마운트하면 나가는 동작을 보여줄 수 없다. 그래서 `threadRootId`는 즉시 비우고(토글
+   * 판정·폴링이 바로 멈춘다) 패널은 `threadClosing` 동안 붙잡아 둔다. 내용(부모·답글)도 그때까지
+   * 그대로 둬야 한다 — 미리 비우면 빈 상자가 미끄러져 나간다.
+   */
   const closeThread = useCallback(() => {
+    if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
     setThreadRootId(null);
-    setThreadParent(null);
-    setReplies([]);
+    setThreadClosing(true);
+    closeTimerRef.current = window.setTimeout(() => {
+      closeTimerRef.current = null;
+      setThreadClosing(false);
+      setThreadParent(null);
+      setReplies([]);
+    }, THREAD_ANIM_MS);
   }, []);
+
+  // 컴포넌트가 사라질 때 남은 타이머를 정리한다(없으면 언마운트된 뒤에 setState가 불린다).
+  useEffect(
+    () => () => {
+      if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
+    },
+    []
+  );
 
   /**
    * 답글 단추와 "N개의 답글"은 **토글**이다 — 이미 열려 있는 스레드를 다시 누르면 닫힌다.
@@ -1142,7 +1174,7 @@ export function Board({
   return (
     // max-h: 배치된 칸이 높이를 정해 주지 못하는 상황(칸이 내용에 맞춰 늘어나는 배치)에서도 대화가
     // 무한정 길어지지 않고 **자기 안에서** 스크롤하도록 스스로 상한을 갖는다.
-    <div className="board-root flex h-full max-h-[78vh] min-h-[280px] flex-col gap-2" data-thread={threadOpen ? 'open' : 'closed'}>
+    <div className="board-root flex h-full max-h-[78vh] min-h-[280px] flex-col gap-2">
       <header className="flex shrink-0 flex-wrap items-center gap-2">
         <div className="min-w-0">
           <h3 className="truncate text-sm font-medium">{title}</h3>
@@ -1211,7 +1243,8 @@ export function Board({
       )}
 
       {/* ── 채널 + 스레드 ── */}
-      <div className="relative flex min-h-0 flex-1 gap-2">
+      {/* overflow-hidden: 스레드가 오른쪽 바깥에서 들어오고 나가므로 그 바깥은 잘라야 한다. */}
+      <div className="relative flex min-h-0 flex-1 gap-2 overflow-hidden">
         {/* 좁은 칸에서 스레드가 열리면 채널이 숨는다 — 둘 다 밀어 넣으면 어느 쪽도 못 읽는다.
             판정은 **CSS 컨테이너 쿼리**가 한다(globals.css의 `.board-root` 규칙). 자바스크립트로
             폭을 재면 첫 페인트 뒤에야 값이 와서 레이아웃이 한 번 튀고, 화면이 그려지지 않는
@@ -1303,8 +1336,11 @@ export function Board({
         </div>
 
         {/* ── 스레드 패널 ── */}
-        {threadOpen && (
-          <div className="board-thread flex min-h-0 flex-col gap-2 rounded-md border bg-background">
+        {(threadOpen || threadClosing) && (
+          <div
+            className="board-thread flex min-h-0 flex-col gap-2 rounded-md border bg-background"
+            data-closing={threadClosing}
+          >
             <div className="flex shrink-0 items-center gap-2 border-b px-3 py-2">
               <MessageSquare className="size-4 text-muted-foreground" />
               <span className="text-sm font-medium">스레드</span>
