@@ -163,11 +163,22 @@ export async function renderTechReportHtml(doc: TechReportDoc): Promise<string> 
   header.doc h1 { font-size: 16pt; letter-spacing: -0.01em; }
   header.doc .meta { color: ${MUTED}; font-size: 8.5pt; text-align: right; }
 
-  .grid-12 { display: grid; grid-template-columns: repeat(12, 1fr); gap: 10px; align-items: start; }
-  .card { grid-column: span 12; border: 1px solid ${LINE}; border-radius: 8px; padding: 10px; break-inside: avoid; }
+  /* 한 줄에 나란히 놓인 카드는 **높이를 맞춘다**(작은 쪽이 큰 쪽에 맞춰 늘어난다).
+     격자의 기본값(stretch)이 그 일을 한다 — 예전에는 start로 눌러 두어 카드마다 높이가 달랐다. */
+  .grid-12 { display: grid; grid-template-columns: repeat(12, 1fr); gap: 10px; align-items: stretch; }
+  /* 카드가 늘어난 만큼 **안의 내용도 함께 채운다** — 그러지 않으면 늘어난 카드는 아래가 텅 빈다. */
+  .card {
+    grid-column: span 12;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid ${LINE};
+    border-radius: 8px;
+    padding: 10px;
+    break-inside: avoid;
+  }
   .card.half { grid-column: span 6; }
   .card.full { grid-column: span 12; }
-  .card h4 { font-size: 9.5pt; font-weight: 700; margin-bottom: 6px; }
+  .card h4 { flex: none; font-size: 9.5pt; font-weight: 700; margin-bottom: 6px; }
 
   .divider { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
   .divider.full { grid-column: span 12; }
@@ -179,14 +190,15 @@ export async function renderTechReportHtml(doc: TechReportDoc): Promise<string> 
   thead th, table.vertical th { background: ${HEAD_BG}; font-weight: 600; }
   table.vertical th { width: 38%; text-align: left; font-weight: 500; }
 
-  .prose { min-height: 60px; white-space: pre-wrap; font-size: 9pt; }
+  .prose { flex: 1 1 auto; min-height: 60px; white-space: pre-wrap; font-size: 9pt; }
   .empty { color: ${MUTED}; }
   .slot-empty {
-    display: flex; align-items: center; justify-content: center;
+    display: flex; flex: 1 1 auto; align-items: center; justify-content: center;
     min-height: 90px; border: 1px dashed ${LINE}; border-radius: 6px;
     color: ${MUTED}; font-size: 8.5pt;
   }
-  img { width: 100%; max-height: 240px; object-fit: contain; border: 1px solid ${LINE}; border-radius: 6px; }
+  /* 그림은 늘어난 칸을 채우되 비율은 지킨다(contain) — 늘어났다고 늘려 그리지 않는다. */
+  img { flex: 1 1 auto; width: 100%; min-height: 0; max-height: 240px; object-fit: contain; border: 1px solid ${LINE}; border-radius: 6px; }
 
   /* sample은 쪽을 나눠 시작한다 — 한 sample이 두 쪽에 걸쳐 반씩 잘리지 않게. */
   .sample { break-before: page; }
