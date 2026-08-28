@@ -15,6 +15,11 @@ const nextConfig: NextConfig = {
   distDir:
     process.env.NEXT_DIST_DIR ??
     (process.env.NODE_ENV === "development" ? ".next-dev" : ".next"),
+
+  // Tech Report PDF는 서버가 headless Chromium으로 그린다. Playwright는 실행 시점에 자기
+  // 경로를 계산해 브라우저 바이너리와 드라이버를 찾으므로, 번들에 말아 넣으면 그 경로가 깨진다.
+  // 서버 쪽에서는 평범한 node_modules 모듈로 남겨 둔다.
+  serverExternalPackages: ["playwright", "playwright-core"],
 };
 
 export default withBundleAnalyzer(nextConfig);

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { FileSearch, ImagePlus, MoveUpRight, Plus, Printer, Trash2, X } from 'lucide-react';
+import { FileDown, FileSearch, ImagePlus, MoveUpRight, Plus, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   IMAGE_SLOTS,
@@ -57,14 +57,12 @@ function Divider({ label }: { label: string }) {
 function ImageSlot({
   label,
   file,
-  hint,
   onPick,
   onClear,
   disabled,
 }: {
   label: string;
   file: string;
-  hint?: string;
   onPick: (file: File) => void;
   onClear: () => void;
   disabled: boolean;
@@ -77,7 +75,7 @@ function ImageSlot({
       <div className="flex items-center justify-between gap-2">
         <h4 className="tr-card-title">{label}</h4>
         {file && !disabled && (
-          <button type="button" className="tr-icon-button tech-report-noprint" onClick={onClear} aria-label={`${label} 지우기`}>
+          <button type="button" className="tr-icon-button" onClick={onClear} aria-label={`${label} 지우기`}>
             <X className="size-3.5" />
           </button>
         )}
@@ -105,8 +103,7 @@ function ImageSlot({
           className={cn('tr-dropzone', over && 'tr-dropzone-over', disabled && 'opacity-50')}
         >
           <ImagePlus className="size-6 text-muted-foreground" aria-hidden />
-          <span className="text-xs text-muted-foreground">{disabled ? 'FAR No를 먼저 불러오세요' : '이미지를 끌어다 놓거나 눌러서 고르세요'}</span>
-          {hint && <span className="text-[11px] text-muted-foreground/80">{hint}</span>}
+          <span className="text-xs text-muted-foreground">Drop an image here</span>
         </button>
       )}
       <input
@@ -153,17 +150,10 @@ function EditableGrid({
               {columns.map((c) => (
                 <th key={c}>{c}</th>
               ))}
-              <th className="tech-report-noprint w-8" aria-label="줄 지우기" />
+              <th className="w-8" aria-label="줄 지우기" />
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={columns.length + 1} className="tr-empty">
-                  줄이 없습니다 — 아래 &lsquo;줄 추가&rsquo;로 채웁니다
-                </td>
-              </tr>
-            )}
             {rows.map((row, index) => (
               <tr key={index}>
                 {columns.map((c) => (
@@ -177,7 +167,7 @@ function EditableGrid({
                     />
                   </td>
                 ))}
-                <td className="tech-report-noprint">
+                <td >
                   <button
                     type="button"
                     className="tr-icon-button"
@@ -195,7 +185,7 @@ function EditableGrid({
       </div>
       <button
         type="button"
-        className="tr-ghost-button tech-report-noprint"
+        className="tr-ghost-button"
         disabled={disabled}
         onClick={() => onChange([...rows, Object.fromEntries(columns.map((c) => [c, ''])) as Record<string, string>])}
       >
@@ -214,11 +204,9 @@ export function TechReport({ title, description }: { title: string; description:
   const [loading, setLoading] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  /** 인쇄하는 동안만 참 — 이때는 모든 sample 탭을 펼쳐 둔다(exportPdf 주석 참고). */
-  const [printing, setPrinting] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const disabled = doc === null;
-  const rootRef = useRef<HTMLDivElement>(null);
   /** 불러오기 직후에는 저장하지 않는다 — 방금 읽은 것을 그대로 되쓸 이유가 없다. */
   const skipNextSave = useRef(true);
 
@@ -240,12 +228,7 @@ export function TechReport({ title, description }: { title: string; description:
       setDoc(result.data);
       setActive(0);
       setSavedAt(result.data.updated_at ?? null);
-      const filled = result.data.samples.reduce((n, s) => n + (s.prefilled?.length ?? 0), 0);
-      toast.success(
-        result.data.saved
-          ? `저장된 Tech Report를 불러왔습니다 — sample ${result.data.samples.length}개`
-          : `FAR 원장에서 ${filled}개 칸을 채웠습니다 — sample ${result.data.samples.length}개`
-      );
+      toast.success(`${result.data.far_no} · sample ${result.data.samples.length}`);
     } catch {
       toast.error('불러오지 못했습니다.');
     } finally {
@@ -303,54 +286,43 @@ export function TechReport({ title, description }: { title: string; description:
   }
 
   /**
-   * PDF로 발행한다 — 브라우저의 인쇄 기능으로 낸다(대상에서 'PDF로 저장'을 고른다).
+   * PDF로 발행한다 — **서버가 그린 파일을 그대로 내려받는다**.
    *
-   * 별도의 PDF 라이브러리를 들이지 않은 이유: 이 저장소는 쓰는 라이브러리를 정해 두고 새로
-   * 더할 때는 먼저 상의하도록 되어 있다(CLAUDE.md §2). 인쇄 경로는 의존성 없이 어느 브라우저에서나
-   * 같은 결과를 낸다.
+   * 브라우저 인쇄로 내던 것을 바꾼 이유(사용자 요구): 인쇄는 받는 사람의 테마·글꼴·확대율·인쇄
+   * 설정을 타서 사람마다 다른 문서가 나오고, 인쇄 창을 한 번 더 거쳐야 한다. 서버가 한 번 그려
+   * 주면 누가 받아도 같은 문서이고 누르는 즉시 파일이 떨어진다. 모양은 서버의
+   * tech-report-html.ts 한 곳에서만 정해진다.
    *
-   * **지금 보고 있지 않은 sample 탭도 함께 나가야 한다.** 그런데 그 탭들은 `hidden` 속성으로
-   * 감춰져 있고, Tailwind가 깔아 두는 기본 규칙이 `@layer base`에서 `[hidden] { display: none
-   * !important }`를 건다 — 중요 선언끼리는 **레이어 안이 레이어 밖을 이긴다**. 그래서 인쇄용 CSS로
-   * 되살리는 것은 애초에 불가능하다(실측으로 확인했다). 대신 인쇄하는 동안만 `hidden`을 떼고
-   * 다시 그린 뒤에 인쇄 창을 연다.
+   * 주소로 바로 이동하지 않고 fetch로 받는 이유: 실패했을 때 화면에 이유를 말해 줄 수 있어야
+   * 한다(주소로 열면 JSON 오류가 새 탭에 그대로 뜬다).
    */
-  function exportPdf() {
-    if (doc) setPrinting(true);
+  async function exportPdf() {
+    if (!doc || exporting) return;
+    setExporting(true);
+    try {
+      const res = await fetch(`/api/runtime/tech-report/pdf?far_no=${encodeURIComponent(doc.far_no)}`);
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as ApiResult<never> | null;
+        toast.error(body && !body.ok ? body.error.message : 'PDF를 만들지 못했습니다.');
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `Tech Report ${doc.far_no}.pdf`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      toast.success('PDF를 내려받았습니다');
+    } catch {
+      toast.error('PDF를 내려받지 못했습니다.');
+    } finally {
+      setExporting(false);
+    }
   }
 
-  useEffect(() => {
-    if (!printing) return;
-    const html = document.documentElement;
-    const previousTitle = document.title;
-    html.classList.add('tech-report-printing');
-    // 인쇄물의 파일 이름 기본값이 문서 제목이다 — FAR No가 들어가면 찾기 쉽다.
-    document.title = `Tech Report ${docRef.current?.far_no ?? ''}`;
-
-    let done = false;
-    const restore = () => {
-      if (done) return;
-      done = true;
-      html.classList.remove('tech-report-printing');
-      document.title = previousTitle;
-      window.removeEventListener('afterprint', restore);
-      setPrinting(false);
-    };
-    window.addEventListener('afterprint', restore);
-    // 모든 탭이 펼쳐진 화면이 실제로 그려진 다음에 인쇄 창을 연다.
-    const frame = requestAnimationFrame(() => {
-      window.print();
-      // afterprint를 내지 않는 브라우저가 있어 안전망을 둔다.
-      setTimeout(restore, 1000);
-    });
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener('afterprint', restore);
-    };
-  }, [printing]);
-
   return (
-    <div ref={rootRef} className="tech-report tech-report-print-root flex h-full min-h-0 flex-col gap-4 overflow-y-auto">
+    <div className="tech-report flex h-full min-h-0 flex-col gap-4 overflow-y-auto">
       {(title || description) && (
         <div className="shrink-0">
           {title && <h3 className="text-sm font-medium">{title}</h3>}
@@ -374,7 +346,7 @@ export function TechReport({ title, description }: { title: string; description:
               aria-label="FAR No."
             />
           </label>
-          <button type="button" className="tr-primary-button tech-report-noprint" disabled={loading} onClick={() => void load(farInput)}>
+          <button type="button" className="tr-primary-button" disabled={loading} onClick={() => void load(farInput)}>
             {loading ? '불러오는 중…' : '불러오기'}
             <MoveUpRight className="size-3" aria-hidden />
           </button>
@@ -384,11 +356,6 @@ export function TechReport({ title, description }: { title: string; description:
             </span>
           )}
         </div>
-        {!doc && (
-          <p className="text-xs text-muted-foreground">
-            FAR No를 넣고 불러오면 원장의 분석값이 sample 탭에 자동으로 채워집니다. 이미 작성한 보고서가 있으면 그 내용이 그대로 열립니다.
-          </p>
-        )}
       </Card>
 
       {/* ② 종합 분석 의견 */}
@@ -398,7 +365,6 @@ export function TechReport({ title, description }: { title: string; description:
           style={{ height: 128 }}
           value={doc?.overall_opinion ?? ''}
           disabled={disabled}
-          placeholder={disabled ? 'FAR No를 먼저 불러오세요' : '종합 분석 의견을 적습니다'}
           onChange={(e) => setDoc((prev) => (prev ? { ...prev, overall_opinion: e.target.value } : prev))}
         />
       </Card>
@@ -408,7 +374,6 @@ export function TechReport({ title, description }: { title: string; description:
       <ImageSlot
         label="상단부 사진"
         file={doc?.visual_top ?? ''}
-        hint={doc?.visual_top_path || undefined}
         disabled={disabled}
         onPick={async (file) => {
           const stored = await upload(file);
@@ -419,7 +384,6 @@ export function TechReport({ title, description }: { title: string; description:
       <ImageSlot
         label="하단부 사진"
         file={doc?.visual_bottom ?? ''}
-        hint={doc?.visual_bottom_path || undefined}
         disabled={disabled}
         onPick={async (file) => {
           const stored = await upload(file);
@@ -431,7 +395,7 @@ export function TechReport({ title, description }: { title: string; description:
       {/* ④ Secure Smart report — sample 탭 */}
       <Divider label="Secure Smart report" />
       <div className="tr-span-12 flex flex-col gap-3">
-        <div className="tr-tablist tech-report-noprint" role="tablist" aria-label="Sample 탭">
+        <div className="tr-tablist" role="tablist" aria-label="Sample 탭">
           {(doc?.samples ?? [{ sample_no: '1' }, { sample_no: '2' }, { sample_no: '3' }]).map((s, index) => (
             <button
               key={s.sample_no}
@@ -448,9 +412,7 @@ export function TechReport({ title, description }: { title: string; description:
         </div>
 
         {(doc?.samples ?? []).map((s, index) => (
-          <div key={s.sample_no} hidden={!printing && index !== active} className="tech-report-tabpanel" role="tabpanel">
-            {/* 인쇄할 때는 모든 탭이 펼쳐지므로 어느 sample인지 밝혀 둔다. */}
-            <div className="tr-print-only tr-print-sample-title">Sample {s.sample_no}</div>
+          <div key={s.sample_no} hidden={index !== active} className="tech-report-tabpanel" role="tabpanel">
             <div className="tr-grid">
               {/* Performance table — 라벨 | 값 세로 표 */}
               <Card title="Performance table" span={12}>
@@ -479,9 +441,6 @@ export function TechReport({ title, description }: { title: string; description:
                     </tbody>
                   </table>
                 </div>
-                <p className="tr-note tech-report-noprint">
-                  옅게 표시된 칸은 FAR 원장에서 자동으로 채운 값입니다 — 고치면 고친 값이 저장됩니다.
-                </p>
               </Card>
 
               <Divider label="rtbb information" />
@@ -557,21 +516,18 @@ export function TechReport({ title, description }: { title: string; description:
           </div>
         ))}
 
-        {!doc && (
-          <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-            FAR No를 불러오면 sample별 탭이 여기에 나타납니다.
-          </p>
-        )}
       </div>
 
       {/* ⑤ 내보내기 */}
-      <Card title="tech report export" span={12} className="tech-report-noprint">
-        <button type="button" className="tr-primary-button w-full justify-center" disabled={disabled} onClick={exportPdf}>
-          <Printer className="size-4" aria-hidden /> export to pdf
+      <Card title="tech report export" span={12} >
+        <button
+          type="button"
+          className="tr-primary-button w-full justify-center"
+          disabled={disabled || exporting}
+          onClick={() => void exportPdf()}
+        >
+          <FileDown className="size-4" aria-hidden /> {exporting ? 'PDF 만드는 중…' : 'export to pdf'}
         </button>
-        <p className="tr-note">
-          브라우저 인쇄 창에서 대상을 &lsquo;PDF로 저장&rsquo;으로 고르면 파일로 발행됩니다. 지금 보고 있지 않은 sample 탭도 함께 나갑니다.
-        </p>
       </Card>
     </div>
   );
@@ -589,7 +545,6 @@ export function TechReportPreview({ title }: { title: string }) {
         <div className="flex-1 rounded-lg border p-3 text-xs text-muted-foreground">Sample 2</div>
         <div className="flex-1 rounded-lg border p-3 text-xs text-muted-foreground">Sample 3</div>
       </div>
-      <p className="text-xs text-muted-foreground">운영 화면에서 FAR No를 불러오면 원장 값이 자동으로 채워집니다.</p>
     </div>
   );
 }

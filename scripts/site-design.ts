@@ -637,11 +637,7 @@ function techReport(): SitePage {
         rowSpan: 90,
         // 바인딩이 아니라 전용 창구(/api/runtime/tech-report)로 오간다 — 관계도에는 남긴다.
         reads: ['far_table', 'tech_report', 'tech_report_sample'],
-        props: {
-          title: '',
-          description:
-            'FAR No를 불러오면 원장의 분석값이 sample 탭에 채워집니다. 고친 값은 바로 저장되고, 다시 불러오면 그대로 열립니다.',
-        },
+        props: { title: '', description: '' },
       },
     ],
   };

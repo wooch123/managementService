@@ -1,0 +1,222 @@
+import 'server-only';
+import { readReportImage } from '@/lib/far/report-uploads';
+import {
+  IMAGE_SLOTS,
+  META_SLOTS,
+  NAND_LOT_COLUMNS,
+  PERF_ROWS,
+  RTBB_COLUMNS,
+  type TechReportDoc,
+  type TechReportSample,
+} from '@/lib/far/tech-report-fields';
+
+/**
+ * PDF로 인쇄할 Tech Report 문서를 HTML로 짓는다 — **발행물의 모양은 여기서만 정해진다**.
+ *
+ * 화면과 같은 CSS를 쓰지 않는 이유가 요구사항 그 자체다: 화면은 보는 사람의 테마(밝게/어둡게)와
+ * 창 폭, 브라우저 설정을 따른다. 발행물은 **누가 받아도 같아야** 한다. 그래서
+ *
+ *   · 색을 토큰(`var(--…)`)이 아니라 **값으로 박는다**. 어두운 테마에서 받아도 흰 종이다.
+ *   · `color-scheme: light`를 못 박아 브라우저가 알아서 반전하지 못하게 한다.
+ *   · 폭이 A4 인쇄 폭으로 고정이라 반응형 규칙이 끼어들 자리가 없다.
+ *   · 그림은 주소가 아니라 **바이트를 그대로 심는다**(data URI). 서버가 자기 자신에게 다시
+ *     요청하지 않으므로 포트·인증·네트워크 상태와 무관하다.
+ *
+ * 실제 그리기는 서버의 headless Chromium이 한 번 하고 그 결과(PDF)를 내려준다. 사람마다 다른
+ * 브라우저에서 그리는 것이 아니라 **한 곳에서 그린 파일 하나**를 나눠 받는 구조다.
+ */
+
+/** 발행물 색 — 화면 테마와 무관한 고정값이다. */
+const INK = '#111827';
+const MUTED = '#6b7280';
+const LINE = '#d1d5db';
+const HEAD_BG = '#f3f4f6';
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/** 줄바꿈을 살려서 넣는다(분석 의견은 여러 줄로 적힌다). */
+function multiline(value: string): string {
+  const text = escapeHtml(value).trim();
+  return text === '' ? '<span class="empty">—</span>' : text.replace(/\n/g, '<br />');
+}
+
+/**
+ * 그림을 data URI로 바꾼다. 못 읽으면 빈 문자열 — 그림 하나가 없다고 발행이 실패하면 안 된다.
+ * 서버가 자기 주소로 다시 요청하지 않는 이유는 파일 맨 위 주석 참고.
+ */
+async function toDataUri(file: string): Promise<string> {
+  if (!file) return '';
+  const found = await readReportImage(file);
+  if (!found) return '';
+  return `data:${found.mimeType};base64,${found.bytes.toString('base64')}`;
+}
+
+function imageBlock(label: string, dataUri: string): string {
+  const body = dataUri
+    ? `<img src="${dataUri}" alt="${escapeHtml(label)}" />`
+    : `<div class="slot-empty">비어 있음</div>`;
+  return `<section class="card half"><h4>${escapeHtml(label)}</h4>${body}</section>`;
+}
+
+function divider(label: string): string {
+  return `<div class="divider full"><span></span><b>${escapeHtml(label)}</b><span></span></div>`;
+}
+
+function gridTable(columns: readonly string[], rows: Record<string, string>[]): string {
+  if (rows.length === 0) return '<p class="empty">줄 없음</p>';
+  const head = columns.map((c) => `<th>${escapeHtml(c)}</th>`).join('');
+  const body = rows
+    .map((row) => `<tr>${columns.map((c) => `<td>${escapeHtml(row[c] ?? '')}</td>`).join('')}</tr>`)
+    .join('');
+  return `<table class="grid"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+async function samplePage(sample: TechReportSample, index: number): Promise<string> {
+  const slots = await Promise.all(
+    IMAGE_SLOTS.map(async (slot) => imageBlock(slot.label, await toDataUri(sample.images?.[slot.key] ?? '')))
+  );
+  const metas = await Promise.all(
+    META_SLOTS.map(async (slot) => imageBlock(slot.label, await toDataUri(sample.images?.[slot.key] ?? '')))
+  );
+
+  const perf = PERF_ROWS.map(
+    (row) => `<tr><th>${escapeHtml(row.label)}</th><td>${escapeHtml(sample.perf?.[row.col] ?? '')}</td></tr>`
+  ).join('');
+
+  return `
+<section class="sample${index === 0 ? ' first' : ''}">
+  <h2>Sample ${escapeHtml(sample.sample_no)}</h2>
+  <div class="grid-12">
+    <section class="card full">
+      <h4>Performance table</h4>
+      <table class="vertical"><tbody>${perf}</tbody></table>
+    </section>
+
+    ${divider('rtbb information')}
+
+    <section class="card half">
+      <h4>NAND 분석 의견</h4>
+      <div class="prose">${multiline(sample.nand_opinion ?? '')}</div>
+    </section>
+    <section class="card half">
+      <h4>RTBB List</h4>
+      ${gridTable(RTBB_COLUMNS, sample.rtbb_list ?? [])}
+    </section>
+
+    <section class="card full">
+      <h4>NAND Lot ID</h4>
+      ${gridTable(NAND_LOT_COLUMNS, sample.nand_lot_list ?? [])}
+    </section>
+
+    ${slots.join('\n')}
+
+    ${divider('FW 분석 내용')}
+
+    <section class="card half">
+      <h4>FW 분석 의견</h4>
+      <div class="prose">${multiline(sample.fw_opinion ?? '')}</div>
+    </section>
+    ${metas.join('\n')}
+  </div>
+</section>`;
+}
+
+export async function renderTechReportHtml(doc: TechReportDoc): Promise<string> {
+  const [top, bottom] = await Promise.all([toDataUri(doc.visual_top), toDataUri(doc.visual_bottom)]);
+  const samples = (await Promise.all(doc.samples.map((s, i) => samplePage(s, i)))).join('\n');
+  const issued = new Date().toISOString().replace('T', ' ').slice(0, 16);
+
+  return `<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>Tech Report ${escapeHtml(doc.far_no)}</title>
+<style>
+  /* 발행물은 늘 밝은 종이다 — 받는 사람의 테마가 무엇이든 상관없다. */
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #ffffff;
+    color: ${INK};
+    font-family: "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+    font-size: 10pt;
+    line-height: 1.45;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  header.doc {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 2px solid ${INK};
+    padding-bottom: 8px;
+    margin-bottom: 14px;
+  }
+  header.doc h1 { font-size: 16pt; letter-spacing: -0.01em; }
+  header.doc .meta { color: ${MUTED}; font-size: 8.5pt; text-align: right; }
+
+  .grid-12 { display: grid; grid-template-columns: repeat(12, 1fr); gap: 10px; align-items: start; }
+  .card { grid-column: span 12; border: 1px solid ${LINE}; border-radius: 8px; padding: 10px; break-inside: avoid; }
+  .card.half { grid-column: span 6; }
+  .card.full { grid-column: span 12; }
+  .card h4 { font-size: 9.5pt; font-weight: 700; margin-bottom: 6px; }
+
+  .divider { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+  .divider.full { grid-column: span 12; }
+  .divider span { flex: 1; height: 1px; background: ${LINE}; }
+  .divider b { font-size: 9.5pt; color: ${MUTED}; white-space: nowrap; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+  th, td { border: 1px solid ${LINE}; padding: 2.5px 5px; text-align: center; word-break: break-all; }
+  thead th, table.vertical th { background: ${HEAD_BG}; font-weight: 600; }
+  table.vertical th { width: 38%; text-align: left; font-weight: 500; }
+
+  .prose { min-height: 60px; white-space: pre-wrap; font-size: 9pt; }
+  .empty { color: ${MUTED}; }
+  .slot-empty {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 90px; border: 1px dashed ${LINE}; border-radius: 6px;
+    color: ${MUTED}; font-size: 8.5pt;
+  }
+  img { width: 100%; max-height: 240px; object-fit: contain; border: 1px solid ${LINE}; border-radius: 6px; }
+
+  /* sample은 쪽을 나눠 시작한다 — 한 sample이 두 쪽에 걸쳐 반씩 잘리지 않게. */
+  .sample { break-before: page; }
+  .sample.first { break-before: auto; }
+  .sample > h2 { font-size: 12pt; margin: 0 0 8px; padding-bottom: 4px; border-bottom: 1px solid ${LINE}; }
+</style>
+</head>
+<body>
+  <header class="doc">
+    <h1>Tech Report</h1>
+    <div class="meta">
+      FAR No. <b>${escapeHtml(doc.far_no)}</b><br />
+      발행 ${escapeHtml(issued)}${doc.author ? ` · 작성 ${escapeHtml(doc.author)}` : ''}
+    </div>
+  </header>
+
+  <div class="grid-12">
+    <section class="card full">
+      <h4>종합 분석 의견</h4>
+      <div class="prose">${multiline(doc.overall_opinion ?? '')}</div>
+    </section>
+
+    ${divider('Visual Inspection')}
+    ${imageBlock('상단부 사진', top)}
+    ${imageBlock('하단부 사진', bottom)}
+
+    ${divider('Secure Smart report')}
+  </div>
+
+  ${samples}
+</body>
+</html>`;
+}

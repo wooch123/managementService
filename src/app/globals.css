@@ -523,14 +523,6 @@
   color: var(--muted-foreground);
   font-style: italic;
 }
-.tr-empty {
-  padding: 0.75rem;
-  color: var(--muted-foreground);
-}
-.tr-note {
-  font-size: 0.6875rem;
-  color: var(--muted-foreground);
-}
 
 /* 그림 칸 */
 .tr-dropzone {
@@ -618,86 +610,10 @@
   color: var(--foreground);
 }
 
-/* 인쇄할 때만 보이는 것(어느 sample인지 밝히는 제목) */
-.tr-print-only {
-  display: none;
-}
-
 /**
- * PDF로 발행 — 브라우저 인쇄로 낸다.
+ * PDF 발행은 **서버가 한다**(TechReport.tsx의 exportPdf → /api/runtime/tech-report/pdf).
  *
- * 규칙은 `html.tech-report-printing`이 붙어 있을 때만 돈다. 내보내기 단추가 인쇄 직전에 붙이고
- * 끝나면 뗀다 — 다른 화면을 인쇄할 때 이 규칙이 끼어들지 않게 하기 위해서다.
- *
- * 두 가지를 반드시 뒤집는다. ① 지금 보고 있지 않은 sample 탭도 **전부 펼친다**(보고서는 문서
- * 하나이지 지금 화면이 아니다). ② 페이지가 격자와 스크롤 상자 안에 들어 있어 그대로 두면 한
- * 화면 분량에서 잘린다 — 인쇄에서는 흐름 배치로 되돌린다.
+ * 예전에는 이 자리에 브라우저 인쇄용 규칙이 한 뭉치 있었다. 인쇄로 내면 받는 사람의 테마·글꼴·
+ * 확대율에 따라 결과가 달라져 "누가 받아도 같은 문서"가 되지 않아 걷어냈다. 발행물의 모양은
+ * 이제 서버의 tech-report-html.ts 한 곳에서만 정해진다.
  */
-@media print {
-  html.tech-report-printing [data-slot='sidebar-wrapper'] > [data-slot='sidebar'],
-  html.tech-report-printing [data-slot='sidebar-container'],
-  html.tech-report-printing [data-slot='sidebar-gap'],
-  html.tech-report-printing [data-slot='sidebar-inset'] > header,
-  html.tech-report-printing .tech-report-noprint {
-    display: none !important;
-  }
-
-  html.tech-report-printing,
-  html.tech-report-printing body,
-  html.tech-report-printing [data-slot='sidebar-inset'] {
-    height: auto !important;
-    overflow: visible !important;
-    background: #fff !important;
-  }
-
-  /* 페이지 격자와 카드 표면을 풀어 흐름 배치로 되돌린다. */
-  html.tech-report-printing .runtime-grid,
-  html.tech-report-printing .runtime-grid-wrap {
-    display: block !important;
-    max-width: none !important;
-  }
-  html.tech-report-printing .runtime-cell {
-    display: block !important;
-    height: auto !important;
-    min-height: 0 !important;
-    overflow: visible !important;
-  }
-  html.tech-report-printing .tech-report {
-    height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-  }
-
-  /* 감춰 둔 sample 탭은 **CSS로 되살릴 수 없다** — Tailwind 기본 규칙이 `@layer base`에서
-     `[hidden] { display: none !important }`를 걸고, 중요 선언끼리는 레이어 안이 레이어 밖을
-     이기기 때문이다(실측 확인). 그래서 인쇄하는 동안만 React가 `hidden`을 떼어 낸다
-     (TechReport.tsx의 exportPdf). */
-  html.tech-report-printing .tr-print-only {
-    display: block;
-  }
-  .tr-print-sample-title {
-    margin: 0.5rem 0;
-    font-size: 1rem;
-    font-weight: 700;
-    break-before: page;
-  }
-  /* 첫 sample 앞에서는 쪽을 넘기지 않는다(앞머리와 이어진다). */
-  html.tech-report-printing .tech-report-tabpanel:first-of-type .tr-print-sample-title {
-    break-before: auto;
-  }
-
-  /* 카드와 표가 쪽 경계에서 반으로 잘리지 않게 한다. */
-  html.tech-report-printing .tr-card,
-  html.tech-report-printing .tr-image,
-  html.tech-report-printing .tr-table {
-    break-inside: avoid;
-  }
-  html.tech-report-printing .tr-textarea {
-    height: auto !important;
-    min-height: 4rem;
-  }
-
-  @page {
-    margin: 12mm;
-  }
-}
