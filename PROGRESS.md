@@ -2293,3 +2293,25 @@ Next가 Playwright를 번들에 말아 넣으면 브라우저 경로 계산이 �
 `.tr-empty` · `.tr-note` 규칙도 쓰는 곳이 없어져 함께 지웠다.
 
 `pnpm typecheck` · `pnpm lint` 무경고, `pnpm test` 307개 통과.
+
+### 덧붙임 — 운영에서만 브라우저를 못 찾던 일
+
+배포 직후 운영(pm2)에서만 발행이 503으로 막혔다. 같은 빌드를 셸에서 `next start`로 띄우면
+잘 됐다. 프로브를 pm2로 띄워 파일 시스템을 직접 읽어 보고 원인을 잡았다.
+
+```
+(pm2 프로세스)  C:\Users\wooch\AppData\Local            → dir
+                C:\Users\wooch\AppData\Local\ms-playwright → ENOENT
+(내 셸)         같은 두 경로                              → 둘 다 dir
+```
+
+같은 사용자, 같은 `LOCALAPPDATA`, ACL도 `woo\wooch` FullControl인데 **그 폴더만** 안 보였다.
+pm2 데몬이 시작될 때의 파일 시야를 자식 프로세스가 그대로 물려받은 것이 원인 — 이 세션에서
+데몬을 재시작할 때 도구 쪽의 제한된 시야가 딸려 들어갔다. `pm2 save && pm2 kill && pm2 resurrect`
+로 데몬을 정상 환경에서 다시 띄우니 바로 풀렸다(발행 200 · 242KB · 0.59초).
+
+코드 문제가 아니었으므로 되짚어 시도하던 `channel: 'chromium'` 대체 경로는 걷어냈다 — 그 옵션은
+**시스템에 설치된** Chromium을 찾는 것이라 애초에 이 상황을 도울 수 없다(실측: `spawn UNKNOWN`).
+대신 오류 문구에 "설치되어 있는데도 이 오류가 나면 프로세스의 파일 시야를 의심하라"를 남겼다.
+
+운영 재확인: dark/light 힌트로 각각 받은 PDF의 sha256 동일 · 화면 29개 정상 · 동작 5/5 통과.

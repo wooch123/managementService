@@ -54,10 +54,20 @@ async function getBrowser(): Promise<Browser> {
   return browserPromise;
 }
 
+/**
+ * 브라우저를 못 띄웠을 때.
+ *
+ * 대개는 정말 안 받아진 것이라 설치 명령을 안내한다. 다만 한 번 이런 일도 있었다 — 파일은
+ * 멀쩡히 있는데 **pm2로 띄운 프로세스에서만** 그 폴더가 통째로 안 보였다(같은 사용자, 같은
+ * 환경변수, ACL도 정상). pm2 데몬이 시작될 때의 파일 시야를 자식이 그대로 물려받기 때문으로,
+ * 데몬을 정상 환경에서 다시 띄우니(`pm2 save && pm2 kill && pm2 resurrect`) 바로 풀렸다.
+ * 설치가 되어 있는데도 이 오류가 나면 그쪽을 의심할 것.
+ */
 export class BrowserUnavailable extends Error {
   constructor(cause: unknown) {
     super(
       'PDF를 그릴 브라우저를 찾지 못했습니다. 서버에서 `npx playwright install chromium`을 한 번 실행하세요. ' +
+        '이미 설치되어 있다면 서비스를 띄운 프로세스가 그 폴더를 볼 수 있는지 확인하세요. ' +
         (cause instanceof Error ? cause.message.split('\n')[0] : '')
     );
     this.name = 'BrowserUnavailable';
