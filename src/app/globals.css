@@ -265,6 +265,11 @@
   [data-slot='sidebar-container'] {
     transition: none;
   }
+
+  /* 하위 메뉴도 미끄러지지 않고 곧바로 열리고 닫힌다(ui/collapsible.tsx의 높이 애니메이션). */
+  [data-slot='collapsible-content'] {
+    animation: none;
+  }
 }
 
 /**

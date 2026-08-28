@@ -2121,3 +2121,50 @@ ball 수라 옮겨 적기만 하면 되고, 200 이상/미만은 그 값에서 �
 
 `pnpm typecheck` · `pnpm lint` 무경고, `pnpm test` 307개 통과,
 `node scripts/verify-actions.mjs` 5/5 통과(검증용 데이터 남김 없음).
+
+---
+
+## 2026-08-28 · 하위 메뉴가 미끄러져 열리고 닫힌다
+
+사용자 요구: 사이드바의 하위 페이지 목록이 열릴 때도 슬라이드 다운/업으로 보이게 한다.
+
+지금까지는 펼침이 **즉시** 일어나 목록이 툭 나타났다. 아코디언은 이미 높이 애니메이션을
+쓰고 있었는데(`data-open:animate-accordion-down`) 접기/펼치기(Collapsible)만 빠져 있었다.
+
+### 어떻게
+
+Radix가 재어 둔 `--radix-collapsible-content-height`를 쓰는 tw-animate-css의 키프레임
+(`collapsible-down`/`collapsible-up`)에 `overflow-hidden`을 얹었다. 아코디언과 같은 방식이라
+새로 만든 것이 없다.
+
+**애니메이션이 걸리는 요소에는 여백·배치 클래스를 두지 않는다.** 그 요소의 높이를 0으로 줄이는
+방식이라, 거기에 padding이 있으면 닫힌 뒤에도 여백만 남아 빈 줄이 생긴다. 그래서 호출자가 준
+className은 안쪽 상자가 받도록 구조를 바꿨다(shadcn 아코디언과 같은 모양). 카탈로그의
+'접기/펼치기' 컴포넌트도 같은 경로를 쓰므로 함께 자연스러워졌다.
+
+들어올 때는 감속(ease-out), 나갈 때는 가속(ease-in) — 게시판 스레드 패널에서 쓴 것과 같은 규칙이다.
+화살표 회전도 150ms에서 200ms로 맞췄다. 목록과 화살표가 따로 끝나면 두 동작으로 읽힌다.
+
+움직임을 줄이도록 설정한 사용자에게는 `animation: none`이라 곧바로 열리고 닫힌다. Radix는
+`animationName`이 `none`이면 애니메이션 종료를 기다리지 않고 바로 정리하므로 안전하다.
+
+### 실측
+
+브라우저 창을 띄울 수 없는 환경이라 **움직이는 모습 자체는 눈으로 확인하지 못했다.** 대신
+브라우저가 실제로 만든 애니메이션 객체를 읽어 확인했다.
+
+| 메뉴 | 상태 | animation | 타이밍 | 키프레임 |
+|---|---|---|---|---|
+| 접수/분석 현황(4개) | open | collapsible-down | cubic-bezier(0,0,.2,1) | 0px → 128px |
+| Reball(3개) | open | collapsible-down | cubic-bezier(0,0,.2,1) | 0px → 96px |
+| 접수/분석 현황 | closed | collapsible-up | cubic-bezier(.4,0,1,1) | 128px → 0px |
+
+높이는 메뉴마다 실제 항목 수만큼 다르게 잡혔고(4개=128px · 3개=96px · 7개=224px),
+구조는 `collapsible-content → div → sidebar-menu-sub(항목 n개)`로 의도한 대로였다.
+
+**처음 뜰 때는 애니메이션이 돌지 않는다** — 현재 화면이 속한 묶음은 열린 채로 마운트되는데,
+그때마다 메뉴가 펼쳐지면 페이지를 옮길 때마다 눈에 거슬린다. Radix가 첫 렌더의 애니메이션을
+막아 주는 덕분이며, 열린 상태에서 실행 중인 애니메이션 수가 0인 것으로 확인했다.
+
+`pnpm typecheck` · `pnpm lint` 무경고, `pnpm test` 307개 통과,
+`pnpm audit:catalog` 111종 문제 없음, 콘솔 오류 없음.

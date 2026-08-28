@@ -201,7 +201,8 @@ function PageMenuItem({
               setOpen((v) => !v);
             }}
           >
-            <ChevronRight className="transition-transform group-data-open/collapsible:rotate-90" />
+            {/* 화살표와 목록이 같이 끝나야 한 동작으로 읽힌다 — 하위 메뉴가 미끄러지는 시간(200ms)에 맞춘다. */}
+            <ChevronRight className="transition-transform duration-200 ease-out group-data-open/collapsible:rotate-90" />
           </SidebarMenuAction>
         </CollapsibleTrigger>
         <CollapsibleContent>
