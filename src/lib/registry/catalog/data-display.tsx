@@ -319,7 +319,13 @@ export const dataDisplayComponents = [
               const format = (c.format ?? 'text') as CellFormat;
               return {
                 accessorKey: columnNameByFieldId.get(c.fieldId) ?? c.fieldId,
-                header: () => <span className={cn('block', ALIGN_CLASS[align])}>{c.header}</span>,
+                // 양식의 표 머리글 규격 — 작은 대문자 라벨(색을 물리고 자간을 벌린다).
+                // 한글 머리글은 대문자 변환의 영향을 받지 않아 그대로 읽힌다.
+                header: () => (
+                  <span className={cn('block text-[11px] font-semibold tracking-wider uppercase text-muted-foreground', ALIGN_CLASS[align])}>
+                    {c.header}
+                  </span>
+                ),
                 cell: ({ getValue }: { getValue: () => unknown }) => {
                   const raw = getValue();
                   if (format === 'badge' && raw !== null && raw !== undefined && raw !== '') {

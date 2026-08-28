@@ -28,11 +28,11 @@ const KIND_STYLE: Record<
     flowDuration: 3.2,
     dash: '2 6',
   },
-  READS: { stroke: '#8b5cf6', strokeWidth: 1.5, dashed: false, curved: false, orthogonal: false, flowDuration: 1.8, dash: '2 6' },
-  WRITES: { stroke: '#f59e0b', strokeWidth: 3, dashed: false, curved: false, orthogonal: false, flowDuration: 1.3, dash: '2 7' },
-  TRIGGERS: { stroke: '#f59e0b', strokeWidth: 1.5, dashed: true, curved: false, orthogonal: false, flowDuration: 1, dash: '6 4' },
-  NAVIGATES: { stroke: '#3b82f6', strokeWidth: 1.5, dashed: true, curved: true, orthogonal: false, flowDuration: 1.5, dash: '6 4' },
-  REFERENCES: { stroke: '#059669', strokeWidth: 1.5, dashed: false, curved: false, orthogonal: false, flowDuration: 3.2, dash: '2 6' },
+  READS: { stroke: '#34a875', strokeWidth: 1.5, dashed: false, curved: false, orthogonal: false, flowDuration: 1.8, dash: '2 6' },
+  WRITES: { stroke: '#34a875', strokeWidth: 3, dashed: false, curved: false, orthogonal: false, flowDuration: 1.3, dash: '2 7' },
+  TRIGGERS: { stroke: '#e9904e', strokeWidth: 1.5, dashed: true, curved: false, orthogonal: false, flowDuration: 1, dash: '6 4' },
+  NAVIGATES: { stroke: '#7759f4', strokeWidth: 1.5, dashed: true, curved: true, orthogonal: false, flowDuration: 1.5, dash: '6 4' },
+  REFERENCES: { stroke: '#9ba2a9', strokeWidth: 1.5, dashed: false, curved: false, orthogonal: false, flowDuration: 3.2, dash: '2 6' },
 };
 
 /**

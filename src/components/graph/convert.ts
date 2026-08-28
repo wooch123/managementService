@@ -25,11 +25,12 @@ export function toRFNode(n: GraphNodeDto & { data: unknown }): RFNode {
   };
 }
 
+/** 연결선 색은 **가리키는 쪽의 종류 색**을 따른다(types.ts의 TYPE_COLOR와 같은 값). */
 const ARROW_COLOR: Record<string, string> = {
-  READS: '#8b5cf6',
-  WRITES: '#f59e0b',
-  TRIGGERS: '#f59e0b',
-  NAVIGATES: '#3b82f6',
+  READS: '#34a875', // → 엔티티
+  WRITES: '#34a875', // → 엔티티
+  TRIGGERS: '#e9904e', // → 액션
+  NAVIGATES: '#7759f4', // → 페이지
 };
 
 export function toRFEdge(e: GraphEdgeDto): RFEdge {

@@ -62,15 +62,18 @@ export function renderNodeTree(nodes: NodeDto[], parentId: string | null = null,
     // 컴포넌트만 예외로 두어 테두리가 겹치지 않게 한다.
     // 표면의 세기로 화면에 계층을 만든다 — 지표는 또렷하게, 차트는 물러나게(registry/types.ts).
     const surface =
-      def.surface === 'strong' ? 'border-border shadow-xs'
-      : def.surface === 'quiet' ? 'border-border/50'
+      def.surface === 'strong' ? 'border-border'
+      : def.surface === 'quiet' ? 'border-border/60'
       : 'border-border';
     const withCard = (content: React.ReactNode) =>
       isRoot && !SELF_SURFACED.has(node.type) ? (
-        // Tremor식 카드 표면: 그림자 대신 1px 테두리, 반지름 8px, 넉넉한 안쪽 여백.
+        // Tech Report 양식의 카드 표면 — 흰 면에 1px 선, 반지름 14px, 안여백 20px,
+        // 그리고 거의 보이지 않는 그림자 한 겹(양식의 `0 1px 2px rgba(28,32,37,.02)`).
+        // 값은 globals.css의 --card-radius / --card-shadow에서 온다(테마가 바뀌어도 함께 간다).
         <div
+          style={{ borderRadius: 'var(--card-radius)', boxShadow: 'var(--card-shadow)' }}
           className={cn(
-            'flex flex-col rounded-lg border bg-card p-4 text-card-foreground',
+            'flex flex-col border bg-card p-5 text-card-foreground',
             grows ? 'min-h-full' : 'h-full',
             surface
           )}

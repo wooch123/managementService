@@ -26,11 +26,17 @@ import {
  * 브라우저에서 그리는 것이 아니라 **한 곳에서 그린 파일 하나**를 나눠 받는 구조다.
  */
 
-/** 발행물 색 — 화면 테마와 무관한 고정값이다. */
-const INK = '#111827';
-const MUTED = '#6b7280';
-const LINE = '#d1d5db';
-const HEAD_BG = '#f3f4f6';
+/**
+ * 발행물 색 — 화면 테마와 무관한 고정값이다.
+ * 값은 양식(`sample page/tech report page.html`)의 토큰 그대로다.
+ */
+const INK = '#20252b';
+const MUTED = '#727a83';
+const SUBTLE = '#9ba2a9';
+const LINE = '#e2e5e8';
+const LINE_SOFT = '#edf0f2';
+const HEAD_BG = '#f8f9fb';
+const VIOLET = '#7759f4';
 
 function escapeHtml(value: unknown): string {
   return String(value ?? '')
@@ -156,11 +162,11 @@ export async function renderTechReportHtml(doc: TechReportDoc): Promise<string> 
     align-items: flex-end;
     justify-content: space-between;
     gap: 12px;
-    border-bottom: 2px solid ${INK};
+    border-bottom: 2px solid ${VIOLET};
     padding-bottom: 8px;
     margin-bottom: 14px;
   }
-  header.doc h1 { font-size: 16pt; letter-spacing: -0.01em; }
+  header.doc h1 { font-size: 16pt; font-weight: 800; letter-spacing: -0.01em; }
   header.doc .meta { color: ${MUTED}; font-size: 8.5pt; text-align: right; }
 
   /* 한 줄에 나란히 놓인 카드는 **높이를 맞춘다**(작은 쪽이 큰 쪽에 맞춰 늘어난다).
@@ -172,38 +178,71 @@ export async function renderTechReportHtml(doc: TechReportDoc): Promise<string> 
     display: flex;
     flex-direction: column;
     border: 1px solid ${LINE};
-    border-radius: 8px;
-    padding: 10px;
+    border-radius: 14px;
+    padding: 12px;
     break-inside: avoid;
   }
   .card.half { grid-column: span 6; }
   .card.full { grid-column: span 12; }
-  .card h4 { flex: none; font-size: 9.5pt; font-weight: 700; margin-bottom: 6px; }
+  /* 양식의 카드 제목 — 작은 대문자 라벨을 강조색으로. */
+  .card h4 {
+    flex: none;
+    margin-bottom: 6px;
+    color: ${VIOLET};
+    font-size: 7.5pt;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
 
   .divider { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
   .divider.full { grid-column: span 12; }
   .divider span { flex: 1; height: 1px; background: ${LINE}; }
-  .divider b { font-size: 9.5pt; color: ${MUTED}; white-space: nowrap; }
+  .divider b {
+    color: ${SUBTLE};
+    font-size: 8pt;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
 
   table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
-  th, td { border: 1px solid ${LINE}; padding: 2.5px 5px; text-align: center; word-break: break-all; }
-  thead th, table.vertical th { background: ${HEAD_BG}; font-weight: 600; }
-  table.vertical th { width: 38%; text-align: left; font-weight: 500; }
+  th, td { border: 1px solid ${LINE_SOFT}; padding: 3px 5px; text-align: center; word-break: break-all; }
+  /* 표 머리글은 작은 대문자 라벨 — 화면의 표와 같은 규격이다. */
+  thead th {
+    background: ${HEAD_BG};
+    color: ${SUBTLE};
+    font-size: 7pt;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  table.vertical th { width: 38%; background: ${HEAD_BG}; color: ${MUTED}; text-align: left; font-weight: 600; }
+  table.vertical td { font-weight: 600; }
 
   .prose { flex: 1 1 auto; min-height: 60px; white-space: pre-wrap; font-size: 9pt; }
   .empty { color: ${MUTED}; }
+  /**
+   * 양식의 그림 자리 — 점선 테두리에 옅은 면.
+   *
+   * 화면에서는 사선 그라데이션을 쓰지만 여기서는 평면 색이다. Chromium이 PDF를 만들 때
+   * 그라데이션을 이미지로 굽는데, 빈 칸이 스물몇 개면 그것만으로 파일이 네 배가 된다
+   * (실측 242KB → 943KB). 인쇄물에서 두 색의 차이는 사실상 보이지 않는다.
+   */
   .slot-empty {
     display: flex; flex: 1 1 auto; align-items: center; justify-content: center;
-    min-height: 90px; border: 1px dashed ${LINE}; border-radius: 6px;
-    color: ${MUTED}; font-size: 8.5pt;
+    min-height: 90px; border: 1px dashed #c9ced3; border-radius: 9px;
+    background: #f1f2f5;
+    color: ${SUBTLE}; font-size: 8.5pt;
   }
   /* 그림은 늘어난 칸을 채우되 비율은 지킨다(contain) — 늘어났다고 늘려 그리지 않는다. */
-  img { flex: 1 1 auto; width: 100%; min-height: 0; max-height: 240px; object-fit: contain; border: 1px solid ${LINE}; border-radius: 6px; }
+  img { flex: 1 1 auto; width: 100%; min-height: 0; max-height: 240px; object-fit: contain; border: 1px solid ${LINE}; border-radius: 9px; }
 
   /* sample은 쪽을 나눠 시작한다 — 한 sample이 두 쪽에 걸쳐 반씩 잘리지 않게. */
   .sample { break-before: page; }
   .sample.first { break-before: auto; }
-  .sample > h2 { font-size: 12pt; margin: 0 0 8px; padding-bottom: 4px; border-bottom: 1px solid ${LINE}; }
+  .sample > h2 { font-size: 12pt; font-weight: 800; margin: 0 0 8px; padding-bottom: 4px; border-bottom: 1px solid ${LINE}; }
 </style>
 </head>
 <body>

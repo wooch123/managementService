@@ -54,84 +54,96 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* ── Tremor Blocks 디자인 반영 (2026-08-19 시험 적용) ────────────────────────────
- * 출처: blocks.tremor.so (소스 MIT — github.com/tremorlabs/tremor-blocks). 코드를 가져온 게
- * 아니라, 실제 렌더된 화면에서 잰 값을 우리 토큰 체계로 옮겼다.
- *   카드   흰 배경 · 반지름 8px · 그림자 없이 1px 테두리(gray-200 #e5e7eb) · 안쪽 여백 24px
- *   글자   레이블 14px/500 gray-500(#6b7280) · 지표 30px/600 gray-900(#111827)
- *   바탕   gray-50(#f9fafb), 강조 blue-500(#3b82f6)
- *   차트   blue-500 · emerald-500 · violet-500 · amber-500 · gray-500
- * 되돌리려면 globals.css · render-node-tree.tsx · data-display.tsx만 원복하면 된다.
+/* ── 기본 테마: Tech Report 양식의 디자인 언어 ──────────────────────────────────
+ * 출처: `sample page/tech report page.html`. 그 파일이 쓰는 토큰을 그대로 옮겼다.
+ *   강조   violet #7759f4 (누르면 #6041dc, 옅은 배경 #f0ecff)
+ *   글자   ink #20252b · muted #727a83 · subtle #9ba2a9
+ *   면     카드 #ffffff · 바탕 #f8f9fb
+ *   선     #e2e5e8 (약한 선 #edf0f2)
+ *   의미색 green #34a875 · orange #e9904e · red #df6b62
+ *
+ * 이 값들은 **기본값**이다 — 사용자가 테마를 고르면(`html[data-theme]`) 그쪽이 덮는다.
+ * 앞서 쓰던 Tremor(파랑) 팔레트를 대체한다. 되돌리려면 이 블록과 render-node-tree.tsx의
+ * 카드 표면, data-display.tsx의 표 머리글만 원복하면 된다.
  * ───────────────────────────────────────────────────────────────────────────── */
 :root {
-  --background: #f9fafb;
-  --foreground: #111827;
+  --background: #f8f9fb;
+  --foreground: #20252b;
   --card: #ffffff;
-  --card-foreground: #111827;
+  --card-foreground: #20252b;
   --popover: #ffffff;
-  --popover-foreground: #111827;
-  --primary: #3b82f6;
+  --popover-foreground: #20252b;
+  --primary: #7759f4;
   --primary-foreground: #ffffff;
-  --secondary: #f3f4f6;
-  --secondary-foreground: #374151;
-  --muted: #f3f4f6;
-  --muted-foreground: #6b7280;
-  --accent: #eff6ff;
-  --accent-foreground: #1d4ed8;
-  --destructive: #dc2626;
-  --border: #e5e7eb;
-  --input: #d1d5db;
-  --ring: #3b82f6;
-  /* Tremor 차트 팔레트 — blue · emerald · violet · amber · gray (모두 500) */
-  --chart-1: #3b82f6;
-  --chart-2: #10b981;
-  --chart-3: #8b5cf6;
-  --chart-4: #f59e0b;
-  --chart-5: #6b7280;
+  --secondary: #f2f3f5;
+  --secondary-foreground: #3f464e;
+  --muted: #f2f3f5;
+  --muted-foreground: #727a83;
+  --accent: #f0ecff;
+  --accent-foreground: #6041dc;
+  --destructive: #df6b62;
+  --border: #e2e5e8;
+  --input: #e2e5e8;
+  --ring: #7759f4;
+  /* 차트 5색 — 양식이 실제로 쓰는 색 그대로(violet · green · orange · red · subtle). */
+  --chart-1: #7759f4;
+  --chart-2: #34a875;
+  --chart-3: #e9904e;
+  --chart-4: #df6b62;
+  --chart-5: #9ba2a9;
   --radius: 0.5rem;
+  /* 양식이 카드에 쓰는 값 — 카드 표면(render-node-tree.tsx)과 Tech Report 화면이 함께 읽는다. */
+  --card-radius: 14px;
+  --card-shadow: 0 1px 2px rgba(28, 32, 37, 0.03);
+  /* 표의 가로줄에만 쓰는 약한 선. */
+  --line-soft: #edf0f2;
   --sidebar: #ffffff;
-  --sidebar-foreground: #111827;
-  --sidebar-primary: #3b82f6;
+  --sidebar-foreground: #20252b;
+  --sidebar-primary: #7759f4;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f3f4f6;
-  --sidebar-accent-foreground: #111827;
-  --sidebar-border: #e5e7eb;
-  --sidebar-ring: #3b82f6;
+  --sidebar-accent: #f0ecff;
+  --sidebar-accent-foreground: #6041dc;
+  --sidebar-border: #e2e5e8;
+  --sidebar-ring: #7759f4;
 }
 
-/* Tremor의 다크 모드 — 바탕 gray-950, 카드 gray-900, 경계 gray-800, 강조는 그대로 blue-500. */
+/* 어두운 모드 — 양식에는 없어서 같은 색상각(violet)을 어두운 중성색 위로 옮겨 잡았다.
+   강조는 어두운 바탕에서 대비가 나오도록 한 단계 밝힌다(#8b73f7). */
 .dark {
-  --background: #030712;
-  --foreground: #f9fafb;
-  --card: #111827;
-  --card-foreground: #f9fafb;
-  --popover: #111827;
-  --popover-foreground: #f9fafb;
-  --primary: #3b82f6;
+  --background: #17191d;
+  --foreground: #e8eaed;
+  --card: #1e2126;
+  --card-foreground: #e8eaed;
+  --popover: #1e2126;
+  --popover-foreground: #e8eaed;
+  --primary: #8b73f7;
   --primary-foreground: #ffffff;
-  --secondary: #1f2937;
-  --secondary-foreground: #e5e7eb;
-  --muted: #1f2937;
-  --muted-foreground: #9ca3af;
-  --accent: #1e3a8a;
-  --accent-foreground: #dbeafe;
-  --destructive: #ef4444;
-  --border: #1f2937;
-  --input: #374151;
-  --ring: #3b82f6;
-  --chart-1: #3b82f6;
-  --chart-2: #10b981;
-  --chart-3: #8b5cf6;
-  --chart-4: #f59e0b;
-  --chart-5: #9ca3af;
-  --sidebar: #030712;
-  --sidebar-foreground: #f9fafb;
-  --sidebar-primary: #3b82f6;
+  --secondary: #282c32;
+  --secondary-foreground: #d5d9de;
+  --muted: #282c32;
+  --muted-foreground: #9ba2a9;
+  --accent: #2d2748;
+  --accent-foreground: #c8bcff;
+  --destructive: #e8837b;
+  --border: #2c3036;
+  --input: #3a3f46;
+  --ring: #8b73f7;
+  --chart-1: #8b73f7;
+  --chart-2: #43bd86;
+  --chart-3: #f0a566;
+  --chart-4: #e8837b;
+  --chart-5: #9ba2a9;
+  --card-radius: 14px;
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
+  --line-soft: #24282e;
+  --sidebar: #17191d;
+  --sidebar-foreground: #e8eaed;
+  --sidebar-primary: #8b73f7;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1f2937;
-  --sidebar-accent-foreground: #f9fafb;
-  --sidebar-border: #1f2937;
-  --sidebar-ring: #3b82f6;
+  --sidebar-accent: #2d2748;
+  --sidebar-accent-foreground: #c8bcff;
+  --sidebar-border: #2c3036;
+  --sidebar-ring: #8b73f7;
 }
 
 @layer base {
@@ -422,16 +434,20 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  border-radius: 14px;
+  border-radius: var(--card-radius, 14px);
   border: 1px solid var(--border);
   background: var(--card);
-  padding: 1rem;
+  box-shadow: var(--card-shadow, none);
+  padding: 1.25rem;
 }
 
+/* 양식의 카드 제목 — 작은 대문자 라벨을 강조색으로(발행되는 PDF와 같은 규격이다). */
 .tr-card-title {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  color: var(--primary);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 /* 구분선 — 가운데 제목이 놓인 가로줄(양식의 divider). */
@@ -447,9 +463,11 @@
   background: var(--border);
 }
 .tr-divider-label {
-  font-size: 0.8125rem;
-  font-weight: 600;
   color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
@@ -497,13 +515,17 @@
 }
 .tr-table th,
 .tr-table td {
-  border: 1px solid var(--border);
+  border: 1px solid var(--line-soft, var(--border));
   padding: 0.25rem 0.5rem;
   text-align: center;
 }
 .tr-table thead th {
   background: var(--muted);
-  font-weight: 600;
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 /* 라벨 | 값 두 칸짜리 세로 표(Performance table) — 왼쪽 라벨 칸 폭을 잡아 준다. */
@@ -525,6 +547,7 @@
 }
 
 /* 그림 칸 */
+/* 양식의 그림 자리 — 점선 테두리에 옅은 사선 그라데이션(PDF와 같은 모양). */
 .tr-dropzone {
   display: flex;
   min-height: 200px;
@@ -533,8 +556,9 @@
   align-items: center;
   justify-content: center;
   gap: 0.375rem;
-  border-radius: 0.75rem;
+  border-radius: 9px;
   border: 1px dashed var(--border);
+  background: linear-gradient(135deg, color-mix(in oklab, var(--muted) 70%, var(--card)), var(--muted));
   padding: 1rem;
   text-align: center;
   transition: border-color 150ms ease-out, background-color 150ms ease-out;

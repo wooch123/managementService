@@ -24,9 +24,13 @@ export const TYPE_LABEL: Record<RefType, string> = {
   ACTION: '액션',
 };
 
+/**
+ * 관계도의 종류별 색 — 기본 테마와 같은 언어를 쓴다(sample page/tech report page.html).
+ * 컴포넌트는 노드 수가 가장 많아 무채색으로 물러나게 두고, 나머지 셋에 강조색을 준다.
+ */
 export const TYPE_COLOR: Record<RefType, string> = {
-  PAGE: '#3b82f6', // blue
-  COMPONENT: '#8b5cf6', // violet
-  ENTITY: '#10b981', // emerald
-  ACTION: '#f59e0b', // amber
+  PAGE: '#7759f4', // violet — 강조색
+  COMPONENT: '#9ba2a9', // subtle — 가장 많은 노드라 뒤로 물린다
+  ENTITY: '#34a875', // green
+  ACTION: '#e9904e', // orange
 };
