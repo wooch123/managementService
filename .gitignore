@@ -69,3 +69,7 @@ next-env.d.ts
 /data/logs/
 /data/action.log
 
+
+# 작업 중 만드는 임시 스크립트·추출물
+/.tmpq/
+/.tmp-*
