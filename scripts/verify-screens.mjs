@@ -1,5 +1,5 @@
 /**
- * 화면 전수 점검 — 16개 운영 화면을 실제 브라우저로 열어 **눌러 보고** 확인한다.
+ * 화면 전수 점검 — 운영 화면 전부를 실제 브라우저로 열어 **눌러 보고** 확인한다.
  *
  * 세 가지를 본다.
  *   ① 콘솔 오류 없이 그려지는가(빈 화면이나 렌더 오류가 없는가)
@@ -16,10 +16,14 @@ const { chromium } = require('@playwright/test');
 
 const BASE = process.argv[2] ?? 'http://127.0.0.1:3000';
 const SLUGS = [
-  'claim-dashboard', 'claim-analysis', 'fa-assign', 'fa-status', 'fa-tech-report',
-  'reball', 'reball-request', 'reball-status', 'requests',
-  'req-dev-lab', 'req-auto', 'req-dram', 'req-pfa-nd', 'req-pfa-d',
-  'tips', 'feedback',
+  'overview',
+  'intake', 'fa-assign', 'fa-status', 'dram-lf', 'tech-report',
+  'reball', 'reball-request', 'reball-status', 'reball-history',
+  'request', 'req-nde', 'req-de', 'req-dram-hf',
+  'issues',
+  'info', 'info-pkg-stack', 'info-product', 'info-nand-param', 'info-nand-wf', 'info-tips', 'info-similar', 'info-fail-rate',
+  'infra', 'infra-tester', 'infra-request', 'infra-hw',
+  'visit-stats', 'feedback',
 ];
 
 const browser = await chromium.launch();

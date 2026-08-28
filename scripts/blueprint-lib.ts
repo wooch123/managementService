@@ -11,7 +11,7 @@ export type FilterPlan = {
   col: string;
   /** 같은 값을 여러 컬럼 중 하나라도 만족하면 되는 조건(통합 검색). 비우면 col 하나만 본다. */
   cols?: string[];
-  op: 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains' | 'in' | 'isNull';
+  op: 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'contains' | 'in' | 'isNull' | 'isNotNull';
   source: 'fixed' | 'query';
   value?: unknown;
   /** source: 'query'일 때 주소 파라미터 이름 */
@@ -65,6 +65,8 @@ export type NodePlan = {
   on?: Record<string, string>;
   /** data-table의 열 머리글을 select 순서대로 덮어쓴다(비우면 필드 이름 그대로) */
   headers?: string[];
+  /** data-table의 칸 서식을 select 순서대로 덮어쓴다(비우면 칸 타입에서 정한다). null은 '기본값 그대로'. */
+  formats?: (CellFormat | null)[];
   /**
    * 컨테이너의 자식(폼 카드 안의 입력들, 페이지 머리 옆 버튼들).
    * 자식은 좌표를 갖지 않는다 — 부모가 순서대로 배치한다.
@@ -83,7 +85,8 @@ export type PagePlan = {
 
 export type ValuePlan =
   | { from: 'literal'; value: unknown }
-  | { from: 'component'; node: string }
+  /** `path`를 주면 그 컴포넌트의 값(객체)에서 키 하나만 집어 온다 — 여러 칸이 함께 정해지는 값(Reball 단가)용. */
+  | { from: 'component'; node: string; path?: string }
   | { from: 'route'; param: string }
   | { from: 'now' }
   | { from: 'sequence'; prefix: string; digits?: number };
@@ -207,16 +210,35 @@ export function toBindingJson(schema: Map<string, EntityInfo>, bind: BindPlan): 
   });
 }
 
-/** data-table은 열 머리글을 props로 받는다 — 바인딩의 select 순서 그대로 만들어 준다. */
-export function tableColumns(schema: Map<string, EntityInfo>, bind: BindPlan, headers?: string[]) {
+export type CellFormat = 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'badge' | 'boolean';
+
+/**
+ * 칸의 타입만 보고 고를 수 있는 서식.
+ *
+ * 조회 결과는 저장 형태 그대로 온다 — BOOLEAN이 0/1로, 숫자가 서식 없이 나온다. 타입에서
+ * 자연스럽게 정해지는 것은 여기서 정하고, 같은 타입이라도 달리 읽어야 하는 것(가격 등)은
+ * 설계에서 `formats`로 덮는다.
+ */
+function defaultFormat(dataType: string): CellFormat {
+  if (dataType === 'BOOLEAN') return 'boolean';
+  if (dataType === 'INTEGER' || dataType === 'REAL') return 'number';
+  if (dataType === 'DATETIME') return 'datetime';
+  if (dataType === 'DATE') return 'date';
+  if (dataType === 'ENUM') return 'badge';
+  return 'text';
+}
+
+/** data-table은 열 머리글·서식을 props로 받는다 — 바인딩의 select 순서 그대로 만들어 준다. */
+export function tableColumns(schema: Map<string, EntityInfo>, bind: BindPlan, headers?: string[], formats?: (CellFormat | null)[]) {
   if (bind.mode !== 'list') return [];
   return bind.select.map((col, index) => {
     const field = fieldOf(schema, bind.table, col);
+    const format = formats?.[index] ?? defaultFormat(field.dataType);
     return {
       fieldId: field.id,
       header: headers?.[index] ?? field.name,
-      align: field.dataType === 'INTEGER' || field.dataType === 'REAL' ? 'right' : 'left',
-      format: 'text',
+      align: format === 'number' || format === 'currency' ? 'right' : format === 'boolean' ? 'center' : 'left',
+      format,
     };
   });
 }
