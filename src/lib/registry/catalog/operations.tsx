@@ -85,8 +85,10 @@ export const operationsComponents = [
     propsSchema: z.object({
       title: z.string().default('작업 내용 · 비용'),
       description: z.string().default(''),
+      /** 처음 보여 줄 Ball 수 — 가장 흔한 패키지에 맞춰 두면 대부분 그대로 쓴다. */
+      defaultBallCount: z.number().int().min(0).max(10000).default(254),
     }),
-    defaultProps: { title: '작업 내용 · 비용', description: '' },
+    defaultProps: { title: '작업 내용 · 비용', description: '', defaultBallCount: 254 },
     defaultGrid: { span: 12, rowSpan: 34 },
     render: ({ node, props, data, onValueChange }) =>
       typeof onValueChange === 'function' ? (
@@ -95,6 +97,7 @@ export const operationsComponents = [
           title={props.title}
           description={props.description}
           cost={toCostRow(data)}
+          defaultBallCount={props.defaultBallCount}
           onValueChange={(value: ReballWorkValue) => onValueChange(value)}
         />
       ) : (

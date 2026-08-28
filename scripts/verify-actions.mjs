@@ -118,6 +118,7 @@ function valuesFor(action, byColumn) {
     is_component_detach: true,
     is_underfill: false,
     is_grinding: false,
+    ball_count: 254,
     count: 3,
     per_cost: 60000,
     total_cost: 180000,
@@ -131,11 +132,12 @@ function valuesFor(action, byColumn) {
     row.is_reball === 1 &&
     row.is_component_detach === 1 &&
     row.is_underfill === 0 &&
+    row.ball_count === 254 &&
     row.count === 3 &&
     row.per_cost === 60000 &&
     row.total_cost === 180000 &&
     row.handling === `${MARK} 코멘트`;
-  if (ok) pass('Reball 의뢰 등록', `시료 ${row.count}개 · 시료당 ${row.per_cost} · 총액 ${row.total_cost} · 코멘트 저장됨`);
+  if (ok) pass('Reball 의뢰 등록', `${row.ball_count}ball · 시료 ${row.count}개 · 시료당 ${row.per_cost} · 총액 ${row.total_cost} · 코멘트 저장됨`);
   else fail('Reball 의뢰 등록', `저장된 행: ${JSON.stringify(row)} · ${JSON.stringify(res.body).slice(0, 120)}`);
   cleanups.push(() => db.prepare('DELETE FROM reball_table WHERE name = ?').run(MARK));
 }

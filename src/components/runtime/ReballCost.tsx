@@ -54,19 +54,27 @@ export type ReballWorkValue = {
   is_underfill: boolean;
   is_grinding: boolean;
   urgent: boolean;
+  /** Ball 수. 이 값이 단가표의 `200ball 이상/미만`을 가른다. */
+  ball_count: number;
   count: number;
   per_cost: number;
   total_cost: number;
 };
 
+/** 단가표가 갈리는 기준 — 이 개수 **이상**이면 `upper_200ball`. */
+export const BALL_THRESHOLD = 200;
+
+export function isOverBall(ballCount: number): boolean {
+  return ballCount >= BALL_THRESHOLD;
+}
+
 /** 고른 작업에 해당하는 단가를 더한다 — 시료 하나당 가격. */
 export function perSampleCost(
   work: Omit<ReballWorkValue, 'count' | 'per_cost' | 'total_cost'>,
-  overBall: boolean,
   cost: CostRow
 ): number {
   let sum = 0;
-  if (work.is_reball) sum += overBall ? cost.upper_200ball : cost.under_200ball;
+  if (work.is_reball) sum += isOverBall(work.ball_count) ? cost.upper_200ball : cost.under_200ball;
   if (work.is_component_detach) sum += cost.component_detach;
   if (work.is_underfill) sum += cost.underfill;
   if (work.is_grinding) sum += cost.grinding;
@@ -110,12 +118,14 @@ export function ReballCost({
   title,
   description,
   cost,
+  defaultBallCount,
   onValueChange,
 }: {
   nodeId: string;
   title: string;
   description: string;
   cost: CostRow;
+  defaultBallCount: number;
   onValueChange: (value: ReballWorkValue) => void;
 }) {
   const router = useRouter();
@@ -124,8 +134,10 @@ export function ReballCost({
   const [underfill, setUnderfill] = useState(false);
   const [grinding, setGrinding] = useState(false);
   const [urgent, setUrgent] = useState(false);
-  const [overBall, setOverBall] = useState(true);
+  /** Ball 수를 개수 그대로 받는다 — 200 이상/미만은 여기서 갈린다(고를 것이 아니라 사실이다). */
+  const [ballCount, setBallCount] = useState(defaultBallCount);
   const [count, setCount] = useState(1);
+  const overBall = isOverBall(ballCount);
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<CostRow>(cost);
@@ -148,11 +160,12 @@ export function ReballCost({
       is_underfill: underfill,
       is_grinding: grinding,
       urgent,
+      ball_count: ballCount,
     };
-    const per = perSampleCost(work, overBall, costRef.current);
+    const per = perSampleCost(work, costRef.current);
     return { ...work, count, per_cost: per, total_cost: per * count };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isReball, detach, underfill, grinding, urgent, overBall, count, costKey]);
+  }, [isReball, detach, underfill, grinding, urgent, ballCount, count, costKey]);
 
   // 액션이 집어 갈 값은 부모(런타임)의 componentValues에 있다. 부모의 콜백은 렌더마다 새로
   // 만들어지므로 의존성에 넣지 않고 ref로 최신 것만 들고 있는다 — 넣으면 매 렌더마다 다시 돌아
@@ -206,14 +219,19 @@ export function ReballCost({
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="flex min-w-0 flex-col gap-1.5">
           <span className="text-sm font-medium">Ball 수</span>
-          <select
-            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring"
-            value={overBall ? 'over' : 'under'}
-            onChange={(e) => setOverBall(e.target.value === 'over')}
-          >
-            <option value="over">200ball 이상</option>
-            <option value="under">200ball 미만</option>
-          </select>
+          <input
+            type="number"
+            min={0}
+            step={1}
+            className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm tabular-nums shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            value={ballCount}
+            onChange={(e) => setBallCount(Math.max(0, Number(e.target.value) || 0))}
+          />
+          {/* 어느 쪽 단가가 걸렸는지 그 자리에서 보여 준다 — 숫자만 있으면 왜 이 가격인지 알 수 없다. */}
+          <span className={cn('text-[11px]', overBall ? 'text-primary' : 'text-muted-foreground')}>
+            {overBall ? `${BALL_THRESHOLD}ball 이상` : `${BALL_THRESHOLD}ball 미만`} 단가 적용 ·{' '}
+            {won(overBall ? cost.upper_200ball : cost.under_200ball)}
+          </span>
         </label>
         <label className="flex min-w-0 flex-col gap-1.5">
           <span className="text-sm font-medium">시료 개수</span>

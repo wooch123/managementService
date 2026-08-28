@@ -120,6 +120,12 @@ export const ENTITIES: EntityPlan[] = [
       { name: 'Component Detach', col: 'is_component_detach', type: 'BOOLEAN' },
       { name: 'Underfill 제거', col: 'is_underfill', type: 'BOOLEAN' },
       { name: 'Grinding', col: 'is_grinding', type: 'BOOLEAN' },
+      /**
+       * Ball 수. 설계 문서의 표에는 없지만 단가표가 `200ball 이상/미만`으로 갈리므로,
+       * 계산에 쓴 근거를 함께 남기지 않으면 나중에 "왜 이 단가인가"에 답할 수 없다.
+       * 값은 개수 그대로 적는다(FBGA153·221·254처럼 Ball Type이 곧 ball 수다).
+       */
+      { name: 'Ball 수', col: 'ball_count', type: 'INTEGER' },
       { name: '시료 개수', col: 'count', type: 'REAL' },
       { name: '코멘트', col: 'handling', type: 'TEXT' },
       { name: '시료당 가격', col: 'per_cost', type: 'REAL' },

@@ -1845,7 +1845,8 @@ export const nodeMeta: Record<string, NodeMeta> = {
     },
     "defaultProps": {
       "title": "작업 내용 · 비용",
-      "description": ""
+      "description": "",
+      "defaultBallCount": 254
     },
     "bindingModes": [
       "list"

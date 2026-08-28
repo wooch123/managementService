@@ -49,6 +49,8 @@ const CTRLS = ['CTRL-A1', 'CTRL-B2', 'CTRL-C3'] as const;
 const NANDS = ['NAND-V6', 'NAND-V7', 'NAND-V8'] as const;
 const DRAMS = ['DRAM-LP4X', 'DRAM-LP5', ''] as const;
 const FBGAS = ['FBGA153', 'FBGA221', 'FBGA254'] as const;
+/** Ball Type이 곧 ball 수다 — Reball 단가가 200개를 기준으로 갈리므로 양쪽이 섞이게 둔다. */
+const BALL_COUNTS = [96, 153, 169, 221, 254, 316] as const;
 const DENSITIES = ['64GB', '128GB', '256GB', '512GB', '1TB'] as const;
 const FAILMODE1 = ['No Boot', 'Read Fail', 'Write Fail', 'Init Fail', 'Data Retention', 'Performance'] as const;
 const FAILMODE2: Record<string, readonly string[]> = {
@@ -162,7 +164,7 @@ function seed(): void {
   const reballColumns = [
     'id', 'created_at', 'updated_at',
     'far_no', 'urgent', 'date', 'export_no', 'name', 'pjt',
-    'is_reball', 'is_component_detach', 'is_underfill', 'is_grinding', 'count', 'handling', 'per_cost', 'total_cost',
+    'is_reball', 'is_component_detach', 'is_underfill', 'is_grinding', 'ball_count', 'count', 'handling', 'per_cost', 'total_cost',
   ];
   const insertReball = db.prepare(
     `INSERT INTO "reball_table" (${reballColumns.map((c) => `"${c}"`).join(', ')}) VALUES (${reballColumns.map(() => '?').join(', ')})`
@@ -226,7 +228,8 @@ function seed(): void {
     // Reball 의뢰 — 실제 단가표를 참조해 계산한다(화면이 계산하는 것과 같은 규칙).
     if (cost) {
       for (const claim of farNumbers.filter(() => chance(0.13))) {
-        const overBall = chance(0.6);
+        const ballCount = pick(BALL_COUNTS);
+        const overBall = ballCount >= 200;
         const detach = chance(0.35);
         const underfill = chance(0.25);
         const grinding = chance(0.2);
@@ -245,7 +248,7 @@ function seed(): void {
         insertReball.run(
           nanoid(), now, now,
           claim.far_no, urgent ? 1 : 0, isoDay(addDays(claim.rcv, intBetween(5, 30))), `EX-${hex(5)}`, claim.owner ?? pick(OWNERS), claim.device,
-          isReball ? 1 : 0, detach ? 1 : 0, underfill ? 1 : 0, grinding ? 1 : 0, count,
+          isReball ? 1 : 0, detach ? 1 : 0, underfill ? 1 : 0, grinding ? 1 : 0, ballCount, count,
           chance(0.5) ? '작업 후 외관 사진 함께 회신 부탁드립니다.' : '', per, per * count
         );
         reballRows += 1;

@@ -1,13 +1,15 @@
 /**
- * 재구성 적용 — 「page 구성 및 DB(8.28)」대로 화면과 데이터를 **처음부터 다시** 만든다.
+ * 구성 적용 — 「page 구성 및 DB(8.28)」대로 화면과 데이터 설계를 만든다.
  *
- * 무엇을 지우고 무엇을 남기는가(사용자 지시):
- *   지운다 — 기존 화면 전부와 그에 딸린 컴포넌트·동작·관계, 그리고 기존 업무 표(app.db) 전부.
- *   남긴다 — 피드백 게시판. 화면 자체는 다시 만들지만 `boardKey`를 예전 값으로 못 박아
- *            쌓인 대화와 이미지가 그대로 딸려 온다.
+ * 화면 쪽은 **매번 처음부터 다시** 만든다(컴포넌트·동작·관계). 설계가 코드에 있으므로 그것이
+ * 가장 단순하고, 몇 번을 실행해도 결과가 같다. 피드백 게시판만은 화면을 다시 만들되
+ * `boardKey`를 예전 값으로 못 박아 쌓인 대화와 이미지가 그대로 딸려 온다.
+ *
+ * 데이터 쪽은 **더하기만** 한다 — 없는 표를 만들고, 없는 칸을 더할 뿐 지우지 않는다.
+ * 처음 옮겨 올 때는 표를 통째로 갈아엎었지만, 그 뒤로 이 스크립트는 "칸 하나 더하기"에도
+ * 쓰이기 때문이다. 설계에서 아예 빠진 표만 지운다(화면에서 닿을 수 없는 데이터가 되므로).
  *
  * 초안(draft)만 바꾼다. 운영 화면(/home)에 반영하려면 배포를 따로 해야 한다.
- * 몇 번을 실행해도 결과가 같다.
  *
  * 실행: pnpm tsx scripts/apply-site.mts
  */
@@ -30,8 +32,8 @@ import { APPEND_ONLY_TABLES, DEFAULT_COST_ROW, ENTITIES } from './site-schema';
 const { PrismaClient } = await import('@prisma/client');
 const { metaDbUrl } = await import('@/lib/db/paths');
 const { getAppDb } = await import('@/lib/db/app-db');
-const { createEntityTable, dropTable } = await import('@/lib/data-engine/ddl');
-const { tableExists } = await import('@/lib/data-engine/introspect');
+const { addColumn, createEntityTable, createUniqueIndexIfNeeded, dropTable } = await import('@/lib/data-engine/ddl');
+const { getTableColumns, tableExists } = await import('@/lib/data-engine/introspect');
 const { quoteIdent } = await import('@/lib/data-engine/identifiers');
 const { nodeMeta } = await import('@/lib/registry/node-meta.generated');
 
@@ -61,14 +63,26 @@ async function wipe(): Promise<void> {
   await prisma.page.deleteMany({ where: { id: { in: doomed.filter((p) => p.parentId).map((p) => p.id) } } });
   await prisma.page.deleteMany({ where: { id: { in: doomed.filter((p) => !p.parentId).map((p) => p.id) } } });
 
-  // 업무 표는 설계와 함께 지운다 — 새 설계에 없는 표를 남겨 두면 화면에서 닿을 수 없는 데이터가 된다.
+  /**
+   * 업무 표는 **새 설계에 없는 것만** 지운다.
+   *
+   * 처음 옮겨 올 때는 전부 지웠지만, 그 뒤로 이 스크립트는 "칸 하나 더하기" 같은 일에도 쓰인다.
+   * 그때마다 표를 통째로 다시 만들면 그 안의 데이터가 함께 사라진다 — 실제로 Ball 수 칸을
+   * 더하려다 그럴 뻔했다. 설계에 남아 있는 표는 그대로 두고, 모자란 칸만 아래에서 더한다.
+   * (설계에서 빠진 표는 화면에서 닿을 수 없는 데이터가 되므로 지우는 것이 맞다.)
+   */
+  const keepTables = new Set(ENTITIES.map((e) => e.table));
   const entities = await prisma.entity.findMany({ select: { tableName: true } });
-  for (const entity of entities) {
+  const dropped = entities.filter((e) => !keepTables.has(e.tableName));
+  for (const entity of dropped) {
     if (tableExists(db, entity.tableName)) dropTable(db, entity.tableName);
   }
   await prisma.entity.deleteMany({});
 
-  console.log(`지움: 화면 ${doomed.length}개(피드백 게시판 유지) · 업무 표 ${entities.length}개 · 컴포넌트/동작/관계 전부`);
+  console.log(
+    `지움: 화면 ${doomed.length}개(피드백 게시판 유지) · 컴포넌트/동작/관계 전부` +
+      (dropped.length > 0 ? ` · 설계에서 빠진 업무 표 ${dropped.length}개` : ' · 업무 표는 그대로 둠')
+  );
 }
 
 // ── 2. 데이터 설계 ──────────────────────────────────────────────────────────
@@ -105,9 +119,24 @@ async function createEntities(): Promise<void> {
       });
     }
     // 설계를 만든 그 자리에서 표도 만든다(이 앱의 즉시 적용 모델 — SYSTEM.md / sync-schema.mts 주석).
-    if (tableExists(db, plan.table)) dropTable(db, plan.table);
-    createEntityTable(db, plan.table, specs);
-    console.log(`  표 ${plan.table} (${specs.length}칼럼)`);
+    // 이미 있으면 **더하기만** 한다 — 안에 든 데이터를 지키기 위해서다. 지우거나 타입을 바꾸는
+    // 변경은 파괴적이라 관리자 화면에서 따로 확인받아야 한다(sync-schema.mts와 같은 원칙).
+    if (!tableExists(db, plan.table)) {
+      createEntityTable(db, plan.table, specs);
+      console.log(`  + 표 ${plan.table} (${specs.length}칼럼)`);
+      continue;
+    }
+    const existing = new Set(getTableColumns(db, plan.table).map((c) => c.name));
+    const added = specs.filter((spec) => !existing.has(spec.columnName));
+    for (const spec of added) {
+      addColumn(db, plan.table, spec);
+      createUniqueIndexIfNeeded(db, plan.table, spec);
+    }
+    console.log(
+      added.length > 0
+        ? `  = 표 ${plan.table} — 칸 ${added.length}개 추가(${added.map((s) => s.columnName).join(', ')})`
+        : `  = 표 ${plan.table} (${specs.length}칼럼, 이미 설계와 같음)`
+    );
   }
 }
 
@@ -161,6 +190,12 @@ function createAppendOnlyGuards(): void {
 
 /** 단가표는 행 하나만 쓴다 — 계산이 0원으로만 나오지 않게 시작값을 넣어 둔다(화면에서 고칠 수 있다). */
 function seedCostRow(): void {
+  // 이미 한 줄이 있으면 그대로 둔다 — 화면에서 고쳐 둔 단가를 다시 실행할 때마다 되돌리면 안 된다.
+  const existing = db.prepare('SELECT COUNT(*) AS n FROM "reball_cost_table"').get() as { n: number };
+  if (existing.n > 0) {
+    console.log('  단가표 그대로 둠(이미 값이 있다)');
+    return;
+  }
   const columns = ['id', 'created_at', 'updated_at', ...Object.keys(DEFAULT_COST_ROW)];
   const now = new Date().toISOString();
   db.prepare(

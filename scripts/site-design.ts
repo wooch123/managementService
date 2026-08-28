@@ -648,7 +648,9 @@ function reballRequest(): SitePage {
         rowSpan: 34,
         props: {
           title: '작업 내용 · 비용',
-          description: '고른 작업에 따라 시료당 가격과 총액이 자동 계산됩니다. 단가는 이 화면에서 바로 고칠 수 있습니다.',
+          description: 'Ball 수와 고른 작업에 따라 시료당 가격과 총액이 자동 계산됩니다. 단가는 이 화면에서 바로 고칠 수 있습니다.',
+          // FAR 원장의 Ball Type이 곧 ball 수다(FBGA254가 가장 흔하다). 그대로 두거나 고쳐 쓴다.
+          defaultBallCount: 254,
         },
         bind: {
           mode: 'list',
@@ -685,12 +687,12 @@ function reballRequest(): SitePage {
           selectFieldId: 'far_no',
           selectSlug: 'reball-status',
         },
-        headers: ['FAR No', '일정', '담당자', 'PJT', '반출 번호', '긴급', '시료 수', '시료당', '총액'],
-        formats: [null, null, null, null, null, null, null, 'currency', 'currency'],
+        headers: ['FAR No', '일정', '담당자', 'PJT', '반출 번호', '긴급', 'Ball 수', '시료 수', '시료당', '총액'],
+        formats: [null, null, null, null, null, null, null, null, 'currency', 'currency'],
         bind: {
           mode: 'list',
           table: 'reball_table',
-          select: ['far_no', 'date', 'name', 'pjt', 'export_no', 'urgent', 'count', 'per_cost', 'total_cost'],
+          select: ['far_no', 'date', 'name', 'pjt', 'export_no', 'urgent', 'ball_count', 'count', 'per_cost', 'total_cost'],
           filters: [],
           sort: [['date', 'desc']],
           pageSize: 20,
@@ -787,7 +789,7 @@ function reballStatus(): SitePage {
           select: [
             'far_no', 'date', 'name', 'pjt', 'export_no', 'urgent',
             'is_reball', 'is_component_detach', 'is_underfill', 'is_grinding',
-            'count', 'per_cost', 'total_cost', 'handling',
+            'ball_count', 'count', 'per_cost', 'total_cost', 'handling',
           ],
           filters: [selected('far_no')],
           sort: [['date', 'desc']],
@@ -1019,6 +1021,7 @@ export function buildActions(): ActionPlan[] {
         is_component_detach: { from: 'component', node: 'rb-work', path: 'is_component_detach' },
         is_underfill: { from: 'component', node: 'rb-work', path: 'is_underfill' },
         is_grinding: { from: 'component', node: 'rb-work', path: 'is_grinding' },
+        ball_count: { from: 'component', node: 'rb-work', path: 'ball_count' },
         count: { from: 'component', node: 'rb-work', path: 'count' },
         per_cost: { from: 'component', node: 'rb-work', path: 'per_cost' },
         total_cost: { from: 'component', node: 'rb-work', path: 'total_cost' },
