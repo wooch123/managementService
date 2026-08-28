@@ -106,6 +106,63 @@ export const ENTITIES: EntityPlan[] = [
     ],
   },
   {
+    name: 'Tech Report',
+    table: 'tech_report',
+    description:
+      'FAR 하나에 대한 Tech Report의 머리 부분 — 종합 분석 의견과 Visual Inspection 사진. FAR No로 한 건만 둔다(다시 불러오면 이어서 쓴다).',
+    fields: [
+      { name: 'FAR No', col: 'far_no', type: 'TEXT', required: true, unique: true },
+      { name: '종합 분석 의견', col: 'overall_opinion', type: 'TEXT' },
+      /** 업로드한 사진의 저장 이름. 비어 있으면 FAR 원장에 적힌 경로를 안내만 한다. */
+      { name: '상단부 사진', col: 'visual_top', type: 'TEXT' },
+      { name: '하단부 사진', col: 'visual_bottom', type: 'TEXT' },
+      { name: '작성자', col: 'author', type: 'TEXT' },
+    ],
+  },
+  {
+    name: 'Tech Report Sample',
+    table: 'tech_report_sample',
+    description:
+      'Tech Report의 sample별 탭 하나. 분석 Tool이 올린 값은 불러올 때 자동으로 채워지고, 산포·Meta처럼 비어 있는 칸은 화면에서 직접 채운다. 고칠 때마다 바로 저장된다.',
+    fields: [
+      { name: 'FAR No', col: 'far_no', type: 'TEXT', required: true },
+      { name: 'Sample No', col: 'sample_no', type: 'TEXT', required: true },
+      /**
+       * Performance table의 칸들. 전부 TEXT다 — 자동으로 채워지는 값은 숫자지만 사람이
+       * "N/A"·"측정 불가"처럼 적는 칸이기도 하다. 숫자 타입으로 두면 그 입력이 저장되지 않는다.
+       */
+      { name: 'FW Version', col: 'fw_version', type: 'TEXT' },
+      { name: 'Week Code', col: 'week_code', type: 'TEXT' },
+      { name: 'Open Count', col: 'open_count', type: 'TEXT' },
+      { name: 'SPO Count', col: 'spo_count', type: 'TEXT' },
+      { name: 'NPO Count', col: 'npo_count', type: 'TEXT' },
+      { name: 'Reclaim Count', col: 'reclaim_count', type: 'TEXT' },
+      { name: 'RTBB Count', col: 'rtbb_count', type: 'TEXT' },
+      { name: 'UECC Count', col: 'uecc_count', type: 'TEXT' },
+      { name: 'PSF Count', col: 'psf_count', type: 'TEXT' },
+      { name: 'ESF Count', col: 'esf_count', type: 'TEXT' },
+      { name: 'SLC Max EC', col: 'slc_max_ec', type: 'TEXT' },
+      { name: 'SLC Avg EC', col: 'slc_avg_ec', type: 'TEXT' },
+      { name: 'SLC Min EC', col: 'slc_min_ec', type: 'TEXT' },
+      { name: 'MLC Max EC', col: 'mlc_max_ec', type: 'TEXT' },
+      { name: 'MLC Avg EC', col: 'mlc_avg_ec', type: 'TEXT' },
+      // 원본 양식의 'mlc mion ec'는 오타가 분명해(slc min ec와 짝) min으로 바로잡았다.
+      { name: 'MLC Min EC', col: 'mlc_min_ec', type: 'TEXT' },
+      { name: 'SRAM Test Result', col: 'sram_test_result', type: 'TEXT' },
+      { name: 'DC Test Result', col: 'dc_test_result', type: 'TEXT' },
+      { name: 'Comment', col: 'comment', type: 'TEXT' },
+
+      { name: 'NAND 분석 의견', col: 'nand_opinion', type: 'TEXT' },
+      { name: 'FW 분석 의견', col: 'fw_opinion', type: 'TEXT' },
+      /** RTBB 목록 — [{ch, way, die, page, block, mat}] */
+      { name: 'RTBB List', col: 'rtbb_list', type: 'JSON' },
+      /** NAND Lot ID 목록 — [{ch, way, die, nand_lot_id}]. 불러올 때 원장의 NAND Lot ID로 채운다. */
+      { name: 'NAND Lot 목록', col: 'nand_lot_list', type: 'JSON' },
+      /** 그림 칸 — { stack, wafer_map, dist1~4, meta1~3 }에 업로드한 파일의 저장 이름을 담는다. */
+      { name: '그림', col: 'images', type: 'JSON' },
+    ],
+  },
+  {
     name: 'Reball 의뢰',
     table: 'reball_table',
     description: 'Reball 의뢰서 작성 화면에서 등록한다. 시료당 가격·총액은 단가표를 참조해 자동 계산된다.',

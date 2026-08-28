@@ -616,6 +616,37 @@ function faStatus(): SitePage {
   };
 }
 
+/**
+ * ②-4 Tech Report 작성 — 양식(`sample page/tech report page.html`)의 배치를 그대로 옮겼다.
+ *
+ * 화면 전체가 컴포넌트 하나다. 카드 스무 장으로 쪼개지 않은 이유는 TechReport.tsx의 주석 참고 —
+ * FAR No 하나를 불러오면 모든 탭이 함께 채워지고, 어느 칸을 고치든 같은 문서가 저장되며,
+ * 내보내기는 탭 전체를 한 번에 인쇄한다. 셋 다 화면을 가로지르는 동작이다.
+ */
+function techReport(): SitePage {
+  return {
+    slug: 'tech-report',
+    title: 'Tech Report 작성',
+    icon: 'file-text',
+    nodes: [
+      {
+        type: 'tech-report',
+        col: 1,
+        span: 12,
+        row: 1,
+        rowSpan: 90,
+        // 바인딩이 아니라 전용 창구(/api/runtime/tech-report)로 오간다 — 관계도에는 남긴다.
+        reads: ['far_table', 'tech_report', 'tech_report_sample'],
+        props: {
+          title: '',
+          description:
+            'FAR No를 불러오면 원장의 분석값이 sample 탭에 채워집니다. 고친 값은 바로 저장되고, 다시 불러오면 그대로 열립니다.',
+        },
+      },
+    ],
+  };
+}
+
 /** ③-1 Reball 의뢰서 작성 — 작업 항목을 고르면 단가표를 참조해 가격이 자동으로 계산된다. */
 function reballRequest(): SitePage {
   return {
@@ -901,13 +932,13 @@ export function buildSite(): SitePage[] {
         { title: 'FA Assign', description: '최초 접수 담당자 지정 · 인수인계', slug: 'fa-assign', meta: '' },
         { title: '분석 현황', description: '분석 중인 정보 조회 · 담당자 확인', slug: 'fa-status', meta: '' },
         { title: 'DRAM 평가 현황(LF)', description: '미구현', slug: 'dram-lf', meta: '' },
-        { title: 'Tech Report 작성', description: '미구현', slug: 'tech-report', meta: '' },
+        { title: 'Tech Report 작성', description: 'FAR 불러오기 · sample별 작성 · PDF 발행', slug: 'tech-report', meta: '' },
       ]),
       children: [
         faAssign(),
         faStatus(),
         unbuilt('dram-lf', 'DRAM 평가 현황(LF)', 'memory-stick', 'DRAM LF 평가 현황을 보여줄 자리입니다'),
-        unbuilt('tech-report', 'Tech Report 작성', 'file-text', '분석 결과를 Tech Report로 작성하는 자리입니다'),
+        techReport(),
       ],
     },
     {

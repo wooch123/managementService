@@ -2168,3 +2168,71 @@ className은 안쪽 상자가 받도록 구조를 바꿨다(shadcn 아코디언�
 
 `pnpm typecheck` · `pnpm lint` 무경고, `pnpm test` 307개 통과,
 `pnpm audit:catalog` 111종 문제 없음, 콘솔 오류 없음.
+
+---
+
+## 2026-08-28 · Tech Report 작성 화면 (리비전 #53 예정)
+
+사용자 요구: `sample page/tech report page.html`의 배치를 그대로 반영하고, FAR No 불러오기로
+원장 값을 sample별 탭에 채운 뒤 산포·Meta 같은 빈 칸은 직접 편집·업로드하게 한다. 값은 실시간으로
+DB에 반영되어 다시 불러오면 그대로 열리고, export pdf로 발행된다.
+
+### 양식을 어떻게 옮겼나
+
+양식의 블록을 그대로 세었다 — 페이지에 8개(Tech Report 입력 · 종합 분석 의견 · Visual Inspection
+구분선 · 사진 2 · Secure Smart report 구분선 · 탭 · export 단추), 탭 하나에 16개(Performance
+table 19줄 · rtbb 구분선 · NAND 분석 의견 · RTBB List · NAND Lot ID · Stack/Wafer/산포×4 ·
+FW 분석 내용 구분선 · FW 분석 의견 · Meta×3). 12칼럼 격자와 span도 양식과 같다.
+
+양식의 `mlc mion ec`는 오타가 분명해(`slc min ec`와 짝) `mlc min ec`로 바로잡았다. 단가표의
+`urgnet`을 고친 것과 같은 판단이다.
+
+### 왜 컴포넌트 하나인가
+
+이 화면은 카드 여러 장이 아니라 **문서 하나**다. FAR No 하나를 불러오면 모든 탭이 함께 채워지고,
+어느 칸을 고치든 같은 문서가 저장되며, 내보내기는 탭 전체를 한 번에 인쇄한다. 셋 다 화면을
+가로지르는 동작이라 스무 개로 쪼개면 어디에도 담을 자리가 없다(게시판·Reball 단가와 같은 이유).
+
+### 자동으로 채우는 값과 사람이 적는 값
+
+| 갈래 | 무엇 |
+|---|---|
+| 원장에서 자동 | fw version · week code · open/spo/npo/reclaim/rtbb count · slc·mlc max/avg/min ec · NAND Lot ID 표 |
+| 사람이 적음 | uecc·psf·esf count · sram/DC test result · comment · 분석 의견 2종 · RTBB 목록 · 그림 9칸 |
+
+둘이 부딪히면 **사람이 적은 값이 이긴다**. 한 번 고쳐 둔 칸을 다시 불러올 때마다 원장 값으로
+되돌리면 편집한 의미가 없다. 저장된 값이 비어 있을 때만 원장 값을 끼워 넣고, 그렇게 채워진 칸은
+옅은 기울임으로 구분해 보여 준다(고치면 표시가 사라진다).
+
+### 저장
+
+값이 바뀌고 0.8초 뒤 **문서째** 보낸다(`PUT /api/runtime/tech-report`). 칸 단위로 보내지 않는
+이유: 표에 줄을 더하고 지우는 동안 "어느 줄의 몇 번째 칸"을 서로 계속 맞춰야 한다.
+표는 `tech_report`(FAR 단위 5칼럼)와 `tech_report_sample`(sample 단위 26칼럼) 둘이다.
+
+그림은 `data/uploads/tech-report/`에 두고 표에는 이름만 담는다. 형식은 클라이언트가 말한 것을
+믿지 않고 **첫 바이트로 판별**하며 저장 이름은 서버가 만든다(게시판 저장소의 안전 장치를 그대로
+쓰되 통은 나눴다 — 게시판 쪽은 안 쓰인 첨부를 하루 뒤 치우는데 보고서 그림이 거기 쓸려 가면 안 된다).
+
+### PDF 발행에서 걸린 것
+
+인쇄로 낸다(대상에서 'PDF로 저장'). 별도 PDF 라이브러리를 들이지 않은 이유는 CLAUDE.md §2 —
+쓰는 라이브러리를 정해 두고 새로 더할 때는 먼저 상의한다. 필요하면 서버 렌더링으로 바꿀 수 있다.
+
+**보고 있지 않은 sample 탭을 CSS로 되살리려던 첫 시도는 애초에 불가능했다.** 탭은 `hidden`으로
+감춰 두는데 Tailwind 기본 규칙이 `@layer base`에서 `[hidden] { display: none !important }`를
+걸고, 중요 선언끼리는 **레이어 안이 레이어 밖을 이긴다**. 브라우저에 실린 규칙을 직접 읽어
+확인했다. 그래서 인쇄하는 동안만 React가 `hidden`을 떼고, 다시 그려진 뒤에 인쇄 창을 연다.
+
+### 실측
+
+- 불러오기: `FAR-25-1058` → sample 3개 탭, 각 탭의 원장 값이 서로 다르게 채워짐
+  (FW4.89 / FW3.42 / FW4.86, slc avg ec 174 / 666 / 606), NAND Lot ID 8줄 자동 생성
+- 편집 → 0.8초 뒤 저장 → 새로고침 후 다시 불러오기 → 종합 의견·편집한 칸·RTBB 줄 모두 그대로
+- 그림: 업로드 200 · 내려주기 200(image/png) · 경로 탈출 시도 404 · 이미지가 아닌 파일 거절
+- 내보내기: 인쇄 시점에 감춰진 탭 0개(3개 모두 펼침) · 제목 `Tech Report FAR-25-1058` ·
+  끝난 뒤 원래대로 복구
+- 첫 저장이 400으로 막히던 것을 잡았다 — zod의 record는 열거형 키를 주면 **전부 있어야** 통과한다.
+  그림 칸은 대개 몇 개만 채워지므로 문서 전체가 거절됐다(분석값 API에서 겪은 것과 같은 함정).
+
+`pnpm typecheck` · `pnpm lint` 무경고, `pnpm test` 307개 통과.

@@ -1852,5 +1852,19 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "list"
     ],
     "events": []
+  },
+  "tech-report": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 90
+    },
+    "defaultProps": {
+      "title": "",
+      "description": ""
+    },
+    "bindingModes": [],
+    "events": []
   }
 };

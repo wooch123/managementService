@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { FailRateCalculator, FailRateCalculatorPreview } from '@/components/runtime/FailRateCalculator';
 import { VisitStats, VisitStatsPreview } from '@/components/runtime/VisitStats';
 import { ReballCost, ReballCostPreview, toCostRow, type ReballWorkValue } from '@/components/runtime/ReballCost';
+import { TechReport, TechReportPreview } from '@/components/runtime/TechReport';
 import { defineComponent, type ComponentDef } from '@/lib/registry/types';
 
 /**
@@ -102,6 +103,35 @@ export const operationsComponents = [
         />
       ) : (
         <ReballCostPreview title={props.title} />
+      ),
+  }),
+
+  defineComponent({
+    key: 'tech-report',
+    label: 'Tech Report 작성',
+    group: '데이터 표시',
+    icon: 'file-text',
+    description: 'FAR No를 불러오면 원장 값이 채워지는 Tech Report 양식 — sample별 탭 · 그림 업로드 · 자동 저장 · PDF 발행',
+    isContainer: false,
+    growsWithContent: true,
+    /**
+     * 바인딩을 물리지 않는다. 이 화면은 표 하나를 읽는 것이 아니라 **FAR 원장·분석 이력·보고서
+     * 두 표**를 한 번에 오가며, 저장도 문서 단위로 한다 — 전용 창구(/api/runtime/tech-report)가
+     * 그 일을 맡는다(게시판·접속자 통계와 같은 성격).
+     */
+    bindingModes: [],
+    events: [],
+    propsSchema: z.object({
+      title: z.string().default(''),
+      description: z.string().default(''),
+    }),
+    defaultProps: { title: '', description: '' },
+    defaultGrid: { span: 12, rowSpan: 90 },
+    render: ({ props, onValueChange }) =>
+      typeof onValueChange === 'function' ? (
+        <TechReport title={props.title} description={props.description} />
+      ) : (
+        <TechReportPreview title={props.title} />
       ),
   }),
 ] satisfies ComponentDef[];

@@ -156,6 +156,9 @@ function createIndexes(): void {
     'CREATE INDEX IF NOT EXISTS "far_analysis_log_key_idx" ON "far_analysis_log"("far_no", "sample_no", "rev")',
     'CREATE INDEX IF NOT EXISTS "reball_table_far_no_idx" ON "reball_table"("far_no")',
     'CREATE INDEX IF NOT EXISTS "reball_table_date_idx" ON "reball_table"("date")',
+    // Tech Report는 늘 FAR No 하나로 꺼낸다. sample은 (FAR, sample)로 한 줄만 있어야 한다.
+    'CREATE UNIQUE INDEX IF NOT EXISTS "tech_report_far_no_uk" ON "tech_report"("far_no")',
+    'CREATE UNIQUE INDEX IF NOT EXISTS "tech_report_sample_uk" ON "tech_report_sample"("far_no", "sample_no")',
   ];
   for (const sql of statements) db.exec(sql);
   console.log(`  색인 ${statements.length}개`);
@@ -415,6 +418,10 @@ async function main() {
   for (const { id, plan: node } of built) {
     if (node.bind) {
       relations.push({ fromType: 'COMPONENT', fromId: id, toType: 'ENTITY', toId: entityOf(schema, node.bind.table).id, kind: 'READS' });
+    }
+    // 바인딩 대신 전용 창구로 읽는 표들(NodePlan.reads) — 관계도가 그 의존을 알아야 한다.
+    for (const table of node.reads ?? []) {
+      relations.push({ fromType: 'COMPONENT', fromId: id, toType: 'ENTITY', toId: entityOf(schema, table).id, kind: 'READS' });
     }
     for (const slug of navigationTargets(node)) {
       const target = pageIds.get(slug);
