@@ -26,7 +26,8 @@ export async function GET(request: NextRequest) {
     const doc = loadTechReport(farNo);
     const pdf = await renderTechReportPdf(doc);
     // 파일 이름에 한글이 섞일 수 있어 filename*(RFC 5987)로 함께 적는다.
-    const name = `Tech Report ${farNo}.pdf`;
+    // 파일 이름도 FAR No가 먼저 온다 — 목록에서 정렬하면 FAR 순으로 모인다.
+    const name = `${farNo} Tech Report.pdf`;
     return new NextResponse(new Uint8Array(pdf), {
       headers: {
         'Content-Type': 'application/pdf',

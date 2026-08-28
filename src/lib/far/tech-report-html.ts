@@ -1,4 +1,5 @@
 import 'server-only';
+import { THEMES } from '@/lib/theme/palettes';
 import { readReportImage } from '@/lib/far/report-uploads';
 import {
   IMAGE_SLOTS,
@@ -27,16 +28,28 @@ import {
  */
 
 /**
- * 발행물 색 — 화면 테마와 무관한 고정값이다.
- * 값은 양식(`sample page/tech report page.html`)의 토큰 그대로다.
+ * 발행물의 색 — **인디고 테마를 그대로 쓴다**(사용자 지정).
+ *
+ * 화면 테마를 따르지 않는 것이 요구사항이다: 누가 어떤 테마로 보고 있든 발행물은 같아야 한다.
+ * 그래서 값을 여기서 지어내지 않고 앱이 실제로 가진 테마 정의(`lib/theme/palettes`)에서 인디고를
+ * 꺼내 쓴다 — 그 팔레트가 바뀌면 발행물도 함께 따라간다.
  */
-const INK = '#20252b';
-const MUTED = '#727a83';
-const SUBTLE = '#9ba2a9';
-const LINE = '#e2e5e8';
-const LINE_SOFT = '#edf0f2';
-const HEAD_BG = '#f8f9fb';
-const VIOLET = '#7759f4';
+const INDIGO = THEMES.find((t) => t.id === 'indigo');
+if (!INDIGO) throw new Error('인디고 테마를 찾을 수 없습니다.');
+
+const token = (name: string, fallback: string): string => INDIGO.tokens[name] ?? fallback;
+
+const INK = token('--foreground', '#20252b');
+const MUTED = token('--muted-foreground', '#727a83');
+/** 인디고에는 subtle이 따로 없다 — 표 머리글처럼 한 단계 더 물러날 자리에 muted를 함께 쓴다. */
+const SUBTLE = MUTED;
+const LINE = token('--border', '#e2e5e8');
+const LINE_SOFT = token('--muted', '#edf0f2');
+const HEAD_BG = token('--muted', '#f8f9fb');
+const ACCENT = token('--primary', '#7759f4');
+const PAGE_BG = token('--background', '#ffffff');
+const CARD_BG = token('--card', '#ffffff');
+const SLOT_BG = token('--secondary', '#f1f2f5');
 
 function escapeHtml(value: unknown): string {
   return String(value ?? '')
@@ -100,7 +113,7 @@ async function samplePage(sample: TechReportSample, index: number): Promise<stri
   <h2>Sample ${escapeHtml(sample.sample_no)}</h2>
   <div class="grid-12">
     <section class="card full">
-      <h4>Performance table</h4>
+      <h4>Smart Report</h4>
       <table class="vertical"><tbody>${perf}</tbody></table>
     </section>
 
@@ -142,13 +155,13 @@ export async function renderTechReportHtml(doc: TechReportDoc): Promise<string> 
 <html lang="ko">
 <head>
 <meta charset="utf-8" />
-<title>Tech Report ${escapeHtml(doc.far_no)}</title>
+<title>${escapeHtml(doc.far_no)} Tech Report</title>
 <style>
-  /* 발행물은 늘 밝은 종이다 — 받는 사람의 테마가 무엇이든 상관없다. */
+  /* 발행물은 늘 밝은 종이다 — 받는 사람의 테마가 무엇이든 상관없다(인디고는 밝은 테마다). */
   :root { color-scheme: light; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    background: #ffffff;
+    background: ${PAGE_BG};
     color: ${INK};
     font-family: "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
     font-size: 10pt;
@@ -162,7 +175,7 @@ export async function renderTechReportHtml(doc: TechReportDoc): Promise<string> 
     align-items: flex-end;
     justify-content: space-between;
     gap: 12px;
-    border-bottom: 2px solid ${VIOLET};
+    border-bottom: 2px solid ${ACCENT};
     padding-bottom: 8px;
     margin-bottom: 14px;
   }
@@ -180,6 +193,7 @@ export async function renderTechReportHtml(doc: TechReportDoc): Promise<string> 
     border: 1px solid ${LINE};
     border-radius: 14px;
     padding: 12px;
+    background: ${CARD_BG};
     break-inside: avoid;
   }
   .card.half { grid-column: span 6; }
@@ -188,7 +202,7 @@ export async function renderTechReportHtml(doc: TechReportDoc): Promise<string> 
   .card h4 {
     flex: none;
     margin-bottom: 6px;
-    color: ${VIOLET};
+    color: ${ACCENT};
     font-size: 7.5pt;
     font-weight: 800;
     letter-spacing: 0.08em;
@@ -218,7 +232,16 @@ export async function renderTechReportHtml(doc: TechReportDoc): Promise<string> 
     letter-spacing: 0.06em;
     text-transform: uppercase;
   }
-  table.vertical th { width: 38%; background: ${HEAD_BG}; color: ${MUTED}; text-align: left; font-weight: 600; }
+  /* 칸 이름은 대문자로, 가운데 정렬(사용자 지정). */
+  table.vertical th {
+    width: 38%;
+    background: ${HEAD_BG};
+    color: ${MUTED};
+    text-align: center;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
   table.vertical td { font-weight: 600; }
 
   .prose { flex: 1 1 auto; min-height: 60px; white-space: pre-wrap; font-size: 9pt; }
@@ -232,8 +255,8 @@ export async function renderTechReportHtml(doc: TechReportDoc): Promise<string> 
    */
   .slot-empty {
     display: flex; flex: 1 1 auto; align-items: center; justify-content: center;
-    min-height: 90px; border: 1px dashed #c9ced3; border-radius: 9px;
-    background: #f1f2f5;
+    min-height: 90px; border: 1px dashed ${LINE}; border-radius: 9px;
+    background: ${SLOT_BG};
     color: ${SUBTLE}; font-size: 8.5pt;
   }
   /* 그림은 늘어난 칸을 채우되 비율은 지킨다(contain) — 늘어났다고 늘려 그리지 않는다. */
@@ -247,9 +270,8 @@ export async function renderTechReportHtml(doc: TechReportDoc): Promise<string> 
 </head>
 <body>
   <header class="doc">
-    <h1>Tech Report</h1>
+    <h1>${escapeHtml(doc.far_no)} Tech Report</h1>
     <div class="meta">
-      FAR No. <b>${escapeHtml(doc.far_no)}</b><br />
       발행 ${escapeHtml(issued)}${doc.author ? ` · 작성 ${escapeHtml(doc.author)}` : ''}
     </div>
   </header>

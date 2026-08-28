@@ -310,7 +310,7 @@ export function TechReport({ title, description }: { title: string; description:
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = `Tech Report ${doc.far_no}.pdf`;
+      anchor.download = `${doc.far_no} Tech Report.pdf`;
       anchor.click();
       URL.revokeObjectURL(url);
       toast.success('PDF를 내려받았습니다');
