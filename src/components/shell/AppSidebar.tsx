@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { ChevronRight, EyeOff, LayoutGrid, Pencil } from 'lucide-react';
+import { ChevronRight, EyeOff, Microchip, Pencil } from 'lucide-react';
 
 import {
   Sidebar,
@@ -70,7 +70,9 @@ export function AppSidebar({
             >
               <Link href={mode === 'admin' ? '/admin' : '/home'} title="홈으로">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground group-data-[collapsible=icon]:size-8">
-                  <LayoutGrid className="size-5 group-data-[collapsible=icon]:size-4" />
+                  {/* 이 사이트가 다루는 것 — eMMC·UFS 같은 내장형 저장장치. 칩 하나가 곧 그것이다
+                      (격자 아이콘은 아무 앱이나 될 수 있는 모양이었다). */}
+                  <Microchip className="size-5 group-data-[collapsible=icon]:size-4" />
                 </div>
                 <div className="sidebar-fade flex flex-col gap-0.5 leading-none">
                   <span className="truncate font-medium">{siteTitle}</span>
