@@ -10,6 +10,7 @@ import {
   NAND_LOT_COLUMNS,
   PERF_ROWS,
   RTBB_COLUMNS,
+  type SampleStack,
   type TechReportDoc,
   type TechReportSample,
 } from '@/lib/far/tech-report-fields';
@@ -91,6 +92,51 @@ function imageFromPasteEvent(event: ClipboardEvent): File | null {
     if (file) return file;
   }
   return null;
+}
+
+/**
+ * PKG Stack 표에서 끌어온 Stack 정보 — **표 다음에 그림** 순서로 보여 준다(사용자 지정).
+ *
+ * 사람이 올리는 칸이 아니라 **보여 주기만 하는 칸**이다. 고칠 곳은 PKG Stack 화면 하나뿐이라
+ * 두 곳이 어긋날 일이 없다. 그래서 올리기·지우기 단추를 두지 않고, 어디서 온 값인지만 밝힌다.
+ */
+function StackFromDb({ label, stack }: { label: string; stack: SampleStack }) {
+  return (
+    <section className="tr-card tr-span-6">
+      <div className="flex items-baseline justify-between gap-2">
+        <h4 className="tr-card-title">{label}</h4>
+        <span className="truncate text-[11px] text-muted-foreground" title={stack.part_id}>
+          {stack.part_id}
+        </span>
+      </div>
+      {stack.layers.length > 0 && (
+        <table className="tr-table">
+          <thead>
+            <tr>
+              <th>CH</th>
+              <th>WAY</th>
+              <th>Chip 차수</th>
+            </tr>
+          </thead>
+          <tbody>
+            {stack.layers.map((row, i) => (
+              <tr key={i}>
+                <td>{row.ch || '—'}</td>
+                <td>{row.way || '—'}</td>
+                <td>{row.chip || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {stack.image ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={IMAGE_URL(stack.image)} alt={`${stack.part_id} 적층 구조`} className="tr-image" />
+      ) : (
+        <p className="text-[11px] text-muted-foreground">PKG Stack에 등록된 그림이 없습니다.</p>
+      )}
+    </section>
+  );
 }
 
 /** 그림 칸 — 없으면 놓는 자리를, 있으면 그림을 보여 준다. */
@@ -580,19 +626,26 @@ export function TechReport({ title, description }: { title: string; description:
                 onChange={(rows) => patchSample(index, { nand_lot_list: rows })}
               />
 
-              {IMAGE_SLOTS.map((slot) => (
-                <ImageSlot
-                  key={slot.key}
-                  label={slot.label}
-                  file={s.images[slot.key] ?? ''}
-                  disabled={disabled}
-                  onPick={async (file) => {
-                    const stored = await upload(file);
-                    if (stored) patchSample(index, { images: { ...s.images, [slot.key]: stored } });
-                  }}
-                  onClear={() => patchSample(index, { images: { ...s.images, [slot.key]: '' } })}
-                />
-              ))}
+              {IMAGE_SLOTS.map((slot) =>
+                // Stack 정보 칸은 Part ID로 찾은 적층 정보가 있으면 **그것을 그대로 보여 준다** —
+                // 같은 내용을 PKG Stack 화면에 이미 적어 두는데 보고서마다 다시 올릴 이유가 없다.
+                // 맞는 Part ID가 없으면 지금까지처럼 사람이 올리는 칸이 나온다.
+                slot.key === 'stack' && s.stack ? (
+                  <StackFromDb key={slot.key} label={slot.label} stack={s.stack} />
+                ) : (
+                  <ImageSlot
+                    key={slot.key}
+                    label={slot.label}
+                    file={s.images[slot.key] ?? ''}
+                    disabled={disabled}
+                    onPick={async (file) => {
+                      const stored = await upload(file);
+                      if (stored) patchSample(index, { images: { ...s.images, [slot.key]: stored } });
+                    }}
+                    onClear={() => patchSample(index, { images: { ...s.images, [slot.key]: '' } })}
+                  />
+                )
+              )}
 
               <Divider label="FW 분석 내용" />
 

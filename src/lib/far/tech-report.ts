@@ -9,6 +9,7 @@ import {
   RTBB_COLUMNS,
   RTBB_DEFAULT_ROWS,
   emptySample,
+  type SampleStack,
   type TechReportDoc,
   type TechReportSample,
 } from '@/lib/far/tech-report-fields';
@@ -82,7 +83,7 @@ export function loadTechReport(farNo: string): TechReportDoc {
 
   const farRows = db
     .prepare(
-      `SELECT "sample_no", "comp_wc", "firmware", "open_count", "spor_count", "npor_count", "reclaim_count",
+      `SELECT "sample_no", "part_id", "comp_wc", "firmware", "open_count", "spor_count", "npor_count", "reclaim_count",
               "rtbb_count", "slc_max_ec", "slc_avg_ec", "slc_min_ec", "mlc_max_ec", "mlc_avg_ec", "mlc_min_ec",
               "nand_lotid", "visual_inspaction_top", "visual_inspaction_bottom"
          FROM "far_table" WHERE "far_no" = ? ORDER BY CAST("sample_no" AS INTEGER) ASC`
@@ -96,6 +97,32 @@ export function loadTechReport(farNo: string): TechReportDoc {
     .prepare(`SELECT * FROM ${quoteIdent(SAMPLE_TABLE)} WHERE "far_no" = ? ORDER BY CAST("sample_no" AS INTEGER) ASC`)
     .all(farNo) as Record<string, unknown>[];
   const savedBySample = new Map(savedSamples.map((row) => [text(row.sample_no), row]));
+
+  /**
+   * 이 FAR에 걸린 Part ID들의 적층 정보를 **한 번에** 가져온다.
+   *
+   * sample마다 따로 물으면 열 번 스무 번 조회하게 된다. Part ID가 몇 개 안 되므로 한 번에 받아
+   * 맵으로 들고 있는다. 같은 Part ID가 여러 줄이면 가장 최근에 고친 것을 쓴다 — PKG Stack은
+   * Part ID를 유일 키로 두지 않아 겹칠 수 있다.
+   */
+  const partIds = [...new Set(farRows.map((r) => text(r.part_id)).filter((v) => v !== ''))];
+  const stackByPart = new Map<string, SampleStack>();
+  if (partIds.length > 0) {
+    const rows = db
+      .prepare(
+        `SELECT "part_id", "layers", "image" FROM "pkg_stack"
+          WHERE "part_id" IN (${partIds.map(() => '?').join(', ')}) ORDER BY "updated_at" ASC`
+      )
+      .all(...partIds) as Record<string, unknown>[];
+    for (const row of rows) {
+      const layers = parseJson<Record<string, string>[]>(row.layers, []);
+      stackByPart.set(text(row.part_id), {
+        part_id: text(row.part_id),
+        layers: layers.map((l) => ({ ch: text(l.ch), way: text(l.way), chip: text(l.chip) })),
+        image: text(row.image),
+      });
+    }
+  }
 
   // 탭 목록: 원장의 sample이 기준이다. 원장에 없고 저장본에만 있는 sample도 잃지 않게 함께 세운다.
   const sampleNos = [...new Set([...farRows.map((r) => text(r.sample_no)), ...savedBySample.keys()])].sort(
@@ -137,6 +164,10 @@ export function loadTechReport(farNo: string): TechReportDoc {
     }
 
     base.images = parseJson<Record<string, string>>(saved?.images, {});
+    base.part_id = far ? text(far.part_id) : '';
+    // 적층 정보는 **보고서에 저장하지 않는다** — PKG Stack 표가 바뀌면 다음에 열 때 바뀐 값이
+    // 나와야 한다. 보고서에 복사해 두면 두 곳이 서서히 어긋난다.
+    base.stack = base.part_id ? stackByPart.get(base.part_id) ?? null : null;
     base.prefilled = prefilled;
     return base;
   });

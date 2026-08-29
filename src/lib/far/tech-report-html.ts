@@ -96,9 +96,32 @@ function gridTable(columns: readonly string[], rows: Record<string, string>[]): 
   return `<table class="grid"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
+/**
+ * PKG Stack에서 끌어온 Stack 정보 — **표 다음에 그림**(사용자 지정).
+ *
+ * 화면과 발행물이 같은 것을 보여야 하므로 여기서도 같은 순서로 그린다. 사람이 올리는 칸이
+ * 아니라 Part ID로 찾아온 값이라, 어느 Part의 것인지 제목 옆에 밝힌다.
+ */
+async function stackBlock(label: string, stack: NonNullable<TechReportSample['stack']>): Promise<string> {
+  const rows = stack.layers
+    .map((l) => `<tr><td>${escapeHtml(l.ch || '—')}</td><td>${escapeHtml(l.way || '—')}</td><td>${escapeHtml(l.chip || '—')}</td></tr>`)
+    .join('');
+  const table = stack.layers.length
+    ? `<table class="grid"><thead><tr><th>CH</th><th>WAY</th><th>Chip 차수</th></tr></thead><tbody>${rows}</tbody></table>`
+    : '<p class="empty">적층 줄 없음</p>';
+  const dataUri = await toDataUri(stack.image);
+  const picture = dataUri ? `<img src="${dataUri}" alt="${escapeHtml(label)}" />` : '<div class="slot-empty">그림 없음</div>';
+  return `<section class="card half"><h4>${escapeHtml(label)} <span class="from">${escapeHtml(stack.part_id)}</span></h4>${table}${picture}</section>`;
+}
+
 async function samplePage(sample: TechReportSample, index: number): Promise<string> {
   const slots = await Promise.all(
-    IMAGE_SLOTS.map(async (slot) => imageBlock(slot.label, await toDataUri(sample.images?.[slot.key] ?? '')))
+    IMAGE_SLOTS.map(async (slot) =>
+      // Stack 칸에 Part ID로 찾은 값이 있으면 그것이 우선이다 — 화면과 같은 규칙이다.
+      slot.key === 'stack' && sample.stack
+        ? stackBlock(slot.label, sample.stack)
+        : imageBlock(slot.label, await toDataUri(sample.images?.[slot.key] ?? ''))
+    )
   );
   const metas = await Promise.all(
     META_SLOTS.map(async (slot) => imageBlock(slot.label, await toDataUri(sample.images?.[slot.key] ?? '')))
@@ -199,6 +222,8 @@ export async function renderTechReportHtml(doc: TechReportDoc): Promise<string> 
   .card.half { grid-column: span 6; }
   .card.full { grid-column: span 12; }
   /* 양식의 카드 제목 — 작은 대문자 라벨을 강조색으로. */
+  /* 제목 옆에 붙는 출처(Part ID) — 제목보다 물러나 있어야 한다. */
+  .card h4 .from { color: ${MUTED}; font-weight: 600; text-transform: none; letter-spacing: 0; }
   .card h4 {
     flex: none;
     margin-bottom: 6px;

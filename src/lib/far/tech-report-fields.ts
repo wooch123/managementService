@@ -68,6 +68,21 @@ export const META_SLOTS: ImageSlot[] = [
 
 export const ALL_IMAGE_KEYS = [...IMAGE_SLOTS, ...META_SLOTS].map((s) => s.key);
 
+/**
+ * PKG Stack 표에서 끌어온 적층 정보 — Part ID로 찾는다.
+ *
+ * Tech Report의 'Stack 정보' 칸은 원래 사람이 그림을 올리는 자리였다. 같은 내용을 PKG Stack
+ * 화면에 이미 적어 두는데 보고서마다 다시 올리는 일이 되풀이돼, 그 표를 그대로 끌어와
+ * **표 다음에 그림** 순서로 보여 준다(사용자 지정, 2026-08-29). 맞는 Part ID가 없으면 null이고,
+ * 그때는 지금까지처럼 사람이 올리는 칸이 나온다.
+ */
+export type SampleStack = {
+  part_id: string;
+  layers: { ch: string; way: string; chip: string }[];
+  /** 저장된 그림 이름(없을 수 있다). */
+  image: string;
+};
+
 /** sample 탭 하나가 담는 것. */
 export type TechReportSample = {
   sample_no: string;
@@ -77,6 +92,14 @@ export type TechReportSample = {
   rtbb_list: Record<string, string>[];
   nand_lot_list: Record<string, string>[];
   images: Record<string, string>;
+  /**
+   * 아래 둘은 **읽을 때만 채워지는 값**이다 — 저장하지 않는다. 화면이 그대로 돌려보내도
+   * 저장 경로가 무시하고, 다음에 불러올 때 원장·PKG Stack에서 다시 가져온다.
+   */
+  /** 이 sample의 Part ID — 적층 정보를 찾는 열쇠다(원장에서 온다). */
+  part_id?: string;
+  /** PKG Stack에서 찾은 적층 정보. 없으면 null. */
+  stack?: SampleStack | null;
   /** 불러오기가 원장에서 채워 준 칸들(사람이 아직 손대지 않은 값) — 화면에서 표시만 한다. */
   prefilled?: string[];
 };
@@ -107,5 +130,7 @@ export function emptySample(sample_no: string): TechReportSample {
     ),
     nand_lot_list: [],
     images: {},
+    part_id: '',
+    stack: null,
   };
 }
