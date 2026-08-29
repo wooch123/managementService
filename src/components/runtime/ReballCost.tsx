@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ApiResult } from '@/types/auth';
 
@@ -120,6 +121,7 @@ export function ReballCost({
   description,
   cost,
   defaultOver200ball,
+  collapsible = false,
   onValueChange,
 }: {
   nodeId: string;
@@ -127,6 +129,8 @@ export function ReballCost({
   description: string;
   cost: CostRow;
   defaultOver200ball: boolean;
+  /** 제목을 눌러 접었다 펼 수 있게 한다. 켜면 **접힌 채로** 시작한다. */
+  collapsible?: boolean;
   onValueChange: (value: ReballWorkValue) => void;
 }) {
   const router = useRouter();
@@ -135,6 +139,7 @@ export function ReballCost({
   const [underfill, setUnderfill] = useState(false);
   const [grinding, setGrinding] = useState(false);
   const [urgent, setUrgent] = useState(false);
+  const [open, setOpen] = useState(!collapsible);
   const [overBall, setOverBall] = useState(defaultOver200ball);
   const [count, setCount] = useState(1);
 
@@ -201,13 +206,34 @@ export function ReballCost({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-y-auto">
-      {(title || description) && (
-        <div className="shrink-0">
-          {title && <h3 className="text-sm font-medium">{title}</h3>}
-          {description && <p className="text-xs text-muted-foreground">{description}</p>}
-        </div>
+      {/*
+        접었다 펴는 머리 — 단가는 **가끔 확인하고 더 가끔 고치는 것**이라 늘 펼쳐 두면
+        정작 자주 쓰는 의뢰 표를 아래로 밀어낸다(사용자 지정, 2026-08-29). 기본은 접힘이다.
+      */}
+      {collapsible ? (
+        <button
+          type="button"
+          className="flex shrink-0 items-center gap-2 rounded-md text-left"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+        >
+          <ChevronRight className={cn('size-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-90')} />
+          <span className="min-w-0">
+            {title && <span className="chart-title block">{title}</span>}
+            {description && <span className="block text-xs text-muted-foreground">{description}</span>}
+          </span>
+        </button>
+      ) : (
+        (title || description) && (
+          <div className="shrink-0">
+            {title && <h3 className="chart-title">{title}</h3>}
+            {description && <p className="text-xs text-muted-foreground">{description}</p>}
+          </div>
+        )
       )}
 
+      {!open ? null : (
+      <>
       <div className="grid gap-2 sm:grid-cols-2">
         <Check label="Reball" hint={`볼 재작업 · ${won(overBall ? cost.upper_200ball : cost.under_200ball)}`} checked={isReball} onChange={setIsReball} />
         <Check label="Component detach" hint={`부품 분리 · ${won(cost.component_detach)}`} checked={detach} onChange={setDetach} />
@@ -339,6 +365,8 @@ export function ReballCost({
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

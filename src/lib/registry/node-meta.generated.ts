@@ -1890,7 +1890,8 @@ export const nodeMeta: Record<string, NodeMeta> = {
     "defaultProps": {
       "title": "작업 내용 · 비용",
       "description": "",
-      "defaultOver200ball": true
+      "defaultOver200ball": true,
+      "collapsible": false
     },
     "bindingModes": [
       "list"

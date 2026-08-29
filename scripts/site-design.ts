@@ -736,8 +736,8 @@ function reballRequest(): SitePage {
         col: 1,
         span: 12,
         row: 1,
-        // 줄을 더하면 표가 알아서 늘어난다(growsWithContent) — 여기 값은 처음 높이일 뿐이다.
-        rowSpan: 18,
+        // 줄을 더하면 표가 알아서 늘어난다(growsWithContent) — 여기 값은 한 줄짜리 표의 높이다.
+        rowSpan: 12,
         props: {
           title: 'Reball 의뢰서',
           description: '한 줄이 의뢰 한 건입니다. 금액은 고른 작업과 단가표에서 자동 계산되며, 등록 전에 표를 그대로 복사해 메일에 붙일 수 있습니다.',
@@ -749,12 +749,14 @@ function reballRequest(): SitePage {
         type: 'reball-cost',
         col: 1,
         span: 12,
-        row: 19,
-        rowSpan: 26,
+        row: 13,
+        // 접힌 채로 시작하므로 처음 높이는 제목 한 줄이면 된다 — 펴면 내용만큼 늘어난다.
+        rowSpan: 5,
         props: {
           title: '단가 확인 · 수정',
-          description: '위 표의 금액이 따르는 단가표입니다. 값이 바뀌면 여기서 고치면 이후 작성하는 의뢰서에 바로 반영됩니다.',
+          description: '위 표의 금액이 따르는 단가표입니다. 눌러서 펴면 값을 고칠 수 있고, 고친 값은 이후 작성하는 의뢰서에 바로 반영됩니다.',
           defaultOver200ball: true,
+          collapsible: true,
         },
         bind: costBind,
       },
@@ -762,7 +764,7 @@ function reballRequest(): SitePage {
         type: 'data-table',
         col: 1,
         span: 12,
-        row: 45,
+        row: 18,
         rowSpan: 22,
         props: {
           title: '최근 등록한 의뢰',

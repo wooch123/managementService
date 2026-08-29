@@ -89,8 +89,10 @@ export const operationsComponents = [
       description: z.string().default(''),
       /** 200ball 이상을 처음부터 켜 둘지 — 흔한 패키지 쪽에 맞춰 두면 대부분 그대로 쓴다. */
       defaultOver200ball: z.boolean().default(true),
+      /** 제목을 눌러 접었다 펼 수 있게 한다. 켜면 접힌 채로 시작한다 — 가끔 보는 표에 알맞다. */
+      collapsible: z.boolean().default(false),
     }),
-    defaultProps: { title: '작업 내용 · 비용', description: '', defaultOver200ball: true },
+    defaultProps: { title: '작업 내용 · 비용', description: '', defaultOver200ball: true, collapsible: false },
     defaultGrid: { span: 12, rowSpan: 34 },
     render: ({ node, props, data, onValueChange }) =>
       typeof onValueChange === 'function' ? (
@@ -100,6 +102,7 @@ export const operationsComponents = [
           description={props.description}
           cost={toCostRow(data)}
           defaultOver200ball={props.defaultOver200ball}
+          collapsible={props.collapsible}
           onValueChange={(value: ReballWorkValue) => onValueChange(value)}
         />
       ) : (
