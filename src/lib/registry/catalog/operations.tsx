@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { FailRateCalculator, FailRateCalculatorPreview } from '@/components/runtime/FailRateCalculator';
 import { VisitStats, VisitStatsPreview } from '@/components/runtime/VisitStats';
 import { ReballCost, ReballCostPreview, toCostRow, type ReballWorkValue } from '@/components/runtime/ReballCost';
+import { ReballRequestTable, ReballRequestTablePreview, type ReballRow } from '@/components/runtime/ReballRequestTable';
 import { TechReport, TechReportPreview } from '@/components/runtime/TechReport';
 import { defineComponent, type ComponentDef } from '@/lib/registry/types';
 
@@ -103,6 +104,42 @@ export const operationsComponents = [
         />
       ) : (
         <ReballCostPreview title={props.title} />
+      ),
+  }),
+
+  /**
+   * Reball 의뢰서를 **표 한 장으로** 적는다 — 여러 줄을 한 번에 등록한다(사용자 지정).
+   *
+   * 단가표를 list 바인딩으로 읽는 것은 'Reball 작업·단가'와 같다. 다른 점은 값을 하나가 아니라
+   * 줄마다 내놓고, 등록도 줄마다 한 번씩 실행한다는 것뿐이다(ctx.dispatch에 줄을 넘긴다).
+   */
+  defineComponent({
+    key: 'reball-request-table',
+    label: 'Reball 의뢰 표',
+    group: '입력',
+    icon: 'table-2',
+    description: '여러 건을 표로 적어 한 번에 등록한다 — 금액은 단가표에서 자동 계산, 표 복사로 메일에 붙여넣기',
+    isContainer: false,
+    growsWithContent: true,
+    bindingModes: ['list'],
+    events: [{ name: 'onSubmit', label: '한 줄 등록', payload: 'Reball 의뢰 한 줄' }],
+    propsSchema: z.object({
+      title: z.string().default('Reball 의뢰서'),
+      description: z.string().default(''),
+    }),
+    defaultProps: { title: 'Reball 의뢰서', description: '' },
+    defaultGrid: { span: 12, rowSpan: 40 },
+    render: ({ props, data, dispatch }) =>
+      typeof dispatch === 'function' ? (
+        <ReballRequestTable
+          title={props.title}
+          description={props.description}
+          cost={toCostRow(data)}
+          disabled={false}
+          onSubmitRow={(row: ReballRow) => dispatch('onSubmit', row)}
+        />
+      ) : (
+        <ReballRequestTablePreview title={props.title} />
       ),
   }),
 

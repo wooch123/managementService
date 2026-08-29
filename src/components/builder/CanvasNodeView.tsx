@@ -147,7 +147,7 @@ export function CanvasNodeView({
         // 저장된 값을 덮어써야, 새 속성을 참조하는 렌더 코드가 undefined에서 터지지 않는다
         // (2026-08-19 실측: yLabel 추가 후 기존 차트가 전부 "렌더링 오류"로 떨어졌다).
         props: { ...def.defaultProps, ...node.props },
-        dispatch: () => {},
+        dispatch: () => Promise.resolve(false),
         children: def.isContainer ? (
           <div ref={setDropRef} className={cn('flex min-h-8 flex-col gap-2', isOver && 'rounded-md outline-dashed outline-2 outline-primary')}>
             {childNodes.length === 0 && (

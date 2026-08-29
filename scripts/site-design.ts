@@ -137,16 +137,6 @@ const textInput = (key: string, label: string, type = 'text', placeholder = ''):
   props: { label, placeholder, type },
 });
 
-const longText = (key: string, label: string, placeholder: string): NodePlan => ({
-  key,
-  type: 'textarea',
-  col: 1,
-  span: 6,
-  row: 1,
-  rowSpan: 12,
-  props: { label, placeholder, rows: 3 },
-});
-
 const search = (row: number, col: number, span: number, label: string, placeholder: string, rowSpan = 3, param = 'q'): NodePlan => ({
   type: 'search-filter',
   col,
@@ -715,70 +705,70 @@ function techReport(): SitePage {
   };
 }
 
-/** ③-1 Reball 의뢰서 작성 — 작업 항목을 고르면 단가표를 참조해 가격이 자동으로 계산된다. */
+/**
+ * ③-1 Reball 의뢰서 작성 — 표 한 장에 여러 건을 적고 한 번에 등록한다(사용자 지정, 2026-08-29).
+ *
+ * 예전에는 왼쪽에 폼 카드, 오른쪽에 작업·단가 카드를 두고 **한 건씩** 등록했다. 실제 의뢰는 한
+ * 번에 서너 건이 함께 나가는데 그때마다 반출 번호·담당자·일정을 다시 적어야 했다. 표로 두면
+ * 위 줄을 본떠 새 줄이 생기고 다른 곳만 고치면 된다. 등록 전에 그대로 복사해 메일에 붙일 수도 있다.
+ *
+ * 단가를 고치는 자리(작업·단가 카드)는 표 아래에 그대로 남겨 둔다 — 단가표는 이 화면에서
+ * 고칠 수 있어야 한다는 설계 문서의 요구가 살아 있다.
+ */
 function reballRequest(): SitePage {
+  const costBind: BindPlan = {
+    mode: 'list',
+    table: 'reball_cost_table',
+    select: ['upper_200ball', 'under_200ball', 'component_detach', 'underfill', 'grinding', 'urgent'],
+    filters: [],
+    sort: [],
+    pageSize: 1,
+  };
+
   return {
     slug: 'reball-request',
     title: 'Reball 의뢰서 작성',
     icon: 'file-plus',
     nodes: [
       {
-        type: 'form-card',
-        col: 1,
-        span: 6,
-        row: 1,
-        rowSpan: 34,
-        props: { title: '의뢰 정보', description: '', columns: 2, footnote: 'FAR No는 분석 현황에서 확인한 번호를 그대로 적습니다.' },
-        children: [
-          textInput('rb-far', 'FAR No', 'text', '예: FAR-26-0001'),
-          textInput('rb-export', '반출 번호', 'text', ''),
-          textInput('rb-name', '담당자', 'text', ''),
-          textInput('rb-pjt', 'PJT', 'text', '제품 정보'),
-          textInput('rb-date', 'Reball 일정', 'date', ''),
-          longText('rb-handling', '코멘트', '작업 시 유의할 점을 적습니다'),
-        ],
-      },
-      {
-        key: 'rb-work',
-        type: 'reball-cost',
-        col: 7,
-        span: 6,
-        row: 1,
-        rowSpan: 34,
-        props: {
-          title: '작업 내용 · 비용',
-          description: 'Ball 수와 고른 작업에 따라 시료당 가격과 총액이 자동 계산됩니다. 단가는 이 화면에서 바로 고칠 수 있습니다.',
-          // FAR 원장의 Ball Type이 곧 ball 수다(FBGA254가 가장 흔하다). 그대로 두거나 고쳐 쓴다.
-          defaultBallCount: 254,
-        },
-        bind: {
-          mode: 'list',
-          table: 'reball_cost_table',
-          select: ['upper_200ball', 'under_200ball', 'component_detach', 'underfill', 'grinding', 'urgent'],
-          filters: [],
-          sort: [],
-          pageSize: 1,
-        },
-      },
-      {
-        type: 'form-card',
+        key: 'rb-rows',
+        type: 'reball-request-table',
         col: 1,
         span: 12,
-        row: 35,
-        rowSpan: 9,
-        props: { title: '', description: '', columns: 3, footnote: '등록하면 아래 목록에 바로 나타납니다.' },
-        children: [submitButton('Reball 의뢰 등록', 'reball-create')],
+        row: 1,
+        // 줄을 더하면 표가 알아서 늘어난다(growsWithContent) — 여기 값은 처음 높이일 뿐이다.
+        rowSpan: 18,
+        props: {
+          title: 'Reball 의뢰서',
+          description: '한 줄이 의뢰 한 건입니다. 금액은 고른 작업과 단가표에서 자동 계산되며, 등록 전에 표를 그대로 복사해 메일에 붙일 수 있습니다.',
+        },
+        bind: costBind,
+        on: { onSubmit: 'reball-create' },
+      },
+      {
+        type: 'reball-cost',
+        col: 1,
+        span: 12,
+        row: 19,
+        rowSpan: 26,
+        props: {
+          title: '단가 확인 · 수정',
+          description: '위 표의 금액이 따르는 단가표입니다. 값이 바뀌면 여기서 고치면 이후 작성하는 의뢰서에 바로 반영됩니다.',
+          defaultOver200ball: true,
+        },
+        bind: costBind,
       },
       {
         type: 'data-table',
         col: 1,
         span: 12,
-        row: 44,
+        row: 45,
         rowSpan: 22,
         props: {
           title: '최근 등록한 의뢰',
           showSearch: false,
           showExport: false,
+          showCopy: false,
           selectable: false,
           density: 'compact',
           emptyText: '아직 등록된 의뢰가 없습니다',
@@ -1109,21 +1099,22 @@ export function buildActions(): ActionPlan[] {
       kind: 'CREATE',
       table: 'reball_table',
       values: {
-        far_no: { from: 'component', node: 'rb-far' },
-        export_no: { from: 'component', node: 'rb-export' },
-        name: { from: 'component', node: 'rb-name' },
-        pjt: { from: 'component', node: 'rb-pjt' },
-        date: { from: 'component', node: 'rb-date' },
-        handling: { from: 'component', node: 'rb-handling' },
-        urgent: { from: 'component', node: 'rb-work', path: 'urgent' },
-        is_reball: { from: 'component', node: 'rb-work', path: 'is_reball' },
-        is_component_detach: { from: 'component', node: 'rb-work', path: 'is_component_detach' },
-        is_underfill: { from: 'component', node: 'rb-work', path: 'is_underfill' },
-        is_grinding: { from: 'component', node: 'rb-work', path: 'is_grinding' },
-        over_200ball: { from: 'component', node: 'rb-work', path: 'over_200ball' },
-        count: { from: 'component', node: 'rb-work', path: 'count' },
-        per_cost: { from: 'component', node: 'rb-work', path: 'per_cost' },
-        total_cost: { from: 'component', node: 'rb-work', path: 'total_cost' },
+        // 값은 전부 의뢰 표의 **한 줄**에서 온다. 표는 줄을 하나씩 넘기며 이 액션을 여러 번
+        // 실행한다 — 어떤 칸이 어느 컬럼으로 가는지는 여기(배포된 스펙)가 계속 갖고 있다.
+        far_no: { from: 'component', node: 'rb-rows', path: 'far_no' },
+        export_no: { from: 'component', node: 'rb-rows', path: 'export_no' },
+        name: { from: 'component', node: 'rb-rows', path: 'name' },
+        pjt: { from: 'component', node: 'rb-rows', path: 'pjt' },
+        date: { from: 'component', node: 'rb-rows', path: 'date' },
+        urgent: { from: 'component', node: 'rb-rows', path: 'urgent' },
+        is_reball: { from: 'component', node: 'rb-rows', path: 'is_reball' },
+        is_component_detach: { from: 'component', node: 'rb-rows', path: 'is_component_detach' },
+        is_underfill: { from: 'component', node: 'rb-rows', path: 'is_underfill' },
+        is_grinding: { from: 'component', node: 'rb-rows', path: 'is_grinding' },
+        over_200ball: { from: 'component', node: 'rb-rows', path: 'over_200ball' },
+        count: { from: 'component', node: 'rb-rows', path: 'count' },
+        per_cost: { from: 'component', node: 'rb-rows', path: 'per_cost' },
+        total_cost: { from: 'component', node: 'rb-rows', path: 'total_cost' },
       },
     },
 

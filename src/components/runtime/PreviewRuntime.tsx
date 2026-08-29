@@ -55,30 +55,32 @@ export function PreviewRuntime({
   }
 
   const handleDispatch = useCallback(
-    async (node: NodeDto, eventName: string) => {
+    async (node: NodeDto, eventName: string, payload?: unknown): Promise<boolean> => {
       const actionId = node.events[eventName];
-      if (!actionId) return;
+      if (!actionId) return false;
+      const values = payload === undefined ? componentValues : { ...componentValues, [node.id]: payload };
       // §10.7: /api/runtime/action은 다른 /api/admin/* 라우트의 { ok, data } 봉투가 아니라
       // { ok, data?, error?, effects } 평평한 ActionResult 형태를 그대로 반환한다 — apiCall의
       // ApiResult<T> 가정과 맞지 않아 여기서는 fetch를 직접 쓴다.
       const res = await fetch('/api/runtime/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ actionId, context: { componentValues } }),
+        body: JSON.stringify({ actionId, context: { componentValues: values } }),
       });
       const result = (await res.json()) as ActionResult;
       if (!result.ok) {
         toast.error(result.error ?? '액션 실행에 실패했습니다.');
-        return;
+        return false;
       }
       applyEffects(result.effects);
+      return true;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [componentValues]
   );
 
   const hooks = {
-    dispatch: (node: NodeDto, eventName: string) => void handleDispatch(node, eventName),
+    dispatch: (node: NodeDto, eventName: string, payload?: unknown) => handleDispatch(node, eventName, payload),
     getValue: (nodeId: string) => componentValues[nodeId],
     onValueChange: (nodeId: string, v: unknown) => setComponentValues((prev) => ({ ...prev, [nodeId]: v })),
   };

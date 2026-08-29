@@ -26,7 +26,13 @@ export type RenderContext<P = Record<string, unknown>> = {
   node: { id: string; type: string };
   props: P;
   data?: unknown;
-  dispatch?: (eventName: string, payload?: unknown) => void;
+  /**
+   * 이 노드에 걸린 액션을 실행한다. 를 주면 **이번 호출에 한해** 이 노드의
+   * 컴포넌트 값 대신 그것을 쓴다 — 표 한 장을 여러 줄로 등록하듯 한 노드가 값을 바꿔 가며
+   * 여러 번 실행해야 하는 경우를 위한 것이다(값 상태를 흔들지 않는다).
+   * 성공 여부를 돌려주므로 부르는 쪽이 몇 건이 됐는지 셀 수 있다.
+   */
+  dispatch?: (eventName: string, payload?: unknown) => Promise<boolean>;
   children?: ReactNode;
   /** 런타임(미리보기/운영) 전용 — 빌더 캔버스에서는 undefined로, 값이 없으면 각 입력 컴포넌트는
    * 지금까지처럼 비제어 상태로 렌더된다(P3 캔버스 동작과 100% 호환). */

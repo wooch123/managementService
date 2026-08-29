@@ -1897,6 +1897,24 @@ export const nodeMeta: Record<string, NodeMeta> = {
     ],
     "events": []
   },
+  "reball-request-table": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 40
+    },
+    "defaultProps": {
+      "title": "Reball 의뢰서",
+      "description": ""
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": [
+      "onSubmit"
+    ]
+  },
   "tech-report": {
     "isContainer": false,
     "allowedChildren": null,

@@ -91,28 +91,32 @@ export function RuntimeRenderer({
   }
 
   const handleDispatch = useCallback(
-    async (node: NodeDto, eventName: string) => {
+    async (node: NodeDto, eventName: string, payload?: unknown): Promise<boolean> => {
       const actionId = node.events[eventName];
-      if (!actionId) return;
+      if (!actionId) return false;
+      // payload를 주면 이번 실행에만 이 노드의 값을 그것으로 바꿔 쓴다 — 값 상태를 건드리지
+      // 않으므로 표 한 장을 줄마다 실행해도 화면의 입력이 흔들리지 않는다.
+      const values = payload === undefined ? componentValues : { ...componentValues, [node.id]: payload };
       const res = await fetch('/api/runtime/action', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ actionId, context: { componentValues, routeParams } }),
+        body: JSON.stringify({ actionId, context: { componentValues: values, routeParams } }),
       });
       const result = (await res.json()) as ActionResult;
       if (!result.ok) {
         toast.error(result.error ?? '액션 실행에 실패했습니다.');
-        return;
+        return false;
       }
       downloadCsvIfAny(result.data);
       applyEffects(result.effects);
+      return true;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [componentValues, routeParams]
   );
 
   const hooks = {
-    dispatch: (node: NodeDto, eventName: string) => void handleDispatch(node, eventName),
+    dispatch: (node: NodeDto, eventName: string, payload?: unknown) => handleDispatch(node, eventName, payload),
     getValue: (nodeId: string) => componentValues[nodeId],
     onValueChange: (nodeId: string, v: unknown) => setComponentValues((prev) => ({ ...prev, [nodeId]: v })),
     getData: (nodeId: string) => bindingData[nodeId],

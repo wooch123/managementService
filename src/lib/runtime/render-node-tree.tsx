@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import type { NodeDto } from '@/lib/db/nodes';
 
 export type RuntimeHooks = {
-  dispatch?: (node: NodeDto, eventName: string, payload?: unknown) => void;
+  dispatch?: (node: NodeDto, eventName: string, payload?: unknown) => Promise<boolean>;
   getValue?: (nodeId: string) => unknown;
   onValueChange?: (nodeId: string, value: unknown) => void;
   /** §12.2 "바인딩 데이터는 서버에서 미리 조회" — 운영 런타임(RuntimeRenderer)만 채워 넣는다.
@@ -113,7 +113,7 @@ export function renderNodeTree(nodes: NodeDto[], parentId: string | null = null,
               // (2026-08-19 실측: yLabel 추가 후 기존 차트가 전부 "렌더링 오류"로 떨어졌다).
               props: { ...def.defaultProps, ...node.props },
               data: hooks?.getData?.(node.id),
-              dispatch: (eventName, payload) => hooks?.dispatch?.(node, eventName, payload),
+              dispatch: (eventName, payload) => hooks?.dispatch?.(node, eventName, payload) ?? Promise.resolve(false),
               value: hooks?.getValue?.(node.id),
               onValueChange: hooks?.onValueChange ? (v) => hooks.onValueChange!(node.id, v) : undefined,
               children: def.isContainer ? renderNodeTree(nodes, node.id, hooks) : undefined,
