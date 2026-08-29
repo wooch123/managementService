@@ -181,7 +181,12 @@ export const ENTITIES: EntityPlan[] = [
        * 계산에 쓴 근거를 함께 남기지 않으면 나중에 "왜 이 단가인가"에 답할 수 없다.
        * 값은 개수 그대로 적는다(FBGA153·221·254처럼 Ball Type이 곧 ball 수다).
        */
+      /**
+       * 볼 개수. 지금은 의뢰서에서 받지 않는다 — 가격을 가르는 것은 200을 넘느냐 하나뿐이라
+       * 아래 로 대신한다(사용자 지정). 이미 쌓인 값이 있어 칸은 그대로 남긴다.
+       */
       { name: 'Ball 수', col: 'ball_count', type: 'INTEGER' },
+      { name: '200ball 이상', col: 'over_200ball', type: 'BOOLEAN' },
       { name: '시료 개수', col: 'count', type: 'REAL' },
       { name: '코멘트', col: 'handling', type: 'TEXT' },
       { name: '시료당 가격', col: 'per_cost', type: 'REAL' },

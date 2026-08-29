@@ -54,19 +54,20 @@ export type ReballWorkValue = {
   is_underfill: boolean;
   is_grinding: boolean;
   urgent: boolean;
-  /** Ball 수. 이 값이 단가표의 `200ball 이상/미만`을 가른다. */
-  ball_count: number;
+  /**
+   * 볼이 200개 이상인가 — 단가표의 `200ball 이상/미만`을 가르는 값.
+   *
+   * 예전에는 볼 개수를 그대로 받아 여기서 200과 견줬는데, 가격에 쓰이는 것은 **넘느냐 아니냐**
+   * 하나뿐이라 정확한 개수를 적는 일이 의뢰서마다 되풀이되는 부담이었다(사용자 지정).
+   */
+  over_200ball: boolean;
   count: number;
   per_cost: number;
   total_cost: number;
 };
 
-/** 단가표가 갈리는 기준 — 이 개수 **이상**이면 `upper_200ball`. */
+/** 단가표가 갈리는 기준 — 이 개수 **이상**이면 `upper_200ball`. 화면의 이름표에 쓴다. */
 export const BALL_THRESHOLD = 200;
-
-export function isOverBall(ballCount: number): boolean {
-  return ballCount >= BALL_THRESHOLD;
-}
 
 /** 고른 작업에 해당하는 단가를 더한다 — 시료 하나당 가격. */
 export function perSampleCost(
@@ -74,7 +75,7 @@ export function perSampleCost(
   cost: CostRow
 ): number {
   let sum = 0;
-  if (work.is_reball) sum += isOverBall(work.ball_count) ? cost.upper_200ball : cost.under_200ball;
+  if (work.is_reball) sum += work.over_200ball ? cost.upper_200ball : cost.under_200ball;
   if (work.is_component_detach) sum += cost.component_detach;
   if (work.is_underfill) sum += cost.underfill;
   if (work.is_grinding) sum += cost.grinding;
@@ -118,14 +119,14 @@ export function ReballCost({
   title,
   description,
   cost,
-  defaultBallCount,
+  defaultOver200ball,
   onValueChange,
 }: {
   nodeId: string;
   title: string;
   description: string;
   cost: CostRow;
-  defaultBallCount: number;
+  defaultOver200ball: boolean;
   onValueChange: (value: ReballWorkValue) => void;
 }) {
   const router = useRouter();
@@ -134,10 +135,8 @@ export function ReballCost({
   const [underfill, setUnderfill] = useState(false);
   const [grinding, setGrinding] = useState(false);
   const [urgent, setUrgent] = useState(false);
-  /** Ball 수를 개수 그대로 받는다 — 200 이상/미만은 여기서 갈린다(고를 것이 아니라 사실이다). */
-  const [ballCount, setBallCount] = useState(defaultBallCount);
+  const [overBall, setOverBall] = useState(defaultOver200ball);
   const [count, setCount] = useState(1);
-  const overBall = isOverBall(ballCount);
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<CostRow>(cost);
@@ -160,12 +159,12 @@ export function ReballCost({
       is_underfill: underfill,
       is_grinding: grinding,
       urgent,
-      ball_count: ballCount,
+      over_200ball: overBall,
     };
     const per = perSampleCost(work, costRef.current);
     return { ...work, count, per_cost: per, total_cost: per * count };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isReball, detach, underfill, grinding, urgent, ballCount, count, costKey]);
+  }, [isReball, detach, underfill, grinding, urgent, overBall, count, costKey]);
 
   // 액션이 집어 갈 값은 부모(런타임)의 componentValues에 있다. 부모의 콜백은 렌더마다 새로
   // 만들어지므로 의존성에 넣지 않고 ref로 최신 것만 들고 있는다 — 넣으면 매 렌더마다 다시 돌아
@@ -223,22 +222,27 @@ export function ReballCost({
         입력칸은 한 칸만 내려와 있는 모양이었다.
       */}
       <div className="grid gap-x-3 gap-y-1.5 sm:grid-cols-3 sm:grid-rows-[auto_auto_auto]">
-        <label className="grid min-w-0 content-start gap-1.5 sm:row-span-3 sm:grid-rows-subgrid">
+        {/*
+          볼 개수는 체크 하나로 받는다(사용자 지정). 가격에 쓰이는 것은 200을 넘느냐 하나뿐인데,
+          정확한 개수를 매번 세어 적는 일이 의뢰서마다 되풀이되는 부담이었다.
+        */}
+        <div className="grid min-w-0 content-start gap-1.5 sm:row-span-3 sm:grid-rows-subgrid">
           <span className="text-sm font-medium">Ball 수</span>
-          <input
-            type="number"
-            min={0}
-            step={1}
-            className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm tabular-nums shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-            value={ballCount}
-            onChange={(e) => setBallCount(Math.max(0, Number(e.target.value) || 0))}
-          />
-          {/* 어느 쪽 단가가 걸렸는지 그 자리에서 보여 준다 — 숫자만 있으면 왜 이 가격인지 알 수 없다. */}
+          <label
+            className={cn(
+              'flex h-9 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm transition-colors',
+              overBall ? 'border-primary/50 bg-primary/5' : 'hover:bg-muted/50'
+            )}
+          >
+            <input type="checkbox" className="size-4 shrink-0 accent-[var(--primary)]" checked={overBall} onChange={(e) => setOverBall(e.target.checked)} />
+            {BALL_THRESHOLD}ball 이상
+          </label>
+          {/* 어느 쪽 단가가 걸렸는지 그 자리에서 보여 준다 — 체크만 있으면 왜 이 가격인지 알 수 없다. */}
           <span className={cn('text-[11px]', overBall ? 'text-primary' : 'text-muted-foreground')}>
-            {overBall ? `${BALL_THRESHOLD}ball 이상` : `${BALL_THRESHOLD}ball 미만`} 단가 적용 ·{' '}
+            {overBall ? `${BALL_THRESHOLD}ball 이상` : `${BALL_THRESHOLD}ball 미만`} 단가 ·{' '}
             {won(overBall ? cost.upper_200ball : cost.under_200ball)}
           </span>
-        </label>
+        </div>
         <label className="grid min-w-0 content-start gap-1.5 sm:row-span-3 sm:grid-rows-subgrid">
           <span className="text-sm font-medium">시료 개수</span>
           <input
