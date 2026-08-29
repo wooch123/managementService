@@ -936,7 +936,7 @@ function pkgStack(): SitePage {
           title: 'PKG Stack',
           description: '추가하기를 누르면 입력 칸이 열립니다. CH · WAY · Chip 차수를 최대 16칸까지 적고 구조 그림을 함께 올립니다.',
         },
-        on: { onSubmit: 'pkg-stack-create' },
+        on: { onSubmit: 'pkg-stack-create', onUpdate: 'pkg-stack-update' },
         bind: {
           mode: 'list',
           table: 'pkg_stack',
@@ -1165,6 +1165,21 @@ export function buildActions(): ActionPlan[] {
       desc: 'Part ID 하나의 적층 구조와 그림을 저장한다 — 적층 줄은 JSON 한 칸에 담는다',
       kind: 'CREATE',
       table: 'pkg_stack',
+      values: {
+        part_id: { from: 'component', node: 'pkg-rows', path: 'part_id' },
+        layers: { from: 'component', node: 'pkg-rows', path: 'layers' },
+        image: { from: 'component', node: 'pkg-rows', path: 'image' },
+        note: { from: 'component', node: 'pkg-rows', path: 'note' },
+      },
+    },
+    {
+      key: 'pkg-stack-update',
+      name: 'PKG Stack 수정',
+      desc: '갤러리에서 고른 한 장을 고쳐 저장한다 — 줄은 id로 찾는다(Part ID가 겹칠 수 있다)',
+      kind: 'UPDATE',
+      table: 'pkg_stack',
+      // keyCol을 두지 않으면 실행기가 줄의 id로 찾는다.
+      keyFrom: { from: 'component', node: 'pkg-rows', path: 'id' },
       values: {
         part_id: { from: 'component', node: 'pkg-rows', path: 'part_id' },
         layers: { from: 'component', node: 'pkg-rows', path: 'layers' },

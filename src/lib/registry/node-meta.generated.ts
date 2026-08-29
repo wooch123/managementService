@@ -1931,7 +1931,8 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "list"
     ],
     "events": [
-      "onSubmit"
+      "onSubmit",
+      "onUpdate"
     ]
   },
   "tech-report": {

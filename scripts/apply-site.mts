@@ -281,7 +281,8 @@ function actionConfig(
         kind: 'UPDATE',
         entityId: entityOf(schema, plan.table).id,
         keySource: resolveValue(plan.keyFrom, nodeIds),
-        keyFieldId: fieldOf(schema, plan.table, plan.keyCol).id,
+        // keyCol이 없으면 keyFieldId도 비운다 — 실행기가 줄의 id로 찾는다.
+        ...(plan.keyCol ? { keyFieldId: fieldOf(schema, plan.table, plan.keyCol).id } : {}),
         fieldMap: fieldMapOf(plan.table, plan.values),
       };
     case 'QUERY':

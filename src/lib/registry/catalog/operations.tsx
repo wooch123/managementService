@@ -3,7 +3,7 @@ import { FailRateCalculator, FailRateCalculatorPreview } from '@/components/runt
 import { VisitStats, VisitStatsPreview } from '@/components/runtime/VisitStats';
 import { ReballCost, ReballCostPreview, toCostRow, type ReballWorkValue } from '@/components/runtime/ReballCost';
 import { ReballRequestTable, ReballRequestTablePreview, type ReballRow } from '@/components/runtime/ReballRequestTable';
-import { PkgStack, PkgStackPreview, type PkgStackValue } from '@/components/runtime/PkgStack';
+import { PkgStack, PkgStackPreview, type PkgStackEdit, type PkgStackValue } from '@/components/runtime/PkgStack';
 import { TechReport, TechReportPreview } from '@/components/runtime/TechReport';
 import { defineComponent, type ComponentDef } from '@/lib/registry/types';
 
@@ -162,7 +162,10 @@ export const operationsComponents = [
     isContainer: false,
     growsWithContent: true,
     bindingModes: ['list'],
-    events: [{ name: 'onSubmit', label: '저장', payload: 'PKG Stack 한 장' }],
+    events: [
+      { name: 'onSubmit', label: '새로 저장', payload: 'PKG Stack 한 장' },
+      { name: 'onUpdate', label: '고쳐 저장', payload: 'PKG Stack 한 장 + 줄 id' },
+    ],
     propsSchema: z.object({
       title: z.string().default('PKG Stack'),
       description: z.string().default(''),
@@ -176,6 +179,7 @@ export const operationsComponents = [
           description={props.description}
           data={data}
           onSubmit={(value: PkgStackValue) => dispatch('onSubmit', value)}
+          onUpdate={(value: PkgStackEdit) => dispatch('onUpdate', value)}
         />
       ) : (
         <PkgStackPreview title={props.title} />

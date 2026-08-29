@@ -109,7 +109,11 @@ export type ActionPlan =
       desc: string;
       kind: 'UPDATE';
       table: string;
-      keyCol: string;
+      /**
+       * 어느 칸으로 줄을 찾을지. 비우면 **줄 자체의 id**로 찾는다(실행기의 기본값) —
+       * 업무 키가 따로 없거나 중복될 수 있는 표를 고칠 때 쓴다.
+       */
+      keyCol?: string;
       keyFrom: ValuePlan;
       values: Record<string, ValuePlan>;
       onSuccess?: string;

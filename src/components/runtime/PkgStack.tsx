@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { ClipboardPaste, ImagePlus, Loader2, Plus, Save, Trash2, X } from 'lucide-react';
+import { ClipboardPaste, ImagePlus, Loader2, Pencil, Plus, Save, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -30,6 +30,9 @@ export type StackLayer = { ch: string; way: string; chip: string };
  * 미리 문자열로 만들면 엔진이 그 문자열을 한 번 더 감싸 저장한다(실제로 그렇게 저장됐다).
  */
 export type PkgStackValue = { part_id: string; layers: StackLayer[]; image: string; note: string };
+
+/** 고칠 때는 어느 줄인지도 함께 넘긴다 — 액션이 그 값으로 줄을 찾는다. */
+export type PkgStackEdit = PkgStackValue & { id: string };
 
 const emptyLayer = (): StackLayer => ({ ch: '', way: '', chip: '' });
 
@@ -151,16 +154,20 @@ export function PkgStack({
   description,
   data,
   onSubmit,
+  onUpdate,
 }: {
   title: string;
   description: string;
   /** 저장된 목록(list 바인딩). 검색은 주소의 조건으로 서버가 이미 걸러 준 것이다. */
   data: unknown;
   onSubmit: (value: PkgStackValue) => Promise<boolean>;
+  onUpdate: (value: PkgStackEdit) => Promise<boolean>;
 }) {
   const cards = useMemo(() => toCards(data), [data]);
 
   const [openForm, setOpenForm] = useState(false);
+  /** 고치는 중인 카드의 id. null이면 새로 적는 중이다 — 같은 양식을 둘 다에 쓴다. */
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [partId, setPartId] = useState('');
   const [layers, setLayers] = useState<StackLayer[]>([emptyLayer()]);
   const [image, setImage] = useState('');
@@ -170,10 +177,21 @@ export function PkgStack({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
+    setEditingId(null);
     setPartId('');
     setLayers([emptyLayer()]);
     setImage('');
     setNote('');
+  };
+
+  /** 카드의 내용을 양식으로 옮겨 놓고 연다 — 고치기는 새로 적기와 같은 자리에서 한다. */
+  const startEdit = (card: GalleryCard) => {
+    setEditingId(card.id);
+    setPartId(card.partId);
+    setLayers(card.layers.length > 0 ? card.layers : [emptyLayer()]);
+    setImage(card.image);
+    setNote(card.note);
+    setOpenForm(true);
   };
 
   async function upload(file: File) {
@@ -224,11 +242,12 @@ export function PkgStack({
     }
     // 세 칸이 모두 빈 줄은 적다 만 줄이다 — 저장하지 않는다.
     const filled = layers.filter((r) => r.ch.trim() || r.way.trim() || r.chip.trim());
+    const value = { part_id: partId.trim(), layers: filled, image, note: note.trim() };
     setSaving(true);
-    const ok = await onSubmit({ part_id: partId.trim(), layers: filled, image, note: note.trim() });
+    const ok = editingId ? await onUpdate({ ...value, id: editingId }) : await onSubmit(value);
     setSaving(false);
     if (!ok) return;
-    toast.success(`${partId.trim()} 을(를) 저장했습니다.`);
+    toast.success(`${value.part_id} 을(를) ${editingId ? '고쳤습니다' : '저장했습니다'}.`);
     reset();
     setOpenForm(false);
   }
@@ -243,16 +262,22 @@ export function PkgStack({
         <button
           type="button"
           className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          onClick={() => setOpenForm((v) => !v)}
+          onClick={() => {
+            // 닫을 때는 고치던 내용도 함께 비운다 — 남겨 두면 다음에 '추가하기'를 눌렀을 때
+            // 남의 내용이 채워진 채로 열린다.
+            if (openForm) reset();
+            setOpenForm((v) => !v);
+          }}
         >
           {openForm ? <X className="size-4" /> : <Plus className="size-4" />}
-          {openForm ? '입력 닫기' : '추가하기'}
+          {openForm ? (editingId ? '고치기 취소' : '입력 닫기') : '추가하기'}
         </button>
       </div>
 
       {/* ── 입력 양식 — '추가하기'를 눌렀을 때만 나온다 ── */}
       {openForm && (
-        <div className="shrink-0 rounded-lg border bg-muted/20 p-3">
+        <div className={cn('shrink-0 rounded-lg border p-3', editingId ? 'border-primary/50 bg-primary/5' : 'bg-muted/20')}>
+          {editingId && <p className="mb-2 text-xs font-medium text-primary">고치는 중 — 저장하면 이 카드가 바뀝니다.</p>}
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             <div className="flex flex-col gap-2">
               <label className="flex flex-col gap-1">
@@ -260,22 +285,26 @@ export function PkgStack({
                 <input className={inputClass} value={partId} onChange={(e) => setPartId(e.target.value)} placeholder="예: PN-682D0" />
               </label>
 
+              {/* 칸을 더하는 단추는 표 **위**에 둔다(사용자 지정) — 열여섯 줄까지 늘어나는 표라
+                  아래에 두면 줄이 늘수록 단추가 아래로 밀려 화면 밖으로 나간다. */}
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[11px] font-medium text-muted-foreground">입력 칸</span>
-                <span className="text-[11px] text-muted-foreground">
-                  {layers.length} / {MAX_LAYERS}칸
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] tabular-nums text-muted-foreground">
+                    {layers.length} / {MAX_LAYERS}칸
+                  </span>
+                  <button
+                    type="button"
+                    className="inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs hover:bg-muted/50 disabled:opacity-50"
+                    disabled={layers.length >= MAX_LAYERS}
+                    onClick={() => setLayers((prev) => [...prev, emptyLayer()])}
+                    title={layers.length >= MAX_LAYERS ? `최대 ${MAX_LAYERS}칸까지 입력할 수 있습니다` : undefined}
+                  >
+                    <Plus className="size-3.5" /> 칸 추가
+                  </button>
+                </div>
               </div>
               <LayerTable layers={layers} onChange={setLayers} />
-              <button
-                type="button"
-                className="inline-flex h-8 w-fit items-center gap-1.5 rounded-md border px-2.5 text-xs hover:bg-muted/50 disabled:opacity-50"
-                disabled={layers.length >= MAX_LAYERS}
-                onClick={() => setLayers((prev) => [...prev, emptyLayer()])}
-                title={layers.length >= MAX_LAYERS ? `최대 ${MAX_LAYERS}칸까지 입력할 수 있습니다` : undefined}
-              >
-                <Plus className="size-3.5" /> 칸 추가
-              </button>
             </div>
 
             <div className="flex flex-col gap-2">
@@ -368,9 +397,18 @@ export function PkgStack({
         <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3 overflow-y-auto">
           {cards.map((card) => (
             <article key={card.id} className="flex flex-col gap-2 rounded-lg border bg-card p-3">
-              <h4 className="truncate text-sm font-semibold" title={card.partId}>
-                {card.partId || '(Part ID 없음)'}
-              </h4>
+              <div className="flex items-start justify-between gap-2">
+                <h4 className="min-w-0 truncate text-sm font-semibold" title={card.partId}>
+                  {card.partId || '(Part ID 없음)'}
+                </h4>
+                <button
+                  type="button"
+                  className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border px-2 text-xs hover:bg-muted/50"
+                  onClick={() => startEdit(card)}
+                >
+                  <Pencil className="size-3" /> 수정
+                </button>
+              </div>
               {card.layers.length > 0 && <LayerTable layers={card.layers} />}
               {card.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
