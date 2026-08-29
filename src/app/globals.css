@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
-/* 테마 20종(html[data-theme=...]) — scripts/generate-theme-css.ts가 만든다. */
+/* 테마 22종(html[data-theme=...]) — scripts/generate-theme-css.ts가 만든다. */
 @import "./themes.generated.css";
 
 @custom-variant dark (&:is(.dark *));
@@ -304,6 +304,45 @@ select optgroup {
   [data-slot='collapsible-content'] {
     animation: none;
   }
+}
+
+/**
+ * 카드 안의 데이터 제목 — 차트·표의 머리.
+ *
+ * 카드 하나에 제목 한 줄과 그림 하나가 들어 있는데 둘의 무게가 비슷하면 무엇을 보는 화면인지
+ * 늦게 읽힌다. 제목을 한 단계 키우고(15px) 굵혀(600) 먼저 눈에 들어오게 한다(사용자 지정).
+ *
+ * 대신 그림 **안**의 글자(축 눈금·축 이름·계열 이름)는 회색으로 물린다 — 값을 읽는 데 필요하지만
+ * 그림보다 앞에 나설 이유가 없다. 색은 --muted-foreground 하나로 통일한다
+ * (밝은 테마 5.0:1 · 어두운 테마 6.3:1 — 물러나 있으면서도 읽힌다).
+ *
+ * 한 곳에 둔 이유: 차트가 스물 몇 종이라 파일마다 적어 두면 반드시 어긋난다.
+ */
+/**
+ * 그림 **안**의 글자 색 — 축 눈금·축 이름·계열 이름.
+ *
+ * --muted-foreground를 그대로 쓰면 밝은 테마에서 흰 카드 위 대비가 4.36:1이다(실측). 11~12px
+ * 글자에는 모자란다 — 물러나 있으라는 것과 안 보여도 된다는 것은 다르다. 회색은 유지하되
+ * 글자색 쪽으로 한 뼘 당겨 5.7:1까지 올린다.
+ *
+ * 고정 색이 아니라 **테마의 두 색을 섞어** 만든다 — 어두운 테마에서는 --foreground가 밝은 쪽이라
+ * 같은 식이 반대 방향으로 작동해 거기서도 대비가 오른다. 테마 20종을 따로 손볼 필요가 없다.
+ * (html 한 요소에서 --muted-foreground가 정해지므로 여기 한 번만 적어도 테마를 따라간다.)
+ */
+:root {
+  --chart-ink: color-mix(in oklab, var(--muted-foreground) 78%, var(--foreground));
+}
+
+.chart-ink {
+  color: var(--chart-ink);
+}
+
+.chart-title {
+  font-size: 0.9375rem;
+  line-height: 1.35;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
 }
 
 /**

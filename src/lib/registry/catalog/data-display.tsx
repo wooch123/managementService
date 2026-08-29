@@ -368,7 +368,7 @@ export const dataDisplayComponents = [
       const selectable = props.selectParam !== '' && selectColumn !== null;
       return (
         <div className="flex flex-col gap-2">
-          {props.title && <h3 className="text-sm font-medium">{props.title}</h3>}
+          {props.title && <h3 className="chart-title">{props.title}</h3>}
           {selectable ? (
             <SelectableTable
               columns={columns}
@@ -421,7 +421,7 @@ export const dataDisplayComponents = [
     defaultProps: { title: '', chartType: 'bar', color: 'primary', unit: '', yLabel: '' },
     defaultGrid: { span: 6, rowSpan: 25 },
     render: ({ props, data }) => {
-      const heading = props.title ? <h3 className="text-sm font-medium">{props.title}</h3> : null;
+      const heading = props.title ? <h3 className="chart-title">{props.title}</h3> : null;
 
       // data === undefined: 바인딩 데이터를 주지 않는 호출자(빌더 캔버스/팔레트 미리보기)다.
       // 이때만 샘플 데이터로 모양을 보여준다 — 운영 렌더러는 항상 값(숫자/객체/null)을 넘긴다.
@@ -590,7 +590,7 @@ export const dataDisplayComponents = [
 
       return (
         <div className="flex h-full min-h-[140px] flex-col gap-1">
-          {props.title ? <h3 className="text-sm font-medium">{props.title}</h3> : null}
+          {props.title ? <h3 className="chart-title">{props.title}</h3> : null}
           {props.subtitle ? <p className="text-xs text-muted-foreground">{props.subtitle}</p> : null}
           {rows.length === 0 ? (
             <div className="flex flex-1 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground">
@@ -599,7 +599,7 @@ export const dataDisplayComponents = [
           ) : (
             <>
               {props.showLegend ? (
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[11px] text-muted-foreground">
+                <div className="chart-ink flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[11px]">
                   {matrix.seriesKeys.map((key, i) => (
                     <span key={key} className="inline-flex items-center gap-1.5">
                       <span
@@ -838,7 +838,7 @@ export const dataDisplayComponents = [
       if (bars.length === 0) {
         return (
           <div className="flex h-full min-h-[140px] flex-col gap-2">
-            {props.title && <h3 className="text-sm font-medium">{props.title}</h3>}
+            {props.title && <h3 className="chart-title">{props.title}</h3>}
             <div className="flex flex-1 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground">
               표시할 일정이 없습니다 (항목명과 날짜 컬럼을 함께 선택하세요)
             </div>
@@ -854,7 +854,7 @@ export const dataDisplayComponents = [
 
       return (
         <div className="flex h-full min-h-[140px] flex-col gap-2">
-          {props.title && <h3 className="text-sm font-medium">{props.title}</h3>}
+          {props.title && <h3 className="chart-title">{props.title}</h3>}
           <div className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
             {bars.map((b, i) => (
               <div key={`${b.label}-${i}`} className="flex items-center gap-2 text-xs">
@@ -911,7 +911,7 @@ export const dataDisplayComponents = [
       if (board.length === 0) {
         return (
           <div className="flex h-full min-h-[140px] flex-col gap-2">
-            {props.title && <h3 className="text-sm font-medium">{props.title}</h3>}
+            {props.title && <h3 className="chart-title">{props.title}</h3>}
             <div className="flex flex-1 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground">
               표시할 카드가 없습니다 (상태 컬럼과 제목 컬럼을 함께 선택하세요)
             </div>
@@ -920,7 +920,7 @@ export const dataDisplayComponents = [
       }
       return (
         <div className="flex h-full min-h-[140px] flex-col gap-2">
-          {props.title && <h3 className="text-sm font-medium">{props.title}</h3>}
+          {props.title && <h3 className="chart-title">{props.title}</h3>}
           <div className="flex min-h-0 flex-1 gap-2 overflow-x-auto pb-1">
             {board.map((col) => (
               <div key={col.column} className="flex min-w-40 flex-1 flex-col gap-1.5 rounded-md bg-muted/50 p-2">

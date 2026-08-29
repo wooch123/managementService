@@ -150,7 +150,7 @@ function StatShell({
 }) {
   return (
     <div className="flex h-full min-h-[140px] flex-col gap-1.5">
-      {title ? <h3 className="text-sm font-medium">{title}</h3> : null}
+      {title ? <h3 className="chart-title">{title}</h3> : null}
       {note ? <p className="text-xs text-muted-foreground tabular-nums">{note}</p> : null}
       {isEmpty ? (
         <div className="flex flex-1 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground">
@@ -772,7 +772,7 @@ const heatmapMatrix = defineComponent({
     // recharts에 히트맵 프리미티브가 없어 CSS 그리드로 그린다 — 색은 차트 토큰의 투명도만 바꾼다.
     return (
       <div className="flex h-full min-h-[140px] flex-col gap-1.5">
-        {props.title ? <h3 className="text-sm font-medium">{props.title}</h3> : null}
+        {props.title ? <h3 className="chart-title">{props.title}</h3> : null}
         {rows.length === 0 ? (
           <div className="flex flex-1 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground">
             표시할 데이터가 없습니다
@@ -836,7 +836,7 @@ const crosstabHeatmap = defineComponent({
 
     return (
       <div className="flex h-full min-h-[140px] flex-col gap-1">
-        {props.title ? <h3 className="text-sm font-medium">{props.title}</h3> : null}
+        {props.title ? <h3 className="chart-title">{props.title}</h3> : null}
         {props.subtitle ? <p className="text-xs text-muted-foreground">{props.subtitle}</p> : null}
         {empty ? (
           <div className="flex flex-1 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground">
@@ -852,13 +852,13 @@ const crosstabHeatmap = defineComponent({
               >
                 <div />
                 {matrix.seriesKeys.map((key) => (
-                  <div key={key} className="truncate px-1 pb-0.5 text-center text-[10px] font-medium text-muted-foreground" title={key}>
+                  <div key={key} className="chart-ink truncate px-1 pb-0.5 text-center text-[10px] font-medium" title={key}>
                     {key}
                   </div>
                 ))}
                 {matrix.labels.map((label) => (
                   <Fragment key={label}>
-                    <div className="flex items-center truncate pr-1 text-[11px] text-muted-foreground" title={label}>
+                    <div className="chart-ink flex items-center truncate pr-1 text-[11px]" title={label}>
                       {label}
                     </div>
                     {matrix.seriesKeys.map((key) => {
@@ -883,7 +883,7 @@ const crosstabHeatmap = defineComponent({
             </div>
             {props.showLegend ? (
               // 눈금에 실제 값을 적는다 — 농도가 무엇의 농도인지 알려면 양 끝 숫자가 있어야 한다.
-              <div className="flex items-center justify-end gap-1.5 text-[10px] tabular-nums text-muted-foreground">
+              <div className="chart-ink flex items-center justify-end gap-1.5 text-[10px] tabular-nums">
                 <span>{format(matrix.min)}</span>
                 {[0, 0.25, 0.5, 0.75, 1].map((t) => (
                   <span key={t} className="size-3 rounded-[2px]" style={{ backgroundColor: cellTint(TINT_MIN + t * (TINT_MAX - TINT_MIN)) }} />

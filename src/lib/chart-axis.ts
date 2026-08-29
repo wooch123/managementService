@@ -172,7 +172,7 @@ export function yAxisLabelProps(label?: string | null) {
       angle: -90,
       position: 'insideLeft' as const,
       offset: 6,
-      style: { textAnchor: 'middle' as const, fontSize: 11, fill: 'var(--muted-foreground)' },
+      style: { textAnchor: 'middle' as const, fontSize: 11, fill: 'var(--chart-ink)' },
     },
   };
 }
