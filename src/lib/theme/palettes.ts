@@ -1,5 +1,5 @@
 /**
- * 테마 팔레트 20종 (다크 · 그레이 · 라이트 · 메탈릭 · 모던, 각 4종).
+ * 테마 팔레트 22종 (다크 · 라이트 · 메탈릭 · 모던 각 4종, 그레이 6종).
  *
  * 색은 모두 oklch로 만든다 — 밝기(L)를 고정한 채 색상(H)만 돌리면 어떤 계열을 골라도 대비가
  * 흔들리지 않기 때문이다. 그래서 팔레트마다 색을 손으로 찍지 않고, 아래 build()가 기준 색상·채도
@@ -33,13 +33,21 @@ type Spec = {
   chroma: number;
   /** 메탈릭 계열의 은은한 그라데이션(배경에 깔린다). */
   sheen?: string;
+  /**
+   * **밝은 테마의 면을 이만큼 내린다**(0이면 지금까지와 같다).
+   *
+   * 흰 바탕을 오래 보면 눈이 아프다는 요청에서 왔다. 흰색을 그냥 회색으로 바꾸면 글자 대비까지
+   * 함께 떨어지므로, 면을 내리는 만큼 글자·경계도 함께 진하게 당긴다 — 밝기만 낮추고 **읽히는
+   * 정도는 유지**하는 것이 이 값이 하는 일이다. 어두운 테마에는 쓰지 않는다.
+   */
+  dim?: number;
 };
 
 const ok = (l: number, c: number, h: number) => `oklch(${+l.toFixed(3)} ${+c.toFixed(3)} ${h})`;
 
 /** 차트 5색 — 기준 색상에서 좌우로 벌려 잡아 계열 안에서 서로 구분되게 한다. */
-function chartColors(hue: number, chroma: number, mode: 'light' | 'dark') {
-  const l = mode === 'dark' ? 0.72 : 0.6;
+function chartColors(hue: number, chroma: number, mode: 'light' | 'dark', dim = 0) {
+  const l = mode === 'dark' ? 0.72 : 0.6 - dim * 0.4;
   const c = Math.max(0.09, chroma * 1.6);
   const hues = [hue, (hue + 45) % 360, (hue + 315) % 360, (hue + 90) % 360, (hue + 270) % 360];
   return hues.map((h, i) => ok(l - i * 0.03, c - i * 0.008, h));
@@ -47,37 +55,47 @@ function chartColors(hue: number, chroma: number, mode: 'light' | 'dark') {
 
 function build(spec: Spec): ThemeDef {
   const { hue: h, chroma: c, mode } = spec;
-  const charts = chartColors(h, c, mode);
+  const charts = chartColors(h, c, mode, spec.dim ?? 0);
+
+  /**
+   * 면은 내리고(-d) 글자는 함께 진하게 당긴다(-d × 계수).
+   *
+   * 밝기만 내리면 대비가 같이 떨어져 "어둡고 흐릿한" 화면이 된다. 내려간 면 위에서도 같은
+   * 정도로 읽히도록 글자·경계를 반대 방향으로 옮기는 것이 요령이다. d=0이면 아래 식이 전부
+   * 원래 값으로 돌아가므로 기존 테마 20종은 한 톨도 바뀌지 않는다.
+   */
+  const d = mode === 'light' ? (spec.dim ?? 0) : 0;
 
   const tokens: Record<string, string> =
     mode === 'light'
       ? {
-          '--background': ok(0.985, c * 0.12, h),
-          '--foreground': ok(0.22, c * 0.35, h),
-          '--card': ok(1, c * 0.04, h),
-          '--card-foreground': ok(0.22, c * 0.35, h),
-          '--popover': ok(1, c * 0.04, h),
-          '--popover-foreground': ok(0.22, c * 0.35, h),
-          '--primary': ok(0.55, c, h),
+          '--background': ok(0.985 - d, c * 0.12, h),
+          '--foreground': ok(0.22 - d * 0.75, c * 0.35, h),
+          // 카드는 바탕보다 늘 한 뼘 밝다 — 내려앉아도 면이 떠 보여야 배치가 읽힌다.
+          '--card': ok(1 - d * 0.8, c * 0.04, h),
+          '--card-foreground': ok(0.22 - d * 0.75, c * 0.35, h),
+          '--popover': ok(1 - d * 0.8, c * 0.04, h),
+          '--popover-foreground': ok(0.22 - d * 0.75, c * 0.35, h),
+          '--primary': ok(0.55 - d * 0.35, c, h),
           '--primary-foreground': ok(0.99, 0, h),
-          '--secondary': ok(0.955, c * 0.25, h),
-          '--secondary-foreground': ok(0.36, c * 0.6, h),
-          '--muted': ok(0.962, c * 0.16, h),
-          '--muted-foreground': ok(0.55, c * 0.2, h),
-          '--accent': ok(0.94, c * 0.3, h),
-          '--accent-foreground': ok(0.33, c * 0.6, h),
+          '--secondary': ok(0.955 - d * 0.9, c * 0.25, h),
+          '--secondary-foreground': ok(0.36 - d * 0.4, c * 0.6, h),
+          '--muted': ok(0.962 - d * 0.9, c * 0.16, h),
+          '--muted-foreground': ok(0.55 - d * 0.9, c * 0.2, h),
+          '--accent': ok(0.94 - d * 0.85, c * 0.3, h),
+          '--accent-foreground': ok(0.33 - d * 0.4, c * 0.6, h),
           '--destructive': 'oklch(0.577 0.245 27.325)',
-          '--border': ok(0.918, c * 0.16, h),
-          '--input': ok(0.9, c * 0.18, h),
-          '--ring': ok(0.62, c * 0.8, h),
-          '--sidebar': ok(0.995, c * 0.06, h),
-          '--sidebar-foreground': ok(0.22, c * 0.35, h),
-          '--sidebar-primary': ok(0.55, c, h),
+          '--border': ok(0.918 - d * 0.8, c * 0.16, h),
+          '--input': ok(0.9 - d * 0.8, c * 0.18, h),
+          '--ring': ok(0.62 - d * 0.35, c * 0.8, h),
+          '--sidebar': ok(0.995 - d * 0.85, c * 0.06, h),
+          '--sidebar-foreground': ok(0.22 - d * 0.75, c * 0.35, h),
+          '--sidebar-primary': ok(0.55 - d * 0.35, c, h),
           '--sidebar-primary-foreground': ok(0.99, 0, h),
-          '--sidebar-accent': ok(0.945, c * 0.3, h),
-          '--sidebar-accent-foreground': ok(0.33, c * 0.6, h),
-          '--sidebar-border': ok(0.918, c * 0.16, h),
-          '--sidebar-ring': ok(0.62, c * 0.8, h),
+          '--sidebar-accent': ok(0.945 - d * 0.85, c * 0.3, h),
+          '--sidebar-accent-foreground': ok(0.33 - d * 0.4, c * 0.6, h),
+          '--sidebar-border': ok(0.918 - d * 0.8, c * 0.16, h),
+          '--sidebar-ring': ok(0.62 - d * 0.35, c * 0.8, h),
         }
       : {
           '--background': ok(0.17, c * 0.28, h),
@@ -142,6 +160,13 @@ const SPECS: Spec[] = [
   { id: 'stone', label: '스톤', category: '그레이', mode: 'light', hue: 70, chroma: 0.012 },
   { id: 'graphite', label: '그래파이트', category: '그레이', mode: 'dark', hue: 250, chroma: 0.012 },
   { id: 'ash', label: '애쉬', category: '그레이', mode: 'dark', hue: 90, chroma: 0.008 },
+  /**
+   * 흰 바탕이 눈에 부담이라는 요청으로 더한 둘(2026-08-29). 밝은 테마이되 면이 한 단계 내려앉아
+   * 종이에 가깝다 — 어두운 테마로 가지 않고도 화면이 덜 쏜다. 둘의 차이는 회색의 온도뿐이라
+   * 차가운 쪽·따뜻한 쪽 중 눈에 편한 것을 고르면 된다.
+   */
+  { id: 'soft-gray', label: '소프트 그레이', category: '그레이', mode: 'light', hue: 250, chroma: 0.012, dim: 0.075 },
+  { id: 'soft-sand', label: '소프트 샌드', category: '그레이', mode: 'light', hue: 75, chroma: 0.014, dim: 0.075 },
 
   // ── 라이트 ──
   { id: 'classic', label: '클래식', category: '라이트', mode: 'light', hue: 260, chroma: 0.005 },

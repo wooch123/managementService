@@ -23,11 +23,32 @@ const REQUIRED_TOKENS = [
 ];
 
 describe('테마 팔레트', () => {
-  it('20종을 5개 분류에 4종씩 제공한다', () => {
-    expect(THEMES).toHaveLength(20);
+  it('22종을 5개 분류로 나눠 제공한다 — 그레이만 6종이다', () => {
+    expect(THEMES).toHaveLength(22);
     expect(THEME_CATEGORIES).toHaveLength(5);
-    for (const { category, themes } of THEMES_BY_CATEGORY) {
-      expect(themes.length, `${category} 분류`).toBe(4);
+    // 눈이 덜 부신 밝은 테마 둘(소프트 그레이·소프트 샌드)이 그레이에 더해졌다.
+    const counts = Object.fromEntries(THEMES_BY_CATEGORY.map(({ category, themes }) => [category, themes.length]));
+    expect(counts).toEqual({ 다크: 4, 그레이: 6, 라이트: 4, 메탈릭: 4, 모던: 4 });
+  });
+
+  /**
+   * 면을 내린 밝은 테마(dim)는 **밝기만** 내려가야 한다 — 글자까지 함께 흐려지면
+   * '눈이 덜 아픈 테마'가 아니라 그냥 읽기 힘든 테마가 된다.
+   */
+  it('내려앉은 밝은 테마도 글자와 면의 밝기 차를 지킨다', () => {
+    const L = (v: string) => Number(/oklch\(([\d.]+)/.exec(v)?.[1] ?? NaN);
+    const base = THEMES.find((x) => x.id === 'slate')!;
+    for (const id of ['soft-gray', 'soft-sand']) {
+      const t = THEMES.find((x) => x.id === id)!;
+      // 면은 실제로 내려갔다.
+      expect(L(t.tokens['--card']), `${id} 카드`).toBeLessThan(L(base.tokens['--card']));
+      expect(L(t.tokens['--background']), `${id} 바탕`).toBeLessThan(L(base.tokens['--background']));
+      // 그런데 글자와의 밝기 차는 원래 테마보다 좁아지지 않았다.
+      const gap = L(t.tokens['--card']) - L(t.tokens['--card-foreground']);
+      const baseGap = L(base.tokens['--card']) - L(base.tokens['--card-foreground']);
+      expect(gap, `${id} 글자 대비`).toBeGreaterThan(baseGap - 0.02);
+      // 카드가 바탕보다 밝아 면이 떠 보인다.
+      expect(L(t.tokens['--card']), `${id} 카드가 바탕보다 밝다`).toBeGreaterThan(L(t.tokens['--background']));
     }
   });
 
@@ -64,7 +85,7 @@ describe('테마 팔레트', () => {
     for (const t of THEMES) {
       expect(THEME_CSS).toContain(`html[data-theme="${t.id}"]`);
     }
-    expect(THEME_CSS.match(/html\[data-theme=/g)).toHaveLength(20);
+    expect(THEME_CSS.match(/html\[data-theme=/g)).toHaveLength(22);
   });
 
   it('getTheme은 없는 id에 undefined를 돌려준다', () => {
