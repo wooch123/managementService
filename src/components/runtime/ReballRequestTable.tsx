@@ -20,13 +20,15 @@ import { BALL_THRESHOLD, perSampleCost, type CostRow } from '@/components/runtim
  * 다시 적으면 두 곳이 어긋난다. 여기서는 줄 하나를 값으로 넘길 뿐이다.
  */
 
+/**
+ * 줄마다 다른 값. 반출 번호와 날짜는 여기 없다 — 그 둘은 의뢰서 한 장에 하나씩이라
+ * 표 오른쪽 위에서 한 번만 정하고 모든 줄에 함께 붙는다(사용자 지정, 2026-08-29).
+ */
 export type ReballRow = {
   far_no: string;
   urgent: boolean;
-  export_no: string;
   pjt: string;
   name: string;
-  date: string;
   over_200ball: boolean;
   is_reball: boolean;
   is_component_detach: boolean;
@@ -38,10 +40,8 @@ export type ReballRow = {
 const emptyRow = (): ReballRow => ({
   far_no: '',
   urgent: false,
-  export_no: '',
   pjt: '',
   name: '',
-  date: '',
   over_200ball: false,
   // 대부분의 의뢰가 Reball이라 처음부터 켜 둔다.
   is_reball: true,
@@ -64,10 +64,8 @@ const CHECK_COLUMNS = [
 const HEADERS = [
   'FAR No',
   '긴급',
-  '반출번호',
   'PJT',
   '담당자',
-  '날짜',
   `Ball 수(${BALL_THRESHOLD}↑)`,
   ...CHECK_COLUMNS.map((c) => c.label),
   '시료 수',
@@ -78,15 +76,49 @@ const HEADERS = [
 /**
  * 금액·총금액·지우기는 **오른쪽 끝에 붙여 둔다**.
  *
- * 칸이 열넷이라 어떤 폭에서도 표는 가로로 움직인다. 그런데 금액은 이 표에서 사람이 확인하려고
+ * 칸이 여럿이라 좁은 폭에서는 표가 가로로 움직인다. 그런데 금액은 이 표에서 사람이 확인하려고
  * 보는 값이라, 옆으로 밀려 사라지면 표를 오른쪽 끝까지 끌고 가야 보인다. 붙여 두면 어느 칸을
  * 고치든 계산 결과가 늘 눈에 있다. 붙이려면 폭이 정해져 있어야 해서 픽셀로 잡는다.
  */
-const STICKY = { del: 40, total: 116, per: 100 };
+const STICKY = { del: 36, total: 104, per: 92 };
+/** 붙어 있는 칸 묶음의 왼쪽 그림자 — 표가 그 밑으로 지나간다는 것을 눈에 보이게 한다. */
+const STICKY_EDGE = 'shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.18)]';
 const stickyCell = 'sticky z-[1] bg-card';
 
 const inputClass =
   'h-8 w-full min-w-0 rounded-md border border-input bg-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50';
+
+/**
+ * 표 안의 체크 칸.
+ *
+ * 체크 상자는 글자 기준선 위에 얹히는 인라인 요소라, 같은 줄의 입력칸(높이 32px)과 가운데가
+ * 어긋나 한두 픽셀씩 위로 떠 보였다. 입력칸과 **같은 높이의 칸**에 넣고 그 안에서 가운데를
+ * 잡으면 어느 줄에서도 나란해진다.
+ */
+function CheckCell({
+  checked,
+  disabled,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  disabled: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+}) {
+  return (
+    <span className="flex h-8 items-center justify-center">
+      <input
+        type="checkbox"
+        className="size-4 accent-[var(--primary)]"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+        aria-label={label}
+      />
+    </span>
+  );
+}
 
 function Cell({ children, className, style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
   return (
@@ -107,10 +139,13 @@ export function ReballRequestTable({
   description: string;
   cost: CostRow;
   disabled: boolean;
-  /** 줄 하나를 등록한다(계산된 금액까지 함께) — 성공 여부를 돌려준다. */
-  onSubmitRow: (row: ReballRow & { per_cost: number; total_cost: number }) => Promise<boolean>;
+  /** 줄 하나를 등록한다(표 전체에 적용되는 값과 계산된 금액까지 함께) — 성공 여부를 돌려준다. */
+  onSubmitRow: (row: ReballRow & { export_no: string; date: string; per_cost: number; total_cost: number }) => Promise<boolean>;
 }) {
   const [rows, setRows] = useState<ReballRow[]>([emptyRow()]);
+  /** 의뢰서 한 장에 하나씩인 값 — 모든 줄에 같이 붙는다. */
+  const [exportNo, setExportNo] = useState('');
+  const [date, setDate] = useState('');
   const [sending, setSending] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -130,7 +165,7 @@ export function ReballRequestTable({
 
   const addRow = () =>
     setRows((prev) => {
-      // 새 줄은 **마지막 줄을 본떠** 만든다 — 반출 번호·담당자·일정은 대개 그대로다.
+      // 새 줄은 **마지막 줄을 본떠** 만든다 — 담당자·PJT·고른 작업은 대개 그대로다.
       const last = prev[prev.length - 1];
       return [...prev, last ? { ...last, far_no: '' } : emptyRow()];
     });
@@ -138,10 +173,8 @@ export function ReballRequestTable({
   const cells = (p: (typeof priced)[number]): string[] => [
     p.row.far_no,
     p.row.urgent ? 'Y' : 'N',
-    p.row.export_no,
     p.row.pjt,
     p.row.name,
-    p.row.date,
     p.row.over_200ball ? `${BALL_THRESHOLD} 이상` : `${BALL_THRESHOLD} 미만`,
     ...CHECK_COLUMNS.map((c) => (p.row[c.key] ? 'Y' : 'N')),
     String(p.row.count),
@@ -167,8 +200,18 @@ export function ReballRequestTable({
       )
       .join('');
     const foot = `<tr><td colspan="${HEADERS.length - 1}" style="border:1px solid #d4d4d8;padding:4px 8px;text-align:right;font-size:12px;font-weight:bold">총금액</td><td style="border:1px solid #d4d4d8;padding:4px 8px;font-size:12px;font-weight:bold">${won(grandTotal)}</td></tr>`;
-    const html = `<table style="border-collapse:collapse;font-family:sans-serif"><thead><tr>${head}</tr></thead><tbody>${body}${foot}</tbody></table>`;
-    const text = [HEADERS.join('\t'), ...priced.map((p) => cells(p).join('\t')), `총금액\t${won(grandTotal)}`].join('\n');
+    // 표 전체에 걸리는 값은 칸으로 되풀이하지 않고 표 위에 한 줄로 적는다 — 받는 쪽이
+    // 무엇에 대한 표인지 알아야 하므로 복사본에는 반드시 실어 보낸다.
+    const caption = [exportNo && `반출 번호 ${exportNo}`, date && `날짜 ${date}`].filter(Boolean).join(' · ');
+    const html =
+      (caption ? `<p style="font-family:sans-serif;font-size:12px;margin:0 0 6px">${caption}</p>` : '') +
+      `<table style="border-collapse:collapse;font-family:sans-serif"><thead><tr>${head}</tr></thead><tbody>${body}${foot}</tbody></table>`;
+    const text = [
+      ...(caption ? [caption] : []),
+      HEADERS.join('\t'),
+      ...priced.map((p) => cells(p).join('\t')),
+      `총금액\t${won(grandTotal)}`,
+    ].join('\n');
 
     try {
       if (typeof ClipboardItem === 'function' && navigator.clipboard?.write) {
@@ -201,7 +244,7 @@ export function ReballRequestTable({
     for (const p of ready) {
       // 금액은 화면에 보이는 그 값을 그대로 보낸다 — 서버가 다시 계산하지 않으므로
       // 사람이 확인하고 등록한 숫자와 남는 숫자가 언제나 같다.
-      const ok = await onSubmitRow({ ...p.row, per_cost: p.per, total_cost: p.total });
+      const ok = await onSubmitRow({ ...p.row, export_no: exportNo, date, per_cost: p.per, total_cost: p.total });
       if (!ok) break;
       done += 1;
     }
@@ -219,16 +262,36 @@ export function ReballRequestTable({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
-      {(title || description) && (
-        <div className="shrink-0">
+      {/*
+        제목 왼쪽 · 의뢰서 전체에 걸리는 값 오른쪽. 반출 번호와 날짜는 의뢰서 한 장에 하나씩이라
+        줄마다 되풀이할 이유가 없다 — 여기서 한 번 정하면 등록되는 모든 줄에 함께 붙는다.
+      */}
+      <div className="flex shrink-0 flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
           {title && <h3 className="chart-title">{title}</h3>}
           {description && <p className="text-xs text-muted-foreground">{description}</p>}
         </div>
-      )}
+        <div className="flex shrink-0 flex-wrap items-end gap-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium text-muted-foreground">반출 번호</span>
+            <input
+              className={cn(inputClass, 'w-40')}
+              value={exportNo}
+              disabled={disabled}
+              onChange={(e) => setExportNo(e.target.value)}
+              placeholder="EX-00000"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] font-medium text-muted-foreground">날짜</span>
+            <input type="date" className={cn(inputClass, 'w-40')} value={date} disabled={disabled} onChange={(e) => setDate(e.target.value)} />
+          </label>
+        </div>
+      </div>
 
       {/* 칸이 열 몇 개라 좁은 화면에서는 표만 가로로 움직인다 — 화면 전체가 밀리지 않는다. */}
       <div className="min-h-0 flex-1 overflow-auto rounded-md border">
-        <table className="w-full min-w-[1320px] border-collapse text-sm">
+        <table className="w-full min-w-[1060px] border-collapse text-sm">
           <thead className="sticky top-0 z-10 bg-muted">
             <tr>
               {HEADERS.map((h, i) => {
@@ -242,7 +305,7 @@ export function ReballRequestTable({
                     className={cn(
                       'border-b px-2 py-1.5 text-left text-[11px] font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase',
                       stick && 'sticky z-[2] bg-muted text-right',
-                      fromEnd === 2 && 'border-l'
+                      fromEnd === 2 && cn('border-l', STICKY_EDGE)
                     )}
                     style={stick ?? undefined}
                   >
@@ -256,7 +319,7 @@ export function ReballRequestTable({
           <tbody>
             {priced.map((p, i) => (
               <tr key={i} className="hover:bg-muted/30">
-                <Cell className="min-w-36">
+                <Cell className="min-w-32">
                   <input
                     className={inputClass}
                     placeholder="FAR-26-0001"
@@ -265,47 +328,30 @@ export function ReballRequestTable({
                     onChange={(e) => patch(i, { far_no: e.target.value })}
                   />
                 </Cell>
-                <Cell className="text-center">
-                  <input
-                    type="checkbox"
-                    className="size-4 accent-[var(--primary)]"
-                    checked={p.row.urgent}
-                    disabled={disabled}
-                    onChange={(e) => patch(i, { urgent: e.target.checked })}
-                    aria-label={`${i + 1}행 긴급`}
-                  />
+                <Cell>
+                  <CheckCell checked={p.row.urgent} disabled={disabled} onChange={(v) => patch(i, { urgent: v })} label={`${i + 1}행 긴급`} />
                 </Cell>
                 <Cell className="min-w-28">
-                  <input className={inputClass} value={p.row.export_no} disabled={disabled} onChange={(e) => patch(i, { export_no: e.target.value })} />
-                </Cell>
-                <Cell className="min-w-32">
                   <input className={inputClass} value={p.row.pjt} disabled={disabled} onChange={(e) => patch(i, { pjt: e.target.value })} />
                 </Cell>
                 <Cell className="min-w-24">
                   <input className={inputClass} value={p.row.name} disabled={disabled} onChange={(e) => patch(i, { name: e.target.value })} />
                 </Cell>
-                <Cell className="min-w-36">
-                  <input type="date" className={inputClass} value={p.row.date} disabled={disabled} onChange={(e) => patch(i, { date: e.target.value })} />
-                </Cell>
-                <Cell className="text-center">
-                  <input
-                    type="checkbox"
-                    className="size-4 accent-[var(--primary)]"
+                <Cell>
+                  <CheckCell
                     checked={p.row.over_200ball}
                     disabled={disabled}
-                    onChange={(e) => patch(i, { over_200ball: e.target.checked })}
-                    aria-label={`${i + 1}행 ${BALL_THRESHOLD}ball 이상`}
+                    onChange={(v) => patch(i, { over_200ball: v })}
+                    label={`${i + 1}행 ${BALL_THRESHOLD}ball 이상`}
                   />
                 </Cell>
                 {CHECK_COLUMNS.map((c) => (
-                  <Cell key={c.key} className="text-center">
-                    <input
-                      type="checkbox"
-                      className="size-4 accent-[var(--primary)]"
+                  <Cell key={c.key}>
+                    <CheckCell
                       checked={p.row[c.key]}
                       disabled={disabled}
-                      onChange={(e) => patch(i, { [c.key]: e.target.checked } as Partial<ReballRow>)}
-                      aria-label={`${i + 1}행 ${c.label}`}
+                      onChange={(v) => patch(i, { [c.key]: v } as Partial<ReballRow>)}
+                      label={`${i + 1}행 ${c.label}`}
                     />
                   </Cell>
                 ))}
@@ -322,7 +368,7 @@ export function ReballRequestTable({
                 </Cell>
                 {/* 아래 둘은 나오는 값이다 — 적는 곳이 아니라는 것이 눈에 보이게 입력 상자를 두지 않는다. */}
                 <Cell
-                  className={cn(stickyCell, 'border-l text-right text-xs whitespace-nowrap tabular-nums text-muted-foreground')}
+                  className={cn(stickyCell, STICKY_EDGE, 'border-l text-right text-xs whitespace-nowrap tabular-nums text-muted-foreground')}
                   style={{ right: STICKY.del + STICKY.total, width: STICKY.per, minWidth: STICKY.per }}
                 >
                   {won(p.per)}
@@ -336,7 +382,7 @@ export function ReballRequestTable({
                 <Cell className={cn(stickyCell, 'text-center')} style={{ right: 0, width: STICKY.del, minWidth: STICKY.del }}>
                   <button
                     type="button"
-                    className="rounded p-1 text-muted-foreground hover:text-destructive disabled:opacity-40"
+                    className="flex h-8 w-full items-center justify-center rounded text-muted-foreground hover:text-destructive disabled:opacity-40"
                     disabled={disabled || rows.length === 1}
                     onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}
                     aria-label={`${i + 1}행 지우기`}
