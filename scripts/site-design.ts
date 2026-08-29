@@ -533,6 +533,41 @@ function faAssign(): SitePage {
         },
         children: [textInput('assign-name', '분석 담당자', 'text', '예: 홍길동'), submitButton('담당자 저장', 'fa-assign')],
       },
+
+      /**
+       * 담당자별 월 집계(사용자 지정).
+       *
+       * 세로가 월, 가로가 담당자다. **FAR 단위로 센다** — 원장은 행 하나가 sample 하나라 그냥
+       * 세면 sample 셋짜리 FAR이 세 건으로 부풀어 "맡은 FA 건수"가 아니게 된다(countDistinct).
+       *
+       * 위의 기간 필터가 이 표만 좁힌다 — 이 화면의 다른 바인딩은 from/to를 읽지 않는다.
+       */
+      { type: 'date-range-filter', col: 1, span: 12, row: 45, rowSpan: 3, props: { title: '집계 기간', defaultPreset: '12m', showPresets: true, showCustom: true } },
+      {
+        type: 'crosstab-table',
+        col: 1,
+        span: 12,
+        row: 48,
+        rowSpan: 20,
+        props: {
+          title: '담당자별 월 담당 건수',
+          description: '접수일 기준 · FAR 단위로 셉니다(같은 FAR의 sample 여러 개는 한 건).',
+          rowLabel: '월',
+          maxColumns: 8,
+        },
+        bind: {
+          mode: 'group',
+          table: 'far_table',
+          groupField: 'rcv_date',
+          groupTransform: 'month',
+          seriesField: 'name',
+          fn: 'countDistinct',
+          valueField: 'far_no',
+          filters: period('rcv_date'),
+          orderBy: 'label',
+          limit: 24,
+        },
+      },
     ],
   };
 }

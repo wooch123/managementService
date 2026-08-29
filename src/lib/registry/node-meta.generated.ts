@@ -551,6 +551,24 @@ export const nodeMeta: Record<string, NodeMeta> = {
     ],
     "events": []
   },
+  "crosstab-table": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 20
+    },
+    "defaultProps": {
+      "title": "",
+      "description": "",
+      "rowLabel": "구분",
+      "maxColumns": 8
+    },
+    "bindingModes": [
+      "group"
+    ],
+    "events": []
+  },
   "carousel": {
     "isContainer": false,
     "allowedChildren": null,

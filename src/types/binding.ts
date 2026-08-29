@@ -109,8 +109,14 @@ export const bindingSpecSchema = z.discriminatedUnion('mode', [
      * 비워 두면 지금까지처럼 축 하나짜리 결과가 나온다.
      */
     seriesFieldId: z.string().optional(),
-    fn: z.enum(['count', 'sum', 'avg']).default('count'),
-    /** sum/avg 대상 숫자 필드 (count면 필요 없음) */
+    /**
+     * `countDistinct`는 **값이 겹치는 줄을 하나로 세는** 개수다(valueFieldId가 셀 칸).
+     *
+     * WHY: 원장은 행 하나가 sample 하나라, 그냥 세면 sample 수가 나온다. "담당자가 맡은 FA 건수"
+     * 처럼 **업무 단위**로 세야 하는 자리에서는 같은 FAR의 sample 셋이 세 건으로 부풀면 안 된다.
+     */
+    fn: z.enum(['count', 'countDistinct', 'sum', 'avg']).default('count'),
+    /** sum/avg의 대상 숫자 필드, countDistinct의 대상 칸 (count면 필요 없음) */
     valueFieldId: z.string().optional(),
     filters: z.array(filterSchema).default([]),
     /** 값 큰 순서 또는 분류 이름 순서 */

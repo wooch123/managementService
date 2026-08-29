@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/table';
 import { DataTable as DataTableUi } from '@/components/ui/data-table';
 import { SelectableTable } from '@/components/runtime/SelectableTable';
+import { CrosstabTable, CrosstabTablePreview } from '@/components/runtime/CrosstabTable';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import {
   Carousel,
@@ -641,6 +642,46 @@ export const dataDisplayComponents = [
       );
     },
   }),
+  /**
+   * 교차 집계 표 — 같은 (분류 × 계열) 결과를 색이 아니라 **숫자로** 읽는 자리.
+   *
+   * 히트맵은 어디에 몰렸는지를 보고, 이 표는 몇 건인지를 센다. 세로 합계와 맨 아래 누적 줄이
+   * 함께 나오므로 표를 눈으로 더할 필요가 없다.
+   */
+  defineComponent({
+    key: 'crosstab-table',
+    label: '교차 집계 표',
+    group: '데이터 표시',
+    icon: 'table-2',
+    description: '세로 분류 × 가로 분류의 건수를 표로 — 줄 합계와 맨 아래 누적까지',
+    isContainer: false,
+    growsWithContent: true,
+    bindingModes: ['group'],
+    events: [],
+    propsSchema: z.object({
+      title: z.string().default(''),
+      description: z.string().default(''),
+      /** 왼쪽 위 모서리에 적을 세로축 이름 — 무엇으로 나눈 줄인지 밝힌다. */
+      rowLabel: z.string().default('구분'),
+      /** 가로로 늘어놓을 계열 수 상한 — 넘치면 '기타'로 합친다. */
+      maxColumns: z.number().int().min(2).max(8).default(8),
+    }),
+    defaultProps: { title: '', description: '', rowLabel: '구분', maxColumns: 8 },
+    defaultGrid: { span: 12, rowSpan: 20 },
+    render: ({ props, data }) =>
+      data === undefined ? (
+        <CrosstabTablePreview title={props.title} />
+      ) : (
+        <CrosstabTable
+          title={props.title}
+          description={props.description}
+          rowLabel={props.rowLabel}
+          data={data}
+          maxColumns={props.maxColumns}
+        />
+      ),
+  }),
+
   defineComponent({
     key: 'carousel',
     label: '캐러셀',

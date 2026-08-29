@@ -512,6 +512,7 @@ function AggregateBindingForm({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="count">개수</SelectItem>
+                <SelectItem value="countDistinct">개수(중복 제외)</SelectItem>
                 <SelectItem value="sum">합계</SelectItem>
                 <SelectItem value="avg">평균</SelectItem>
                 <SelectItem value="min">최소</SelectItem>

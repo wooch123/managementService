@@ -46,7 +46,7 @@ export type BindPlan =
       groupTransform?: 'none' | 'month' | 'week' | 'year';
       /** 두 번째 분류 축 — 누적 막대의 층, 교차 히트맵의 열. */
       seriesField?: string;
-      fn?: 'count' | 'sum' | 'avg';
+      fn?: 'count' | 'countDistinct' | 'sum' | 'avg';
       valueField?: string;
       filters?: FilterPlan[];
       orderBy?: 'value' | 'label';

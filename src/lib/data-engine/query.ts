@@ -230,7 +230,11 @@ export async function runGroupQuery(
   if (binding.fn !== 'count') {
     if (!binding.valueFieldId) throw new Error(`${binding.fn} 집계는 값 필드가 필요합니다`);
     const valueField = resolveField(entity, binding.valueFieldId);
-    valueExpr = `${binding.fn.toUpperCase()}(${quoteIdent(valueField.columnName)})`;
+    // 함수 이름은 열거형이라 고정 문자열이고, 컬럼은 quoteIdent를 거친다 — 사용자 입력이 닿지 않는다.
+    valueExpr =
+      binding.fn === 'countDistinct'
+        ? `COUNT(DISTINCT ${quoteIdent(valueField.columnName)})`
+        : `${binding.fn.toUpperCase()}(${quoteIdent(valueField.columnName)})`;
   }
   // 정렬 기준은 열거형이라 값이 고정돼 있다(사용자 입력이 SQL에 직접 들어가지 않는다).
   const orderSql = binding.orderBy === 'label' ? `ORDER BY "label" ASC` : 'ORDER BY "value" DESC';

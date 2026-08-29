@@ -234,3 +234,39 @@ describe('두 축 집계(분류 × 계열)', () => {
     expect(r.columns.map((c) => c.columnName)).toEqual(['label', 'value']);
   });
 });
+
+/**
+ * 중복을 뺀 개수.
+ *
+ * 원장은 행 하나가 sample 하나라 그냥 세면 sample 수가 나온다. "담당자가 맡은 FA 건수"처럼
+ * 업무 단위로 세야 하는 자리에서 같은 FAR의 sample 셋이 세 건으로 부풀면 안 된다.
+ */
+describe('중복 제외 개수(countDistinct)', () => {
+  it('같은 값을 가진 줄을 하나로 센다', async () => {
+    // claims 1,000행에는 상태가 두 가지뿐이다 — 분류마다 2가 나와야 한다.
+    const r = await runGroupQuery(
+      { ...base, fn: 'countDistinct' as const, valueFieldId: 'f-status' },
+      ENTITY as never
+    );
+    // 값이 모두 같으면 정렬(값 큰 순)이 순서를 정해 주지 못한다 — 순서와 무관하게 본다.
+    expect(Object.fromEntries(r.rows.map((x) => [String(x.label), x.value]))).toEqual({
+      'UFS 4.0': 2,
+      'UFS 3.1': 2,
+      'eMMC 5.1': 2,
+    });
+  });
+
+  it('두 축을 함께 써도 중복을 뺀다', async () => {
+    const r = await runGroupQuery(
+      { ...base, seriesFieldId: 'f-status', fn: 'countDistinct' as const, valueFieldId: 'f-status' },
+      ENTITY as never
+    );
+    // (분류 × 상태) 칸마다 그 상태 하나뿐이라 전부 1이다.
+    expect(new Set(r.rows.map((x) => x.value))).toEqual(new Set([1]));
+    expect(r.rows).toHaveLength(6);
+  });
+
+  it('셀 칸을 주지 않으면 거부한다 — 무엇을 셀지 알 수 없다', async () => {
+    await expect(runGroupQuery({ ...base, fn: 'countDistinct' as const }, ENTITY as never)).rejects.toThrow();
+  });
+});
