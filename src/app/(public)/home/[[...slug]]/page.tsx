@@ -16,6 +16,9 @@ import type { ComponentNodeSpec, PublishedSpec } from '@/types/spec';
 /** 기간 필터 컴포넌트의 카탈로그 키 — 런타임이 이 타입을 보고 페이지의 조회 기간을 정한다. */
 const PERIOD_FILTER_TYPE = 'date-range-filter';
 
+/** 마감이 며칠 앞이면 '임박'으로 볼지 — 설계가 아니라 업무 규칙이라 여기 한 곳에 둔다. */
+const TAT_SOON_DAYS = 7;
+
 function NoticeScreen({ icon, title, description, actionHref, actionLabel }: { icon: React.ReactNode; title: string; description: string; actionHref: string; actionLabel: string }) {
   return (
     <>
@@ -132,6 +135,9 @@ export default async function HomePage({
     ...queryParams,
     ...(period ? periodQueryValues(period) : {}),
     today: toIsoDate(new Date()),
+    // "마감이 다가온 건"을 설계에서 표현하려면 오늘 말고 기준선이 하나 더 필요하다.
+    // 며칠을 임박으로 볼지는 업무 규칙이라 설계가 아니라 여기 한 곳에 둔다.
+    soon: toIsoDate(new Date(Date.now() + TAT_SOON_DAYS * 86_400_000)),
   };
 
   // §12.2 "바인딩 데이터는 서버에서 미리 조회해 초기 렌더에 포함" — 노드별로 병렬 조회한다.

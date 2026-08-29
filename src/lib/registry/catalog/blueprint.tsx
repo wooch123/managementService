@@ -72,6 +72,17 @@ export const blueprintComponents = [
       secondaryLabel: z.string().default(''),
       /** 보조 수치가 큰 것이 좋은 일인지. 지연·위험은 false(많을수록 나쁨). */
       secondaryHigherIsBetter: z.boolean().default(false),
+      /**
+       * 큰 숫자를 **보조 수치에 대한 비율(%)** 로 보여 준다 — 'TAT 준수율'처럼 두 건수의 비가
+       * 곧 지표인 경우. 집계는 개수 하나만 돌려주므로 분자를 기본 조건으로, 분모를 보조 조건으로
+       * 세어 여기서 나눈다. 보조 줄에는 그 두 건수를 적어 근거를 남긴다.
+       *
+       * 'complement'는 100%에서 뺀 값이다. 조건이 AND로만 이어지는 탓에 **재고 싶은 쪽을 직접
+       * 셀 수 없고 그 반대쪽만 셀 수 있는** 경우가 있다 — 예: '기한 내 처리'는 (마감 전 OR
+       * 분석 완료)라 한 번에 못 세지만, 그 반대인 '마감을 넘겼는데 아직 분석값이 없는 건'은
+       * AND 하나로 정확히 세어진다. 그것을 세고 100에서 뺀다.
+       */
+      percentMode: z.enum(['off', 'share', 'complement']).default('off'),
       /** 목표값(비우면 표시하지 않는다) — 예: 평균 TAT 목표 18일 */
       target: z.number().nullable().default(null),
       targetLabel: z.string().default('목표'),
@@ -90,6 +101,7 @@ export const blueprintComponents = [
       unit: '건',
       secondaryLabel: '',
       secondaryHigherIsBetter: false,
+      percentMode: 'off',
       target: null,
       targetLabel: '목표',
       lowerIsBetter: false,
@@ -113,6 +125,17 @@ export const blueprintComponents = [
       const gap = props.target !== null ? kpi.value - props.target : null;
       const gapIsGood = gap === null ? null : props.lowerIsBetter ? gap <= 0 : gap >= 0;
       const secondaryIsGood = kpi.secondary === null ? null : props.secondaryHigherIsBetter ? kpi.secondary > 0 : kpi.secondary === 0;
+      /**
+       * 비율 지표 — 큰 숫자를 "기본 조건 ÷ 보조 조건"의 백분율로 바꾼다.
+       * 이때 증감 배지는 띄우지 않는다: 비교값은 분자만의 지난 건수라 비율의 증감이 아니다.
+       */
+      const share =
+        props.percentMode !== 'off' && kpi.secondary !== null && kpi.secondary !== 0
+          ? (kpi.value / kpi.secondary) * 100
+          : null;
+      const ratio = share === null ? null : props.percentMode === 'complement' ? 100 - share : share;
+      /** 보조 줄에 적을 건수 — complement면 '나머지'가 곧 우리가 말하는 그 수다. */
+      const ratioCount = ratio === null ? 0 : props.percentMode === 'complement' ? (kpi.secondary ?? 0) - kpi.value : kpi.value;
 
       const body = (
         <div className="flex h-full flex-col justify-center gap-1.5">
@@ -124,10 +147,14 @@ export const blueprintComponents = [
           )}
           <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <span className="text-3xl font-semibold text-foreground tabular-nums">
-              {formatNumber(kpi.value)}
-              {props.unit && <span className="ml-1 text-base font-normal text-muted-foreground">{props.unit}</span>}
+              {ratio !== null ? ratio.toFixed(1) : formatNumber(kpi.value)}
+              {ratio !== null ? (
+                <span className="ml-1 text-base font-normal text-muted-foreground">%</span>
+              ) : (
+                props.unit && <span className="ml-1 text-base font-normal text-muted-foreground">{props.unit}</span>
+              )}
             </span>
-            {delta !== null && (
+            {ratio === null && delta !== null && (
               <span
                 className={cn(
                   'inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-xs font-medium tabular-nums',
@@ -147,10 +174,18 @@ export const blueprintComponents = [
           {(kpi.secondary !== null || gap !== null) && (
             <p className="text-xs">
               {kpi.secondary !== null && (
-                <span className={secondaryIsGood ? 'text-muted-foreground' : 'text-rose-600 dark:text-rose-400'}>
-                  {props.secondaryLabel} {formatNumber(kpi.secondary)}
-                  {props.unit}
-                </span>
+                ratio !== null ? (
+                  // 비율의 근거 — 무엇을 무엇으로 나눴는지 숫자로 남긴다.
+                  <span className="text-muted-foreground tabular-nums">
+                    {props.secondaryLabel} {formatNumber(ratioCount)} / {formatNumber(kpi.secondary)}
+                    {props.unit}
+                  </span>
+                ) : (
+                  <span className={secondaryIsGood ? 'text-muted-foreground' : 'text-rose-600 dark:text-rose-400'}>
+                    {props.secondaryLabel} {formatNumber(kpi.secondary)}
+                    {props.unit}
+                  </span>
+                )
               )}
               {kpi.secondary !== null && gap !== null && <span className="text-muted-foreground"> · </span>}
               {gap !== null && (

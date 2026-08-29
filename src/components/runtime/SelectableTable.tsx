@@ -26,6 +26,9 @@ export function SelectableTable<TData extends Record<string, unknown>>({
   data,
   emptyText,
   showSearch,
+  showExport,
+  showCopy,
+  exportName,
   param,
   column,
   slug,
@@ -34,6 +37,9 @@ export function SelectableTable<TData extends Record<string, unknown>>({
   data: TData[];
   emptyText: string;
   showSearch: boolean;
+  showExport?: boolean;
+  showCopy?: boolean;
+  exportName?: string;
   /** 선택값을 담을 주소 파라미터 이름(예: 'sel') */
   param: string;
   /** 선택값으로 쓸 컬럼명(예: 'far_no') — 표시용 이름이 아니라 실제 DB 컬럼명이다. */
@@ -74,6 +80,9 @@ export function SelectableTable<TData extends Record<string, unknown>>({
       data={data}
       emptyText={emptyText}
       showSearch={showSearch}
+      showExport={showExport}
+      showCopy={showCopy}
+      exportName={exportName}
       onRowClick={select}
       isRowSelected={(row) => current !== '' && String(row[column] ?? '') === current}
     />

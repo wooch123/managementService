@@ -60,3 +60,88 @@ export function toLabelValueSeries(data: unknown): { label: string; value: numbe
     value: Number(row[valueCol.columnName] ?? 0),
   }));
 }
+
+export type MatrixCell = { label: string; series: string; value: number };
+export type MatrixSeries = {
+  /** 분류 축(가로) — 결과에 나온 순서 그대로. */
+  labels: string[];
+  /** 계열 축(층·열) — 합이 큰 순서. */
+  seriesKeys: string[];
+  /** `values[label][series]` — 없는 칸은 0. */
+  values: Map<string, Map<string, number>>;
+  /** 분류별 합 — 누적 막대의 총합, 히트맵의 행 합계. */
+  totals: Map<string, number>;
+  max: number;
+};
+
+/**
+ * 축이 둘인 집계 결과(`{ label, series, value }`) → 격자.
+ *
+ * 두 번째 축이 없는 결과를 넘기면 계열이 하나("전체")인 격자가 나온다 — 부르는 쪽이
+ * 바인딩 모양에 따라 갈라지지 않게 하려는 것이다.
+ */
+export function toMatrixSeries(data: unknown, seriesLimit = 8): MatrixSeries {
+  const empty: MatrixSeries = { labels: [], seriesKeys: [], values: new Map(), totals: new Map(), max: 0 };
+  const result = asSeriesResult(data);
+  if (!result) return empty;
+
+  const selected = selectedColumns(result.columns);
+  const textCols = selected.filter((c) => !isNumericColumn(c));
+  const valueCol = selected.find((c) => isNumericColumn(c));
+  const labelCol = textCols[0];
+  if (!labelCol || !valueCol) return empty;
+  const seriesCol = textCols[1];
+
+  const labels: string[] = [];
+  const seriesTotals = new Map<string, number>();
+  const values = new Map<string, Map<string, number>>();
+  const totals = new Map<string, number>();
+
+  for (const row of result.rows) {
+    const label = String(row[labelCol.columnName] ?? '-');
+    const series = seriesCol ? String(row[seriesCol.columnName] ?? '-') : '전체';
+    const value = Number(row[valueCol.columnName] ?? 0);
+    if (!values.has(label)) {
+      values.set(label, new Map());
+      labels.push(label);
+    }
+    const cells = values.get(label)!;
+    cells.set(series, (cells.get(series) ?? 0) + value);
+    totals.set(label, (totals.get(label) ?? 0) + value);
+    seriesTotals.set(series, (seriesTotals.get(series) ?? 0) + value);
+  }
+
+  /**
+   * 계열이 많으면 뒤쪽을 '기타'로 합친다. 층이 스물이면 색으로 구별되지도 않고 범례가
+   * 그래프보다 커진다 — 큰 쪽 몇 개와 나머지 합이 읽기에 낫다.
+   */
+  const ranked = [...seriesTotals].sort((a, b) => b[1] - a[1]).map(([k]) => k);
+  const kept = ranked.slice(0, seriesLimit);
+  if (ranked.length > kept.length) {
+    const dropped = new Set(ranked.slice(seriesLimit));
+    for (const cells of values.values()) {
+      let rest = 0;
+      for (const key of dropped) {
+        rest += cells.get(key) ?? 0;
+        cells.delete(key);
+      }
+      if (rest > 0) cells.set('기타', rest);
+    }
+    kept.push('기타');
+  }
+
+  let max = 0;
+  for (const cells of values.values()) for (const v of cells.values()) max = Math.max(max, v);
+
+  return { labels, seriesKeys: kept, values, totals, max };
+}
+
+/** 격자를 recharts가 먹는 평평한 행(`{ label, [계열]: 값 }`)으로. */
+export function toStackedRows(matrix: MatrixSeries): Record<string, string | number>[] {
+  return matrix.labels.map((label) => {
+    const cells = matrix.values.get(label);
+    const row: Record<string, string | number> = { label };
+    for (const key of matrix.seriesKeys) row[key] = cells?.get(key) ?? 0;
+    return row;
+  });
+}

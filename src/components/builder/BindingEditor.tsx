@@ -628,6 +628,30 @@ function GroupBindingForm({
             </div>
           )}
           <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted-foreground">두 번째 분류 (층 · 열)</label>
+            <Select
+              value={binding.seriesFieldId || '__none__'}
+              onValueChange={(v) => onChange({ ...binding, seriesFieldId: v === '__none__' ? undefined : v })}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">쓰지 않음</SelectItem>
+                {fields
+                  .filter((f) => f.id !== binding.groupFieldId)
+                  .map((f) => (
+                    <SelectItem key={f.id} value={f.id}>
+                      {f.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              고르면 결과가 (분류 × 이 값) 격자로 나온다 — 누적 세로 막대의 층, 교차 히트맵의 열이 된다.
+            </p>
+          </div>
+          <div className="flex flex-col gap-1.5">
             <label className="text-xs font-medium text-muted-foreground">집계 함수</label>
             <Select value={binding.fn} onValueChange={(v) => onChange({ ...binding, fn: v as typeof binding.fn })}>
               <SelectTrigger className="w-full">

@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { z } from 'zod';
 import {
   Area,
@@ -23,7 +24,14 @@ import {
 } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { categoricalXAxisProps, yAxisLabelProps } from '@/lib/chart-axis';
-import { asSeriesResult, isNumericColumn, selectedColumns, toLabelValueSeries, type SeriesResult } from '@/lib/chart-series';
+import {
+  asSeriesResult,
+  isNumericColumn,
+  selectedColumns,
+  toLabelValueSeries,
+  toMatrixSeries,
+  type SeriesResult,
+} from '@/lib/chart-series';
 import { defineComponent } from '@/lib/registry/types';
 import {
   boxStats,
@@ -333,15 +341,20 @@ const paretoChart = defineComponent({
   icon: 'chart-no-axes-combined',
   description: '내림차순 막대 + 누적 비율(80% 기준선)',
   isContainer: false,
-  bindingModes: ['list'],
+  // 집계(group)도 받는다 — 원시 행을 pageSize만큼만 받아 화면에서 세면 표본만 반영돼 수치가 틀린다.
+  bindingModes: ['list', 'group'],
   events: [],
-  propsSchema: z.object({ title: z.string().default('파레토 분석'), yLabel: z.string().default('') }),
-  defaultProps: { title: '파레토 분석', yLabel: '' },
+  propsSchema: z.object({
+    title: z.string().default('파레토 분석'),
+    subtitle: z.string().default(''),
+    yLabel: z.string().default(''),
+  }),
+  defaultProps: { title: '파레토 분석', subtitle: '', yLabel: '' },
   defaultGrid: { span: 6, rowSpan: 22 },
   render: ({ props, data }) => {
     const rows = paretoSeries(data === undefined ? SAMPLE_SERIES : series(data));
     return (
-      <StatShell title={props.title} isEmpty={rows.length === 0}>
+      <StatShell title={props.title} note={props.subtitle || undefined} isEmpty={rows.length === 0}>
         <ComposedChart data={rows}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="label" {...axisProps} {...catAxis(rows, 'label')} />
@@ -671,6 +684,18 @@ const residualPlot = defineComponent({
 });
 
 // ── 17. 히트맵 ───────────────────────────────────────────────────────────────
+/** 교차 히트맵의 팔레트 미리보기 — 축이 둘인 결과와 같은 봉투. */
+const SAMPLE_MATRIX = {
+  columns: [
+    { columnName: 'label', fieldId: null, dataType: 'TEXT' },
+    { columnName: 'series', fieldId: null, dataType: 'TEXT' },
+    { columnName: 'value', fieldId: null, dataType: 'REAL' },
+  ],
+  rows: ['A', 'B', 'C'].flatMap((label, i) =>
+    ['X', 'Y', 'Z'].map((series, j) => ({ label, series, value: (i + 1) * (j + 2) * 3 }))
+  ),
+};
+
 const heatmapMatrix = defineComponent({
   key: 'stat-heatmap',
   label: '히트맵',
@@ -707,6 +732,109 @@ const heatmapMatrix = defineComponent({
                 <span className="tabular-nums text-background mix-blend-luminosity">{format(r.value)}</span>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+    );
+  },
+});
+
+/**
+ * 교차 히트맵 — 두 분류를 가로·세로로 놓고 칸마다 건수를 색 농도로 보여 준다.
+ *
+ * 위의 히트맵(`stat-heatmap`)은 항목을 한 줄로 늘어놓고 접었을 뿐이라 축이 하나다.
+ * "불량 대분류 × NAND"처럼 **어느 조합에 몰려 있는가**를 보려면 축이 둘이어야 한다.
+ * 값은 DB가 GROUP BY 두 축으로 세어 준 것을 그대로 그린다(화면에서 세지 않는다).
+ */
+const crosstabHeatmap = defineComponent({
+  key: 'stat-crosstab',
+  label: '교차 히트맵',
+  group: '통계 차트',
+  icon: 'grid-2x2',
+  description: '두 분류의 교차표 — 어느 조합에 몰려 있는지 한눈에',
+  isContainer: false,
+  bindingModes: ['group'],
+  events: [],
+  propsSchema: z.object({
+    title: z.string().default('교차 히트맵'),
+    subtitle: z.string().default(''),
+    /** 가로로 늘어놓을 계열 수 상한 — 넘치면 '기타'로 합친다. */
+    maxColumns: z.number().int().min(2).max(8).default(8),
+    showLegend: z.boolean().default(true),
+  }),
+  defaultProps: { title: '교차 히트맵', subtitle: '', maxColumns: 8, showLegend: true },
+  defaultGrid: { span: 6, rowSpan: 20 },
+  render: ({ props, data }) => {
+    const matrix = toMatrixSeries(data === undefined ? SAMPLE_MATRIX : data, props.maxColumns);
+    const empty = matrix.labels.length === 0 || matrix.seriesKeys.length === 0;
+
+    return (
+      <div className="flex h-full min-h-[140px] flex-col gap-1">
+        {props.title ? <h3 className="text-sm font-medium">{props.title}</h3> : null}
+        {props.subtitle ? <p className="text-xs text-muted-foreground">{props.subtitle}</p> : null}
+        {empty ? (
+          <div className="flex flex-1 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground">
+            표시할 데이터가 없습니다
+          </div>
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col gap-1.5 pt-1">
+            {/* 가로 스크롤은 이 안에서만 — 계열이 많아도 화면 전체가 밀리지 않는다. */}
+            <div className="min-h-0 flex-1 overflow-auto">
+              <div
+                className="grid h-full min-w-fit gap-1"
+                style={{ gridTemplateColumns: `minmax(72px, max-content) repeat(${matrix.seriesKeys.length}, minmax(44px, 1fr))` }}
+              >
+                <div />
+                {matrix.seriesKeys.map((key) => (
+                  <div key={key} className="truncate px-1 pb-0.5 text-center text-[10px] font-medium text-muted-foreground" title={key}>
+                    {key}
+                  </div>
+                ))}
+                {matrix.labels.map((label) => (
+                  <Fragment key={label}>
+                    <div className="flex items-center truncate pr-1 text-[11px] text-muted-foreground" title={label}>
+                      {label}
+                    </div>
+                    {matrix.seriesKeys.map((key) => {
+                      const v = matrix.values.get(label)?.get(key) ?? 0;
+                      // 색 농도는 가장 큰 칸을 1로 두고 상대적으로. 0인 칸은 칠하지 않는다.
+                      const strength = matrix.max === 0 ? 0 : v / matrix.max;
+                      return (
+                        <div
+                          key={key}
+                          data-slot="crosstab-cell"
+                          className="flex min-h-7 items-center justify-center rounded-sm text-[11px] tabular-nums"
+                          /*
+                           * 진하기 폭을 0.15~0.55로 **좁게** 잡는다. 색을 끝까지 올리면 밝은 테마에서는
+                           * 짙은 보라 위의 글자가 묻히고, 어두운 테마에서는 반대쪽 끝이 묻힌다 — 두 테마가
+                           * 서로 반대 방향으로 당기므로 어느 쪽에서도 글자색(--foreground)이 살아남는
+                           * 폭만 쓴다. 농도 차이는 이 범위로도 충분히 읽힌다.
+                           */
+                          style={{
+                            backgroundColor: v === 0 ? 'var(--muted)' : 'var(--chart-1)',
+                            opacity: v === 0 ? 0.4 : 0.15 + strength * 0.4,
+                          }}
+                          title={`${label} · ${key}: ${format(v)}`}
+                        >
+                          <span className={v === 0 ? 'text-muted-foreground' : 'font-medium text-foreground'}>
+                            {v === 0 ? '·' : format(v)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </Fragment>
+                ))}
+              </div>
+            </div>
+            {props.showLegend ? (
+              <div className="flex items-center justify-end gap-1.5 text-[10px] text-muted-foreground">
+                <span>낮음</span>
+                {[0.15, 0.25, 0.35, 0.45, 0.55].map((o) => (
+                  <span key={o} className="size-2.5 rounded-[2px]" style={{ backgroundColor: 'var(--chart-1)', opacity: o }} />
+                ))}
+                <span>높음</span>
+              </div>
+            ) : null}
           </div>
         )}
       </div>
@@ -827,6 +955,7 @@ export const statisticsComponents = [
   qqPlot,
   residualPlot,
   heatmapMatrix,
+  crosstabHeatmap,
   radarChart,
   waterfallChart,
   funnelChart,

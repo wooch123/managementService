@@ -44,6 +44,8 @@ export type BindPlan =
       table: string;
       groupField: string;
       groupTransform?: 'none' | 'month' | 'week' | 'year';
+      /** 두 번째 분류 축 — 누적 막대의 층, 교차 히트맵의 열. */
+      seriesField?: string;
       fn?: 'count' | 'sum' | 'avg';
       valueField?: string;
       filters?: FilterPlan[];
@@ -210,6 +212,7 @@ export function toBindingJson(schema: Map<string, EntityInfo>, bind: BindPlan): 
     entityId: entityOf(schema, bind.table).id,
     groupFieldId: fieldOf(schema, bind.table, bind.groupField).id,
     groupTransform: bind.groupTransform ?? 'none',
+    ...(bind.seriesField ? { seriesFieldId: fieldOf(schema, bind.table, bind.seriesField).id } : {}),
     fn: bind.fn ?? 'count',
     ...(bind.valueField ? { valueFieldId: fieldOf(schema, bind.table, bind.valueField).id } : {}),
     filters: toFilters(schema, bind.table, bind.filters),

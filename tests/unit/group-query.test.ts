@@ -199,3 +199,38 @@ describe('항목별 집계 — 날짜 묶음', () => {
     expect(r.rows.map((x) => x.label)).toEqual(['2026-07', '2026-08']);
   });
 });
+
+/**
+ * 두 번째 분류 축 — 누적 막대의 층, 교차 히트맵의 열.
+ *
+ * 상한(limit)을 격자 행 수가 아니라 **분류 축의 개수**에 걸어야 한다는 것이 여기의 핵심이다.
+ * 행 수에 걸면 계열이 많을 때 분류가 몇 개 못 들어와, 열 칸짜리 막대 그래프에 고객사가 셋만
+ * 그려지는 식이 된다.
+ */
+describe('두 축 집계(분류 × 계열)', () => {
+  const twoAxis = { ...base, seriesFieldId: 'f-status' };
+
+  it('분류마다 계열별로 쪼갠 격자를 돌려준다', async () => {
+    const r = await runGroupQuery(twoAxis, ENTITY as never);
+    expect(r.columns.map((c) => c.columnName)).toEqual(['label', 'series', 'value']);
+    // UFS 4.0 500건이 완료/진행 둘로 나뉘고, 합은 그대로 500이어야 한다.
+    const ufs40 = r.rows.filter((x) => x.label === 'UFS 4.0');
+    expect(ufs40.map((x) => x.series).sort()).toEqual(['완료', '진행']);
+    expect(ufs40.reduce((s, x) => s + x.value, 0)).toBe(500);
+    // 전체 합도 원본 행 수와 같다 — 어느 칸도 새거나 겹치지 않는다.
+    expect(r.rows.reduce((s, x) => s + x.value, 0)).toBe(1000);
+  });
+
+  it('상한은 격자 행이 아니라 분류 개수에 걸린다', async () => {
+    const r = await runGroupQuery({ ...twoAxis, limit: 2 }, ENTITY as never);
+    const labels = [...new Set(r.rows.map((x) => x.label))];
+    // 분류 2개(가장 큰 쪽)가 남고, 그 둘이 각각 계열 2개로 쪼개져 행은 4개다.
+    expect(labels).toEqual(['UFS 4.0', 'UFS 3.1']);
+    expect(r.rows).toHaveLength(4);
+  });
+
+  it('두 번째 축이 없으면 지금까지처럼 축 하나짜리 결과를 돌려준다', async () => {
+    const r = await runGroupQuery(base, ENTITY as never);
+    expect(r.columns.map((c) => c.columnName)).toEqual(['label', 'value']);
+  });
+});

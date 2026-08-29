@@ -100,6 +100,15 @@ export const bindingSpecSchema = z.discriminatedUnion('mode', [
      * 묶으면 어떤 기간을 골라도 그 기간의 추이가 그대로 나온다.
      */
     groupTransform: z.enum(['none', 'month', 'week', 'year']).default('none'),
+    /**
+     * 두 번째 분류 축 — 누적 막대의 층, 교차 히트맵의 열이 된다.
+     *
+     * WHY: "고객사별 접수"까지는 축이 하나로 되지만 "고객사별 접수를 불량 대분류로 쌓아 보기",
+     * "불량 대분류 × NAND"는 축이 둘이다. 이걸 화면에서 원시 행을 받아 세는 방식으로 만들면
+     * pageSize만큼의 표본만 반영돼 수치가 틀린다(위 group 모드를 만든 것과 같은 이유).
+     * 비워 두면 지금까지처럼 축 하나짜리 결과가 나온다.
+     */
+    seriesFieldId: z.string().optional(),
     fn: z.enum(['count', 'sum', 'avg']).default('count'),
     /** sum/avg 대상 숫자 필드 (count면 필요 없음) */
     valueFieldId: z.string().optional(),

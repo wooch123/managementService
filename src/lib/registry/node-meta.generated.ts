@@ -493,6 +493,7 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "columns": [],
       "showSearch": true,
       "showExport": false,
+      "showCopy": false,
       "selectable": false,
       "density": "default",
       "emptyText": "데이터가 없습니다",
@@ -526,6 +527,26 @@ export const nodeMeta: Record<string, NodeMeta> = {
     "bindingModes": [
       "list",
       "aggregate",
+      "group"
+    ],
+    "events": []
+  },
+  "chart-stacked": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 22
+    },
+    "defaultProps": {
+      "title": "",
+      "subtitle": "",
+      "unit": "",
+      "yLabel": "",
+      "maxSeries": 6,
+      "showLegend": true
+    },
+    "bindingModes": [
       "group"
     ],
     "events": []
@@ -1214,10 +1235,12 @@ export const nodeMeta: Record<string, NodeMeta> = {
     },
     "defaultProps": {
       "title": "파레토 분석",
+      "subtitle": "",
       "yLabel": ""
     },
     "bindingModes": [
-      "list"
+      "list",
+      "group"
     ],
     "events": []
   },
@@ -1398,6 +1421,24 @@ export const nodeMeta: Record<string, NodeMeta> = {
     },
     "bindingModes": [
       "list"
+    ],
+    "events": []
+  },
+  "stat-crosstab": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 6,
+      "rowSpan": 20
+    },
+    "defaultProps": {
+      "title": "교차 히트맵",
+      "subtitle": "",
+      "maxColumns": 8,
+      "showLegend": true
+    },
+    "bindingModes": [
+      "group"
     ],
     "events": []
   },
@@ -1638,6 +1679,7 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "unit": "건",
       "secondaryLabel": "",
       "secondaryHigherIsBetter": false,
+      "percentMode": "off",
       "target": null,
       "targetLabel": "목표",
       "lowerIsBetter": false,

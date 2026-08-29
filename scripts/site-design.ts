@@ -63,12 +63,12 @@ const submitButton = (label: string, actionKey: string): NodePlan => ({
  * 걷어내면서 **표를 거른 조건 바로 옆**으로 옮겼다(내려받는 대상이 그 표라 오히려 가깝다).
  * 버튼은 내용만큼 늘어나지 않으므로 필터(3줄)보다 한 줄 높게 잡아 눌리지 않게 한다.
  */
-const exportButton = (row: number, col: number, span: number, actionKey: string): NodePlan => ({
+const exportButton = (row: number, col: number, span: number, actionKey: string, rowSpan = 4): NodePlan => ({
   type: 'button',
   col,
   span,
   row,
-  rowSpan: 4,
+  rowSpan,
   props: { label: 'CSV 내보내기', variant: 'outline', size: 'default' },
   on: { onClick: actionKey },
 });
@@ -223,9 +223,26 @@ function hub(slug: string, title: string, icon: string, items: { title: string; 
 
 // ── 화면 ────────────────────────────────────────────────────────────────────
 
-/** ① 종합 현황 — 접수·담당·마감을 한 화면에서 본다. */
+/**
+ * ① 종합 현황 — 「sample page/종합 현황.html」의 배치를 그대로 옮긴 화면.
+ *
+ * 양식의 순서: 작은 카드 셋 → 접수 추이 둘 → 교차 히트맵 둘 → 분류별 누적 막대 둘 →
+ * 파레토 한 줄 → 목록 한 줄. 양식과 다른 곳은 두 군데뿐이고, 이유는 이렇다.
+ *
+ *   · **맨 위 조회 기간 필터** — 양식은 카드마다 'Last 7 months' 상자를 달아 뒀지만, 이 앱의
+ *     차트는 화면 하나가 같은 기간 위에서 조회된다(지표끼리 다른 구간을 보면 안 된다).
+ *     그래서 카드마다 두는 대신 화면 맨 위에 하나 두고 전부가 그것을 따른다.
+ *   · **맨 아래 화면 바로가기** — 양식에는 없다. 홈에서 어느 화면으로도 갈 수 없으면 구성 검증이
+ *     나머지를 '도달할 수 없는 페이지'로 잡는다(W-REL-007). 양식의 내용 뒤에 덧붙여 둔다.
+ */
 function overview(): SitePage {
   const p = period('rcv_date');
+  /** 마감이 코앞인 건 — 오늘부터 임박 기준선(서버가 넣는 `soon`) 사이. */
+  const dueSoon: FilterPlan[] = [
+    { col: 'due_date', op: 'gte', source: 'query', ref: 'today' },
+    { col: 'due_date', op: 'lte', source: 'query', ref: 'soon' },
+  ];
+
   return {
     slug: 'overview',
     title: '종합 현황',
@@ -234,143 +251,193 @@ function overview(): SitePage {
     nodes: [
       { type: 'date-range-filter', col: 1, span: 12, row: 1, rowSpan: 3, props: { title: '조회 기간', defaultPreset: '12m', showPresets: true, showCustom: true } },
 
-      kpi(1, 4, '접수 Sample', 'far_table', 'count', p, {
-        compare: true,
-        link: { slug: 'fa-status', param: 'q', value: '' },
-        secondary: { label: '담당자 미지정', filters: [{ col: 'name', op: 'isNull', source: 'fixed' }, ...p] },
-      }),
-      kpi(4, 4, '담당자 미지정', 'far_table', 'count', [{ col: 'name', op: 'isNull', source: 'fixed' }, ...p], {
-        compare: true,
-        link: { slug: 'fa-assign', param: 'q', value: '' },
-      }),
-      kpi(7, 4, '마감 초과', 'far_table', 'count', [overdue, ...p], {
-        compare: true,
-        link: { slug: 'fa-status', param: 'q', value: '' },
-        secondary: { label: '분석값 미등록', filters: [{ col: 'firmware', op: 'isNull', source: 'fixed' }, ...p] },
-      }),
-      kpi(10, 4, '분석값 등록', 'far_table', 'count', [{ col: 'firmware', op: 'isNotNull', source: 'fixed' }, ...p], {
-        compare: true,
-        link: { slug: 'fa-status', param: 'q', value: '' },
-        secondary: { label: 'Init Fail', filters: [{ col: 'init', op: 'eq', source: 'fixed', value: 0 }, ...p], higherIsBetter: false },
-      }),
-
+      // ── 작은 카드 셋 ────────────────────────────────────────────────────
       {
-        type: 'chart',
-        col: 1,
-        span: 7,
-        row: 11,
-        rowSpan: 14,
-        props: { title: '월별 접수 추이', chartType: 'line', color: 'primary', unit: '건', yLabel: '' },
-        bind: { mode: 'group', table: 'far_table', groupField: 'rcv_date', groupTransform: 'month', fn: 'count', filters: p, orderBy: 'label', limit: 60 },
-      },
-      {
-        type: 'list-panel',
-        col: 8,
-        span: 5,
-        row: 11,
-        rowSpan: 14,
-        props: {
-          title: '마감이 지난 건',
-          subtitle: 'FAR 기준 · 누르면 분석 현황에서 열립니다',
-          emptyText: '마감을 넘긴 건이 없습니다',
-          maxItems: 8,
-          badgeSuffix: '',
-          clickable: true,
-          linkSlug: 'fa-status',
-          linkParam: 'sel',
-        },
-        bind: {
-          mode: 'list',
-          table: 'far_table',
-          /**
-           * 대표 sample(1번)만 본다. 이 표는 행 하나가 sample 하나라, 그대로 두면 같은 FAR이
-           * 서너 줄을 차지해 여덟 칸짜리 패널이 두세 건만 보여 준다. 목록이 데려가는 곳은
-           * FAR 단위 화면이므로 FAR 하나에 한 줄이 맞다.
-           */
-          select: ['far_no', 'cust_name', 'device', 'name', 'due_date'],
-          filters: [overdue, { col: 'sample_no', op: 'eq', source: 'fixed', value: '1' }, ...p],
-          sort: [['due_date', 'asc']],
-          pageSize: 8,
-        },
-      },
-
-      {
-        type: 'chart',
+        type: 'callout',
         col: 1,
         span: 4,
-        row: 25,
-        rowSpan: 13,
-        props: { title: '고객사별 접수', chartType: 'bar-horizontal', color: 'accent', unit: '건', yLabel: '' },
-        bind: { mode: 'group', table: 'far_table', groupField: 'cust_name', fn: 'count', filters: p, orderBy: 'value', limit: 12 },
+        row: 4,
+        rowSpan: 7,
+        props: {
+          text: '상세 분석 인계 현황 — 설계 문서에서 미구현으로 표시된 자리입니다.',
+          tone: 'info',
+        },
       },
       {
-        type: 'chart',
+        type: 'stat-tile',
         col: 5,
         span: 4,
-        row: 25,
-        rowSpan: 13,
-        props: { title: '불량 대분류', chartType: 'bar', color: 'warning', unit: '건', yLabel: '' },
-        bind: { mode: 'group', table: 'far_table', groupField: 'failmode1', fn: 'count', filters: p, orderBy: 'value', limit: 12 },
+        row: 4,
+        rowSpan: 7,
+        props: {
+          title: 'TAT Meet율',
+          unit: '건',
+          secondaryLabel: '기한 내 처리',
+          secondaryHigherIsBetter: true,
+          percentMode: 'complement',
+          target: null,
+          targetLabel: '목표',
+          lowerIsBetter: false,
+          linkSlug: 'fa-status',
+          linkParam: 'q',
+          linkValue: '',
+        },
+        /**
+         * 완료 시각을 적는 칸이 원장에 없어 '지킨 건'을 직접 셀 수 없다. 대신 **놓친 건**은
+         * 정확히 셀 수 있다 — 마감일이 지났는데 아직 분석값이 들어오지 않은 건. 그것을 세고
+         * 전체에서 뺀 비율을 보여 준다(percentMode: complement).
+         *
+         * 아직 마감 전인 건을 '지킨 것'으로 세지 않는 이유: 그 기준으로는 한 해치 이력이 쌓인
+         * 지금 7.6%가 나온다 — 대부분이 마감일을 이미 지난 과거 건이라서다. 그 숫자는 준수율이
+         * 아니라 '최근에 들어온 건의 비중'을 말한다.
+         */
+        bind: {
+          mode: 'aggregate',
+          table: 'far_table',
+          fn: 'count',
+          filters: [overdue, { col: 'firmware', op: 'isNull', source: 'fixed' }, ...p],
+          compare: false,
+          secondaryFilters: p,
+        },
       },
       {
-        type: 'chart',
+        type: 'nav-cards',
         col: 9,
         span: 4,
-        row: 25,
-        rowSpan: 13,
-        props: { title: '응용처별 접수', chartType: 'bar-horizontal', color: 'positive', unit: '건', yLabel: '' },
-        bind: { mode: 'group', table: 'far_table', groupField: 'app', fn: 'count', filters: p, orderBy: 'value', limit: 12 },
+        row: 4,
+        rowSpan: 7,
+        props: {
+          title: 'Claim 할당 현황',
+          subtitle: '',
+          columns: 1,
+          items: [{ title: '현황 보기로 이동', description: '담당자 지정 · 인수인계', slug: 'fa-assign', meta: '' }],
+        },
       },
 
-      search(38, 1, 4, 'FAR 검색', 'FAR No · 고객명 · 제품명 · Part ID', 4),
-      pickFilter(38, 5, 3, '담당자', 'name', '전체 담당자', groupBy('far_table', 'name'), 4),
-      pickFilter(38, 8, 3, '고객사', 'cust', '전체 고객사', groupBy('far_table', 'cust_name'), 4),
-      exportButton(38, 11, 2, 'far-export'),
+      // ── 접수 추이 둘 ────────────────────────────────────────────────────
+      {
+        type: 'chart-stacked',
+        col: 1,
+        span: 6,
+        row: 11,
+        rowSpan: 13,
+        props: { title: '주간 접수', subtitle: '', unit: '건', yLabel: '', maxSeries: 6, showLegend: true },
+        bind: {
+          mode: 'group',
+          table: 'far_table',
+          groupField: 'rcv_date',
+          groupTransform: 'week',
+          seriesField: 'failmode1',
+          fn: 'count',
+          filters: p,
+          orderBy: 'label',
+          limit: 16,
+        },
+      },
+      {
+        type: 'stat-moving-average',
+        col: 7,
+        span: 6,
+        row: 11,
+        rowSpan: 13,
+        props: { title: '월간 접수 변동 (3개월 이동 평균)', window: 3, yLabel: '' },
+        bind: { mode: 'group', table: 'far_table', groupField: 'rcv_date', groupTransform: 'month', fn: 'count', filters: p, orderBy: 'label', limit: 24 },
+      },
+
+      // ── 교차 히트맵 둘 ──────────────────────────────────────────────────
+      {
+        type: 'stat-crosstab',
+        col: 1,
+        span: 6,
+        row: 24,
+        rowSpan: 14,
+        props: { title: 'Fail Mode × NAND', subtitle: '', maxColumns: 8, showLegend: true },
+        bind: { mode: 'group', table: 'far_table', groupField: 'failmode1', seriesField: 'nand', fn: 'count', filters: p, orderBy: 'value', limit: 10 },
+      },
+      {
+        type: 'stat-crosstab',
+        col: 7,
+        span: 6,
+        row: 24,
+        rowSpan: 14,
+        props: { title: 'Fail Mode × CTRL', subtitle: '', maxColumns: 8, showLegend: true },
+        bind: { mode: 'group', table: 'far_table', groupField: 'failmode1', seriesField: 'ctrl', fn: 'count', filters: p, orderBy: 'value', limit: 10 },
+      },
+
+      // ── 분류별 누적 막대 둘 ─────────────────────────────────────────────
+      {
+        type: 'chart-stacked',
+        col: 1,
+        span: 6,
+        row: 38,
+        rowSpan: 15,
+        props: { title: '고객사 별 접수 (Top 10)', subtitle: '', unit: '건', yLabel: '', maxSeries: 6, showLegend: true },
+        bind: { mode: 'group', table: 'far_table', groupField: 'cust_name', seriesField: 'failmode1', fn: 'count', filters: p, orderBy: 'value', limit: 10 },
+      },
+      {
+        type: 'chart-stacked',
+        col: 7,
+        span: 6,
+        row: 38,
+        rowSpan: 15,
+        props: { title: '제품 별 접수', subtitle: '', unit: '건', yLabel: '', maxSeries: 6, showLegend: true },
+        bind: { mode: 'group', table: 'far_table', groupField: 'device', seriesField: 'failmode1', fn: 'count', filters: p, orderBy: 'value', limit: 10 },
+      },
+
+      // ── 파레토 한 줄 ────────────────────────────────────────────────────
+      {
+        type: 'stat-pareto',
+        col: 1,
+        span: 12,
+        row: 53,
+        rowSpan: 14,
+        props: { title: 'TAT 현황', subtitle: '마감을 넘긴 건을 담당자별로 — 점선은 누적 80%', yLabel: '' },
+        bind: { mode: 'group', table: 'far_table', groupField: 'name', fn: 'count', filters: [overdue, ...p], orderBy: 'value', limit: 12 },
+      },
+
+      // ── TAT 임박 목록 ───────────────────────────────────────────────────
       {
         type: 'data-table',
         col: 1,
         span: 12,
-        row: 42,
-        rowSpan: 24,
+        row: 67,
+        rowSpan: 21,
         props: {
-          title: '최근 접수 — 행을 누르면 분석 현황에서 열립니다',
-          showSearch: false,
-          showExport: false,
+          title: 'TAT 임박 List',
+          showSearch: true,
+          showExport: true,
+          showCopy: true,
           selectable: false,
           density: 'default',
-          emptyText: '조건에 맞는 접수 건이 없습니다',
+          emptyText: '일주일 안에 마감인 건이 없습니다',
           selectParam: 'sel',
           selectFieldId: 'far_no',
           selectSlug: 'fa-status',
         },
-        headers: ['FAR No', 'Sample', '접수일', '마감일', '고객명', '제품명', '불량 대분류', '담당자'],
+        /**
+         * 양식의 마지막 칸은 'TAT 현황'이지만 원장에 그런 상태 컬럼이 없다. 지어내는 대신
+         * 근거가 되는 **마감일**을 그 자리에 둔다 — 이 목록은 이미 '일주일 안 마감'으로
+         * 걸러져 있어 행마다 상태를 따로 적을 필요가 크지 않다.
+         */
+        headers: ['FAR No', 'Sample No', 'W/C', 'Part ID', '담당자', '접수일', '마감일'],
         bind: {
           mode: 'list',
           table: 'far_table',
-          select: ['far_no', 'sample_no', 'rcv_date', 'due_date', 'cust_name', 'device', 'failmode1', 'name'],
+          select: ['far_no', 'sample_no', 'comp_wc', 'part_id', 'name', 'rcv_date', 'due_date'],
           filters: [
             { col: 'far_no', cols: ['far_no', 'cust_name', 'device', 'part_id'], op: 'contains', source: 'query', ref: 'q' },
-            byParam('name', 'name'),
-            byParam('cust_name', 'cust'),
-            ...p,
+            ...dueSoon,
           ],
-          sort: [['rcv_date', 'desc']],
+          sort: [['due_date', 'asc']],
           pageSize: 30,
         },
       },
 
-      /**
-       * 화면 묶음 바로가기.
-       *
-       * 사이드바에 이미 같은 메뉴가 있지만 홈에도 둔다 — 홈에서 어떤 화면으로도 갈 수 없으면
-       * 구성 검증이 나머지 화면을 "도달할 수 없는 페이지"로 잡는다(W-REL-007). 실제로도
-       * 처음 들어온 사람이 무엇이 있는지 한눈에 보는 자리가 필요하다.
-       */
       {
         type: 'nav-cards',
         col: 1,
         span: 12,
-        row: 66,
+        row: 88,
         rowSpan: 16,
         props: {
           title: '화면 바로가기',
@@ -493,9 +560,13 @@ function faStatus(): SitePage {
       kpi(7, 1, '평균 SLC EC', 'far_table', 'avg', [{ col: 'slc_avg_ec', op: 'isNotNull', source: 'fixed' }], { unit: '회' }, 'slc_avg_ec'),
       kpi(10, 1, '평균 Write', 'far_table', 'avg', [{ col: 'write_size', op: 'isNotNull', source: 'fixed' }], { unit: 'GB' }, 'write_size'),
 
-      search(8, 1, 5, '통합 검색', 'FAR No · 고객명 · 제품명 · Firmware'),
-      pickFilter(8, 6, 3, '담당자', 'name', '전체 담당자', groupBy('far_table', 'name')),
-      pickFilter(8, 9, 4, '불량 대분류', 'fm', '전체 불량 모드', groupBy('far_table', 'failmode1')),
+      search(8, 1, 4, '통합 검색', 'FAR No · 고객명 · 제품명 · Firmware'),
+      pickFilter(8, 5, 3, '담당자', 'name', '전체 담당자', groupBy('far_table', 'name')),
+      pickFilter(8, 8, 3, '불량 대분류', 'fm', '전체 불량 모드', groupBy('far_table', 'failmode1')),
+      // FAR 원장 전체를 서버가 만들어 주는 CSV. 표 위 CSV 단추는 지금 화면에 올라온 행만
+      // 담으므로(쪽 단위 조회), 원장을 통째로 받는 길은 따로 남겨 둔다.
+      // 아래 표가 11줄부터 시작하므로 여기서는 필터와 같은 3줄로 맞춘다.
+      exportButton(8, 11, 2, 'far-export', 3),
 
       {
         type: 'data-table',

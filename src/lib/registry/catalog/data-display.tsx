@@ -42,7 +42,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowDownRight, ArrowUpRight, Inbox } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { categoricalXAxisProps, estimateTextWidth, yAxisLabelProps } from '@/lib/chart-axis';
-import { asSeriesResult, selectedColumns, toLabelValueSeries } from '@/lib/chart-series';
+import { asSeriesResult, selectedColumns, toLabelValueSeries, toMatrixSeries, toStackedRows } from '@/lib/chart-series';
 import { cn } from '@/lib/utils';
 import { statusBadgeClass } from '@/lib/status-tone';
 import { defineComponent, type ComponentDef } from '@/lib/registry/types';
@@ -69,6 +69,23 @@ const sampleChartData = [
   { label: '2월', value: 19 },
   { label: '3월', value: 8 },
 ];
+
+/** 누적 막대의 팔레트 미리보기 — 축이 둘인 결과와 같은 봉투로 만들어 둔다. */
+const SAMPLE_STACKED = {
+  columns: [
+    { columnName: 'label', fieldId: null, dataType: 'TEXT' },
+    { columnName: 'series', fieldId: null, dataType: 'TEXT' },
+    { columnName: 'value', fieldId: null, dataType: 'REAL' },
+  ],
+  rows: [
+    { label: '1월', series: 'A', value: 12 },
+    { label: '1월', series: 'B', value: 7 },
+    { label: '2월', series: 'A', value: 19 },
+    { label: '2월', series: 'B', value: 11 },
+    { label: '3월', series: 'A', value: 8 },
+    { label: '3월', series: 'B', value: 14 },
+  ],
+};
 
 /**
  * 집계 결과를 KPI 타일이 읽는 모양으로. 숫자 하나만 오거나(비교 없음)
@@ -266,6 +283,8 @@ export const dataDisplayComponents = [
         .default([]),
       showSearch: z.boolean().default(true),
       showExport: z.boolean().default(false),
+      /** 표 위 복사 단추 — 스프레드시트에 그대로 붙여 넣을 형식으로 클립보드에 담는다. */
+      showCopy: z.boolean().default(false),
       selectable: z.boolean().default(false),
       density: z.enum(['compact', 'default', 'comfortable']).default('default'),
       emptyText: z.string().default('데이터가 없습니다'),
@@ -291,6 +310,7 @@ export const dataDisplayComponents = [
       columns: [],
       showSearch: true,
       showExport: false,
+      showCopy: false,
       selectable: false,
       density: 'default',
       emptyText: '데이터가 없습니다',
@@ -319,6 +339,8 @@ export const dataDisplayComponents = [
               const format = (c.format ?? 'text') as CellFormat;
               return {
                 accessorKey: columnNameByFieldId.get(c.fieldId) ?? c.fieldId,
+                // 화면 머리글은 서식이 붙은 React 노드다 — 내보낼 때 쓸 글자는 따로 남긴다.
+                meta: { exportHeader: c.header },
                 // 양식의 표 머리글 규격 — 작은 대문자 라벨(색을 물리고 자간을 벌린다).
                 // 한글 머리글은 대문자 변환의 영향을 받지 않아 그대로 읽힌다.
                 header: () => (
@@ -353,12 +375,23 @@ export const dataDisplayComponents = [
               data={rows}
               emptyText={props.emptyText}
               showSearch={props.showSearch}
+              showExport={props.showExport}
+              showCopy={props.showCopy}
+              exportName={props.title || '표'}
               param={props.selectParam}
               column={selectColumn}
               slug={props.selectSlug || undefined}
             />
           ) : (
-            <DataTableUi columns={columns} data={rows} emptyText={props.emptyText} showSearch={props.showSearch} />
+            <DataTableUi
+              columns={columns}
+              data={rows}
+              emptyText={props.emptyText}
+              showSearch={props.showSearch}
+              showExport={props.showExport}
+              showCopy={props.showCopy}
+              exportName={props.title || '표'}
+            />
           )}
         </div>
       );
@@ -516,6 +549,94 @@ export const dataDisplayComponents = [
               </BarChart>
             )}
           </ChartContainer>
+        </div>
+      );
+    },
+  }),
+  /**
+   * 누적 세로 막대 — 하나의 분류를 두 번째 축으로 쪼개어 쌓는다.
+   *
+   * 왜 차트 컴포넌트에 종류 하나를 더 넣지 않고 따로 두는가: 여기는 축이 둘인 결과
+   * (`{ label, series, value }`)를 받는다. 막대/선 차트는 축 하나짜리라 같은 속성 상자를
+   * 공유하면 "쌓을 기준"이 늘 비어 있는 채로 붙어 다닌다. 읽는 데이터가 다르면 컴포넌트도 다르다.
+   */
+  defineComponent({
+    key: 'chart-stacked',
+    label: '누적 세로 막대',
+    group: '데이터 표시',
+    icon: 'chart-column-stacked',
+    description: '분류별 막대를 두 번째 축으로 쌓아 구성비까지 함께 본다',
+    isContainer: false,
+    surface: 'quiet',
+    bindingModes: ['group'],
+    events: [],
+    propsSchema: z.object({
+      title: z.string().default(''),
+      subtitle: z.string().default(''),
+      unit: z.string().default(''),
+      yLabel: z.string().default(''),
+      /** 층을 몇 개까지 색으로 구분할지 — 넘치면 '기타'로 합친다. */
+      maxSeries: z.number().int().min(2).max(8).default(6),
+      showLegend: z.boolean().default(true),
+    }),
+    defaultProps: { title: '', subtitle: '', unit: '', yLabel: '', maxSeries: 6, showLegend: true },
+    defaultGrid: { span: 6, rowSpan: 22 },
+    render: ({ props, data }) => {
+      const matrix = toMatrixSeries(data === undefined ? SAMPLE_STACKED : data, props.maxSeries);
+      const rows = toStackedRows(matrix);
+      const config: ChartConfig = Object.fromEntries(
+        matrix.seriesKeys.map((key, i) => [key, { label: key, color: `var(--chart-${(i % 5) + 1})` }])
+      );
+
+      return (
+        <div className="flex h-full min-h-[140px] flex-col gap-1">
+          {props.title ? <h3 className="text-sm font-medium">{props.title}</h3> : null}
+          {props.subtitle ? <p className="text-xs text-muted-foreground">{props.subtitle}</p> : null}
+          {rows.length === 0 ? (
+            <div className="flex flex-1 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground">
+              표시할 데이터가 없습니다
+            </div>
+          ) : (
+            <>
+              {props.showLegend ? (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[11px] text-muted-foreground">
+                  {matrix.seriesKeys.map((key, i) => (
+                    <span key={key} className="inline-flex items-center gap-1.5">
+                      <span
+                        className="size-2 shrink-0 rounded-[2px]"
+                        style={{ backgroundColor: `var(--chart-${(i % 5) + 1})` }}
+                      />
+                      {key}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              <ChartContainer config={config} className="aspect-auto h-full min-h-0 w-full flex-1">
+                <BarChart data={rows}>
+                  <CartesianGrid vertical={false} />
+                  {/* 이 차트는 y축을 늘 그리고 범례도 한 줄 차지한다 — 그림에 남는 가로 폭이
+                      기본 추정치(520)보다 좁다. 그대로 두면 긴 이름이 겹쳐 찍힌다. */}
+                  <XAxis dataKey="label" {...categoricalXAxisProps(matrix.labels, { plotWidth: 450 })} />
+                  {(props.yLabel ?? '').trim() ? (
+                    <YAxis tickLine={false} axisLine={false} fontSize={11} {...yAxisLabelProps(props.yLabel)} />
+                  ) : (
+                    <YAxis tickLine={false} axisLine={false} fontSize={11} width={34} />
+                  )}
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  {matrix.seriesKeys.map((key, i) => (
+                    <Bar
+                      key={key}
+                      dataKey={key}
+                      stackId="a"
+                      fill={`var(--chart-${(i % 5) + 1})`}
+                      // 맨 위 층에만 모서리를 둥글게 — 중간 층까지 둥글면 사이가 벌어져 보인다.
+                      radius={i === matrix.seriesKeys.length - 1 ? [4, 4, 0, 0] : 0}
+                    />
+                  ))}
+                </BarChart>
+              </ChartContainer>
+            </>
+          )}
         </div>
       );
     },

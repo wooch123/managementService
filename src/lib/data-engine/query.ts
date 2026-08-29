@@ -202,10 +202,17 @@ export async function runAggregateQuery(binding: Extract<BindingSpec, { mode: 'a
  * 별도 테이블이 아니라 원본 테이블에서 바로 파생시키기 위한 것이다. 그래야 조회 기간을 바꿀 때
  * 추이도 같이 따라온다(미리 집계한 표는 만들어 둔 구간만 갖고 있어 기간 선택에 반응하지 못한다).
  */
+export type GroupQueryResult = {
+  /** 두 축이면 가 함께 온다(누적 막대의 층·교차 히트맵의 열). 한 축이면 없다. */
+  rows: { label: unknown; series?: string; value: number }[];
+  total: number;
+  columns: ResultColumn[];
+};
+
 export async function runGroupQuery(
   binding: Extract<BindingSpec, { mode: 'group' }>,
   entityOverride?: ResolvedEntity
-) {
+): Promise<GroupQueryResult> {
   const entity = entityOverride ?? (await resolveEntity(binding.entityId));
   const groupField = resolveField(entity, binding.groupFieldId);
   const { sql: whereSql, params } = buildWhereClause(entity, binding.filters);
@@ -228,6 +235,63 @@ export async function runGroupQuery(
   // 정렬 기준은 열거형이라 값이 고정돼 있다(사용자 입력이 SQL에 직접 들어가지 않는다).
   const orderSql = binding.orderBy === 'label' ? `ORDER BY "label" ASC` : 'ORDER BY "value" DESC';
   const inner = `SELECT ${groupExpr} AS "label", ${valueExpr} AS "value" FROM ${table} ${whereSql} GROUP BY ${groupExpr}`;
+
+  // 두 번째 축이 있으면 (분류 × 계열) 격자를 돌려준다 — 누적 막대의 층, 교차 히트맵의 열.
+  if (binding.seriesFieldId) {
+    const seriesField = resolveField(entity, binding.seriesFieldId);
+    const seriesExpr = quoteIdent(seriesField.columnName);
+
+    /**
+     * 상한(`limit`)은 **분류 축의 개수**에 건다. 격자 행 수에 걸면 계열이 많을 때 분류가
+     * 몇 개 못 들어와, 열두 칸짜리 막대 그래프에 고객사가 셋만 그려지는 식이 된다.
+     * 그래서 남길 분류를 축 하나짜리 집계와 **똑같은 기준으로** 먼저 고르고, 그 분류들만 쪼갠다.
+     * 고른 순서가 곧 그리는 순서다 — 큰 것부터(orderBy=value) 또는 시간순(orderBy=label).
+     */
+    const topSql =
+      transform !== 'none' && binding.orderBy === 'label'
+        ? `SELECT "label" FROM (${inner} ORDER BY "label" DESC LIMIT ?) ORDER BY "label" ASC` // 시계열은 최근 쪽을 남기되 그리기는 시간순
+        : `${inner} ${orderSql} LIMIT ?`;
+    const topRows = db.prepare(topSql).all(...params, binding.limit) as { label: unknown }[];
+    if (topRows.length === 0) {
+      return { rows: [], total: 0, columns: [
+        { columnName: 'label', fieldId: binding.groupFieldId, dataType: 'TEXT' as DataType },
+        { columnName: 'series', fieldId: binding.seriesFieldId, dataType: 'TEXT' as DataType },
+        { columnName: 'value', fieldId: binding.valueFieldId ?? null, dataType: 'REAL' as DataType },
+      ] satisfies ResultColumn[] };
+    }
+
+    // 값이 빈 분류(NULL)는 `IN (…)`으로 걸리지 않는다(NULL 비교는 참이 되지 않는다) — 따로 붙인다.
+    // 이걸 빠뜨리면 담당자 미지정처럼 **비어 있는 것 자체가 뜻인 칸**이 격자에서만 사라진다.
+    const keys = topRows.map((r) => r.label).filter((l) => l !== null);
+    const conds: string[] = [];
+    if (keys.length > 0) conds.push(`${groupExpr} IN (${keys.map(() => '?').join(', ')})`);
+    if (keys.length !== topRows.length) conds.push(`${groupExpr} IS NULL`);
+    const scoped = whereSql ? `${whereSql} AND (${conds.join(' OR ')})` : `WHERE (${conds.join(' OR ')})`;
+
+    const gridRows = db
+      .prepare(
+        `SELECT ${groupExpr} AS "label", ${seriesExpr} AS "series", ${valueExpr} AS "value"
+         FROM ${table} ${scoped}
+         GROUP BY ${groupExpr}, ${seriesExpr}`
+      )
+      .all(...params, ...keys) as { label: unknown; series: unknown; value: number }[];
+
+    // 분류는 위에서 고른 순서대로, 같은 분류 안에서는 큰 계열부터.
+    const rank = new Map(topRows.map((r, i) => [String(r.label ?? '(없음)'), i]));
+    const rows = gridRows
+      .map((r) => ({ label: String(r.label ?? '(없음)'), series: String(r.series ?? '(없음)'), value: r.value }))
+      .sort((a, b) => (rank.get(a.label) ?? 0) - (rank.get(b.label) ?? 0) || b.value - a.value);
+
+    return {
+      rows,
+      total: rows.length,
+      columns: [
+        { columnName: 'label', fieldId: binding.groupFieldId, dataType: 'TEXT' as DataType },
+        { columnName: 'series', fieldId: binding.seriesFieldId, dataType: 'TEXT' as DataType },
+        { columnName: 'value', fieldId: binding.valueFieldId ?? null, dataType: 'REAL' as DataType },
+      ] satisfies ResultColumn[],
+    };
+  }
 
   // 시계열(날짜 버킷 + 시간순)에서 상한에 걸리면 **오래된 쪽이 아니라 최근 쪽**을 남긴다.
   // 그냥 `ORDER BY label ASC LIMIT n`으로 자르면 기간이 넓을 때 가장 오래된 n개만 그려져

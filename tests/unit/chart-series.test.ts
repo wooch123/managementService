@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { selectedColumns, toLabelValueSeries } from '@/lib/chart-series';
+import { selectedColumns, toLabelValueSeries, toMatrixSeries, toStackedRows } from '@/lib/chart-series';
 
 /**
  * 조회 결과 → 차트 계열 변환.
@@ -81,5 +81,62 @@ describe('목록 결과를 차트 계열로', () => {
     for (const bad of [null, undefined, 0, 42, 'x', {}, { rows: [] }]) {
       expect(toLabelValueSeries(bad)).toEqual([]);
     }
+  });
+});
+
+/**
+ * 축이 둘인 결과 → 격자.
+ *
+ * 계열 상한을 넘긴 것들은 버리지 않고 '기타'로 합친다 — 버리면 누적 막대의 총합이 실제보다
+ * 작아져, 옆의 지표 타일과 숫자가 어긋난다.
+ */
+const MATRIX_RESULT = {
+  rows: [
+    { label: 'A', series: 'x', value: 5 },
+    { label: 'A', series: 'y', value: 3 },
+    { label: 'A', series: 'z', value: 1 },
+    { label: 'B', series: 'x', value: 4 },
+    { label: 'B', series: 'z', value: 2 },
+  ],
+  total: 5,
+  columns: [
+    { columnName: 'label', fieldId: 'f1', dataType: 'TEXT' },
+    { columnName: 'series', fieldId: 'f2', dataType: 'TEXT' },
+    { columnName: 'value', fieldId: null, dataType: 'REAL' },
+  ],
+};
+
+describe('두 축 결과 → 격자', () => {
+  it('분류·계열·합계를 갈라 담는다', () => {
+    const m = toMatrixSeries(MATRIX_RESULT);
+    expect(m.labels).toEqual(['A', 'B']);
+    expect(m.seriesKeys).toEqual(['x', 'y', 'z']); // 합이 큰 순서
+    expect(m.values.get('A')?.get('y')).toBe(3);
+    expect(m.totals.get('A')).toBe(9);
+    expect(m.max).toBe(5);
+  });
+
+  it('없는 칸은 0으로 채워 평평한 행을 만든다', () => {
+    const rows = toStackedRows(toMatrixSeries(MATRIX_RESULT));
+    expect(rows).toEqual([
+      { label: 'A', x: 5, y: 3, z: 1 },
+      { label: 'B', x: 4, y: 0, z: 2 },
+    ]);
+  });
+
+  it('계열 상한을 넘긴 것은 버리지 않고 기타로 합친다', () => {
+    const m = toMatrixSeries(MATRIX_RESULT, 2);
+    expect(m.seriesKeys).toEqual(['x', 'y', '기타']);
+    expect(m.values.get('A')?.get('기타')).toBe(1);
+    expect(m.values.get('B')?.get('기타')).toBe(2);
+    // 합은 줄지 않는다.
+    const total = [...m.values.values()].flatMap((c) => [...c.values()]).reduce((s, v) => s + v, 0);
+    expect(total).toBe(15);
+  });
+
+  it('두 번째 축이 없는 결과는 계열 하나짜리 격자가 된다', () => {
+    const m = toMatrixSeries(GROUP_COUNT_RESULT);
+    expect(m.seriesKeys).toEqual(['전체']);
+    expect(m.values.get('UFS 2.1')?.get('전체')).toBe(1258);
   });
 });
