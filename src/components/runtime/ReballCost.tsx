@@ -243,18 +243,6 @@ export function ReballCost({
             {won(overBall ? cost.upper_200ball : cost.under_200ball)}
           </span>
         </div>
-        <label className="grid min-w-0 content-start gap-1.5 sm:row-span-3 sm:grid-rows-subgrid">
-          <span className="text-sm font-medium">시료 개수</span>
-          <input
-            type="number"
-            min={1}
-            step={1}
-            className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm tabular-nums shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-            value={count}
-            onChange={(e) => setCount(Math.max(0, Number(e.target.value) || 0))}
-          />
-          <span className="text-[11px] text-muted-foreground">이 개수로 총액을 계산합니다</span>
-        </label>
         {/*
           바깥은 label이 아니라 div다. 예전에는 이름표까지 통째로 label이라 '긴급 여부'라는
           글씨를 눌러도 체크가 토글됐다 — 누를 곳과 눌리는 것이 어긋나 있었다.
@@ -274,6 +262,18 @@ export function ReballCost({
             {urgent ? `${won(cost.urgent)} 포함` : `선택하면 ${won(cost.urgent)}`}
           </span>
         </div>
+        <label className="grid min-w-0 content-start gap-1.5 sm:row-span-3 sm:grid-rows-subgrid">
+          <span className="text-sm font-medium">시료 개수</span>
+          <input
+            type="number"
+            min={1}
+            step={1}
+            className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm tabular-nums shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            value={count}
+            onChange={(e) => setCount(Math.max(0, Number(e.target.value) || 0))}
+          />
+          <span className="text-[11px] text-muted-foreground">이 개수로 총액을 계산합니다</span>
+        </label>
       </div>
 
       <div className="flex flex-wrap items-end justify-between gap-3 rounded-lg border border-primary/40 bg-primary/5 p-3">
