@@ -4,12 +4,11 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { ChevronRight, ChevronsUpDown, EyeOff, LayoutGrid, LogOut, Pencil } from 'lucide-react';
+import { ChevronRight, EyeOff, LayoutGrid, Pencil } from 'lucide-react';
 
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarHeader,
   SidebarMenu,
@@ -21,16 +20,8 @@ import {
   SidebarMenuSubItem,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { DynamicIcon } from '@/components/shell/DynamicIcon';
-import { ThemePicker } from '@/components/shell/ThemePicker';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -40,13 +31,11 @@ import type { PageTreeNode } from '@/lib/db/page-tree';
 export function AppSidebar({
   pages,
   mode,
-  username,
   siteTitle = 'WebApp_V1',
   siteSubtitle = 'v1.0.1',
 }: {
   pages: PageTreeNode[];
   mode: 'admin' | 'public';
-  username?: string;
   /** 사이드바 상단 표시 이름 — 관리자 화면에서 직접 수정한다(§ AppSetting). */
   siteTitle?: string;
   siteSubtitle?: string;
@@ -135,12 +124,8 @@ export function AppSidebar({
         </SidebarGroup>
       </SidebarContent>
 
-      {/* 테마 버튼은 푸터(사용자 메뉴) 바로 위에 둔다 — 요청 사항. 접힌 사이드바에서는 아이콘만 남는다. */}
-      <ThemePicker />
-
-      <SidebarFooter>
-        <UserMenu username={username} mode={mode} />
-      </SidebarFooter>
+      {/* 테마와 사용자 메뉴는 여기 있었지만 헤더 오른쪽 끝으로 옮겼다(사용자 지정, 2026-08-29).
+          사이드바를 접으면 아이콘 한 글자만 남던 자리라, 접히지 않는 헤더가 더 맞다 — AppHeader. */}
     </Sidebar>
   );
 }
@@ -225,55 +210,6 @@ function PageMenuItem({
     </Collapsible>
   );
 }
-
-function UserMenu({ username, mode }: { username?: string; mode: 'admin' | 'public' }) {
-  const router = useRouter();
-  const [loggingOut, setLoggingOut] = useState(false);
-  const displayName = username ?? '방문자';
-
-  async function handleLogout() {
-    setLoggingOut(true);
-    await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/login');
-    router.refresh();
-  }
-
-  return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <SidebarMenuButton size="lg" className="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0">
-              <Avatar size="sm" className="shrink-0">
-                <AvatarFallback>{displayName.slice(0, 1).toUpperCase()}</AvatarFallback>
-              </Avatar>
-              <div className="sidebar-fade flex flex-col gap-0.5 leading-none">
-                <span className="font-medium">{displayName}</span>
-                {username && (
-                  <span className="text-xs text-muted-foreground">{username}</span>
-                )}
-              </div>
-              <ChevronsUpDown className="sidebar-fade ml-auto size-4 shrink-0 text-muted-foreground" />
-            </SidebarMenuButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" side="top" className="w-56">
-            {mode === 'admin' && (
-              <DropdownMenuItem
-                variant="destructive"
-                disabled={loggingOut}
-                onSelect={handleLogout}
-              >
-                <LogOut />
-                로그아웃
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarMenuItem>
-    </SidebarMenu>
-  );
-}
-
 
 /** 사이트 이름/부제 편집 — 저장 즉시 서버 컴포넌트를 다시 그려(refresh) 사이드바에 반영한다. */
 function SiteTitleDialog({

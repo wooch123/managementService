@@ -1,3 +1,4 @@
+import { getSession } from '@/lib/auth/session';
 import { prisma } from '@/lib/db/prisma';
 import { loadDraftSpec } from '@/lib/validation/load-spec';
 import { computeSpecHash } from '@/lib/validation/spec-hash';
@@ -7,7 +8,11 @@ import { ThemeToggleButton } from '@/components/shell/ThemeToggleButton';
 import { Badge } from '@/components/ui/badge';
 
 export async function AdminHeader({ pageLabel }: { pageLabel: string }) {
-  const [latestRun, spec] = await Promise.all([prisma.validationRun.findFirst({ orderBy: { startedAt: 'desc' } }), loadDraftSpec()]);
+  const [latestRun, spec, session] = await Promise.all([
+    prisma.validationRun.findFirst({ orderBy: { startedAt: 'desc' } }),
+    loadDraftSpec(),
+    getSession(),
+  ]);
   const currentHash = computeSpecHash(spec);
   const stale = !latestRun || latestRun.specHash !== currentHash;
 
@@ -23,6 +28,8 @@ export async function AdminHeader({ pageLabel }: { pageLabel: string }) {
   return (
     <AppHeader
       breadcrumbItems={[{ label: '관리자' }, { label: pageLabel }]}
+      mode="admin"
+      username={session.username}
       rightSlot={
         <>
           <Stepper validationBadge={validationBadge} canDeploy={canDeploy} />

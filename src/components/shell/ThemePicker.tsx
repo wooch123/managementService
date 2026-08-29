@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
+import { Button } from '@/components/ui/button';
 import {
   THEMES_BY_CATEGORY,
   THEME_STORAGE_KEY,
@@ -21,7 +21,10 @@ import {
 import { cn } from '@/lib/utils';
 
 /**
- * 테마 선택 버튼 — 사이드바 푸터 바로 위에 놓인다.
+ * 테마 선택 버튼 — 헤더 오른쪽 끝에 놓인다(사용자 지정, 2026-08-29).
+ *
+ * 예전에는 사이드바 푸터 위에 있었는데, 사이드바를 접으면 아이콘만 남고 지금 무슨 테마인지도
+ * 알 수 없었다. 헤더는 어느 화면에서도 같은 자리에 있고 접히지 않는다.
  *
  * 팔레트(색 묶음)는 `<html data-theme>`로, 밝기 모드(dark 클래스)는 next-themes로 다룬다.
  * 두 개를 나눠 둔 이유: `dark` 클래스는 Tailwind의 dark: 변형과 shadcn 컴포넌트가 이미 쓰고 있어
@@ -68,23 +71,16 @@ export function ThemePicker() {
   const activeLabel = mounted ? (getTheme(current)?.label ?? '시스템 설정') : '테마';
 
   return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <SidebarMenuButton
-              tooltip="테마 변경"
-              className="group-data-[collapsible=icon]:justify-center"
-            >
-              <Palette className="size-4 shrink-0" />
-              <span className="sidebar-fade">테마</span>
-              <span className="sidebar-fade ml-auto truncate text-xs text-muted-foreground">
-                {activeLabel}
-              </span>
-            </SidebarMenuButton>
-          </DropdownMenuTrigger>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" className="gap-1.5 px-2" title={`테마 변경 — 지금 ${activeLabel}`}>
+          <Palette className="size-4 shrink-0" />
+          {/* 좁은 화면에서는 아이콘만 남긴다 — 헤더에서 이름표는 가장 먼저 접어도 되는 것이다. */}
+          <span className="hidden max-w-28 truncate text-xs text-muted-foreground sm:inline">{activeLabel}</span>
+        </Button>
+      </DropdownMenuTrigger>
 
-          <DropdownMenuContent align="start" side="top" className="max-h-[70vh] w-64 overflow-y-auto">
+      <DropdownMenuContent align="end" className="max-h-[70vh] w-64 overflow-y-auto">
             <DropdownMenuItem onSelect={useSystem}>
               <Monitor className="size-4" />
               시스템 설정 따르기
@@ -115,9 +111,7 @@ export function ThemePicker() {
                 ))}
               </div>
             ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarMenuItem>
-    </SidebarMenu>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

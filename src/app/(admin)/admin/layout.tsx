@@ -4,7 +4,6 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/shell/AppSidebar';
 import { getAppSettings } from '@/lib/db/app-settings';
 import { getPageTree } from '@/lib/db/page-tree';
-import { getSession } from '@/lib/auth/session';
 
 /** 탭 제목을 사이드바 헤더와 같은 이름으로 — "사이트 이름 - 지금 보는 화면"((public)/layout.tsx 참고). */
 export async function generateMetadata(): Promise<Metadata> {
@@ -17,12 +16,8 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [cookieStore, pages, session, settings] = await Promise.all([
-    cookies(),
-    getPageTree(),
-    getSession(),
-    getAppSettings(),
-  ]);
+  // 누구로 로그인했는지는 헤더(AdminHeader)가 직접 읽는다 — 사용자 메뉴가 그쪽으로 옮겨 갔다.
+  const [cookieStore, pages, settings] = await Promise.all([cookies(), getPageTree(), getAppSettings()]);
   const defaultOpen = cookieStore.get('sidebar_state')?.value !== 'false';
 
   return (
@@ -30,7 +25,6 @@ export default async function AdminLayout({
       <AppSidebar
         pages={pages}
         mode="admin"
-        username={session.username}
         siteTitle={settings.siteTitle}
         siteSubtitle={settings.siteSubtitle}
       />

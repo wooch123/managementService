@@ -18,6 +18,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
+import { ThemePicker } from '@/components/shell/ThemePicker';
+import { UserMenu } from '@/components/shell/UserMenu';
 import type { BreadcrumbItem as BreadcrumbItemType } from '@/lib/runtime/breadcrumb';
 
 function BreadcrumbTrail({ items }: { items: BreadcrumbItemType[] }) {
@@ -81,9 +83,14 @@ function BreadcrumbTrail({ items }: { items: BreadcrumbItemType[] }) {
 export function AppHeader({
   breadcrumbItems,
   rightSlot,
+  mode = 'public',
+  username,
 }: {
   breadcrumbItems: BreadcrumbItemType[];
+  /** 화면마다 다른 도구(관리자의 단계 이동 등). 테마·사용자 메뉴 **왼쪽**에 놓인다. */
   rightSlot?: React.ReactNode;
+  mode?: 'admin' | 'public';
+  username?: string;
 }) {
   // 사이드바를 펼친 상태에서는 접기 버튼이 사이드바 헤더 안에 있다(AppSidebar). 여기 버튼은
   // 접혀 있어 그 자리가 없을 때와, 사이드바가 시트로 뜨는 좁은 화면에서만 나타난다 —
@@ -101,7 +108,13 @@ export function AppHeader({
       <div className="min-w-0 flex-1">
         <BreadcrumbTrail items={breadcrumbItems} />
       </div>
-      <div className="flex shrink-0 items-center gap-1 sm:gap-2">{rightSlot}</div>
+      {/* 테마와 사용자 메뉴는 헤더가 직접 그린다 — 부르는 쪽마다 따로 붙이면 한 곳이 빠진다.
+          자리는 항상 오른쪽 끝이고, 화면별 도구는 그 왼쪽에 붙는다(사용자 지정). */}
+      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+        {rightSlot}
+        <ThemePicker />
+        <UserMenu username={username} mode={mode} />
+      </div>
     </header>
   );
 }
