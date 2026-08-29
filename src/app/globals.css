@@ -680,8 +680,14 @@ select optgroup {
   padding: 0.25rem;
   color: var(--muted-foreground);
 }
+/* 기본은 중립 — 빨강은 '지우기'처럼 되돌리기 어려운 것에만 남긴다. */
 .tr-icon-button:hover:not(:disabled) {
+  color: var(--foreground);
+  background: var(--muted);
+}
+.tr-icon-button--danger:hover:not(:disabled) {
   color: var(--destructive);
+  background: transparent;
 }
 
 /* 탭 */
