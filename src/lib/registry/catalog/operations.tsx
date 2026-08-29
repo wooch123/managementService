@@ -3,6 +3,7 @@ import { FailRateCalculator, FailRateCalculatorPreview } from '@/components/runt
 import { VisitStats, VisitStatsPreview } from '@/components/runtime/VisitStats';
 import { ReballCost, ReballCostPreview, toCostRow, type ReballWorkValue } from '@/components/runtime/ReballCost';
 import { ReballRequestTable, ReballRequestTablePreview, type ReballRow } from '@/components/runtime/ReballRequestTable';
+import { PkgStack, PkgStackPreview, type PkgStackValue } from '@/components/runtime/PkgStack';
 import { TechReport, TechReportPreview } from '@/components/runtime/TechReport';
 import { defineComponent, type ComponentDef } from '@/lib/registry/types';
 
@@ -143,6 +144,41 @@ export const operationsComponents = [
         />
       ) : (
         <ReballRequestTablePreview title={props.title} />
+      ),
+  }),
+
+  /**
+   * PKG Stack 정보 — 적층 구조를 적고, 적어 둔 것들을 갤러리로 편다.
+   *
+   * 목록은 **바인딩이 준 데이터**를 그린다. 그래서 Part ID 검색은 이 컴포넌트가 아니라 화면의
+   * 검색 상자가 주소에 남기고 서버가 걸러 준다 — 카드가 몇 장이 되든 같은 방식으로 작동한다.
+   */
+  defineComponent({
+    key: 'pkg-stack',
+    label: 'PKG Stack 정보',
+    group: '입력',
+    icon: 'layers',
+    description: '적층 구조(CH·WAY·Chip 차수)와 그림을 Part ID로 묶어 적고 갤러리로 본다',
+    isContainer: false,
+    growsWithContent: true,
+    bindingModes: ['list'],
+    events: [{ name: 'onSubmit', label: '저장', payload: 'PKG Stack 한 장' }],
+    propsSchema: z.object({
+      title: z.string().default('PKG Stack'),
+      description: z.string().default(''),
+    }),
+    defaultProps: { title: 'PKG Stack', description: '' },
+    defaultGrid: { span: 12, rowSpan: 40 },
+    render: ({ props, data, dispatch }) =>
+      typeof dispatch === 'function' ? (
+        <PkgStack
+          title={props.title}
+          description={props.description}
+          data={data}
+          onSubmit={(value: PkgStackValue) => dispatch('onSubmit', value)}
+        />
+      ) : (
+        <PkgStackPreview title={props.title} />
       ),
   }),
 

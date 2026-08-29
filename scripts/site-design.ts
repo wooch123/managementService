@@ -911,6 +911,45 @@ function boardPage(slug: string, title: string, icon: string, boardKey: string, 
 }
 
 /** ⑥-7 불량률 계산기. */
+/**
+ * ⑤-1 PKG Stack 정보 — Part ID 하나의 적층 구조를 적고, 적어 둔 것들을 갤러리로 편다.
+ *
+ * 검색은 컴포넌트가 아니라 **화면의 검색 상자 + 바인딩 조건**이 한다. 주소에 남는 방식이라
+ * 찾은 결과를 링크로 그대로 건넬 수 있고, 카드가 몇 장이 되든 서버가 걸러 준 만큼만 그린다.
+ */
+function pkgStack(): SitePage {
+  return {
+    slug: 'info-pkg-stack',
+    title: 'PKG Stack 정보',
+    icon: 'layers',
+    nodes: [
+      // 아래 입력 양식의 Part ID 칸과 같은 안내문을 쓰면 둘이 구별되지 않는다.
+      search(1, 1, 6, 'Part ID 검색', 'Part ID 일부만 적어도 찾습니다', 4),
+      {
+        key: 'pkg-rows',
+        type: 'pkg-stack',
+        col: 1,
+        span: 12,
+        row: 5,
+        rowSpan: 36,
+        props: {
+          title: 'PKG Stack',
+          description: '추가하기를 누르면 입력 칸이 열립니다. CH · WAY · Chip 차수를 최대 16칸까지 적고 구조 그림을 함께 올립니다.',
+        },
+        on: { onSubmit: 'pkg-stack-create' },
+        bind: {
+          mode: 'list',
+          table: 'pkg_stack',
+          select: ['part_id', 'layers', 'image', 'note'],
+          filters: [{ col: 'part_id', op: 'contains', source: 'query', ref: 'q' }],
+          sort: [['part_id', 'asc']],
+          pageSize: 60,
+        },
+      },
+    ],
+  };
+}
+
 function failRate(): SitePage {
   return {
     slug: 'info-fail-rate',
@@ -1040,7 +1079,7 @@ export function buildSite(): SitePage[] {
     },
     {
       ...hub('info', '정보', 'book-open', [
-        { title: 'PKG Stack 정보', description: '미구현', slug: 'info-pkg-stack', meta: '' },
+        { title: 'PKG Stack 정보', description: '적층 구조 · 구조 그림', slug: 'info-pkg-stack', meta: '' },
         { title: '제품 정보', description: '미구현', slug: 'info-product', meta: '' },
         { title: 'NAND Parameter', description: '미구현', slug: 'info-nand-param', meta: '' },
         { title: 'NAND WF Map', description: '미구현', slug: 'info-nand-wf', meta: '' },
@@ -1049,7 +1088,7 @@ export function buildSite(): SitePage[] {
         { title: '불량률 계산기', description: 'AFR · DPPM · 신뢰구간', slug: 'info-fail-rate', meta: '' },
       ]),
       children: [
-        unbuilt('info-pkg-stack', 'PKG Stack 정보', 'layers', 'PKG Stack 구조 정보를 보여줄 자리입니다'),
+        pkgStack(),
         unbuilt('info-product', '제품 정보', 'package', '제품 정보를 보여줄 자리입니다'),
         unbuilt('info-nand-param', 'NAND Parameter', 'sliders-horizontal', 'NAND 파라미터를 보여줄 자리입니다'),
         unbuilt('info-nand-wf', 'NAND WF Map', 'grid-3x3', 'NAND Wafer Map을 보여줄 자리입니다'),
@@ -1120,6 +1159,19 @@ export function buildActions(): ActionPlan[] {
       },
     },
 
+    {
+      key: 'pkg-stack-create',
+      name: 'PKG Stack 저장',
+      desc: 'Part ID 하나의 적층 구조와 그림을 저장한다 — 적층 줄은 JSON 한 칸에 담는다',
+      kind: 'CREATE',
+      table: 'pkg_stack',
+      values: {
+        part_id: { from: 'component', node: 'pkg-rows', path: 'part_id' },
+        layers: { from: 'component', node: 'pkg-rows', path: 'layers' },
+        image: { from: 'component', node: 'pkg-rows', path: 'image' },
+        note: { from: 'component', node: 'pkg-rows', path: 'note' },
+      },
+    },
     { key: 'far-export', name: 'FAR 원장 CSV 내보내기', desc: 'FAR 원장을 CSV로 내려받는다', kind: 'EXPORT_CSV', table: 'far_table', filename: 'far_table.csv' },
     { key: 'reball-export', name: 'Reball 의뢰 CSV 내보내기', desc: 'Reball 의뢰 목록을 CSV로 내려받는다', kind: 'EXPORT_CSV', table: 'reball_table', filename: 'reball_table.csv' },
   ];

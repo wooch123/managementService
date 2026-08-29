@@ -162,6 +162,23 @@ export const ENTITIES: EntityPlan[] = [
     ],
   },
   {
+    name: 'PKG Stack',
+    table: 'pkg_stack',
+    description:
+      'Part ID 하나의 PKG 적층 구조. CH·WAY·Chip 차수를 최대 16줄까지 적고 구조 그림을 함께 올린다. 목록은 Part ID로 찾는다.',
+    fields: [
+      { name: 'Part ID', col: 'part_id', type: 'TEXT', required: true },
+      /**
+       * 적층 줄 목록 — [{ ch, way, chip }]. 줄 수가 정해지지 않은 값이라 칼럼 열여섯 벌을
+       * 늘어놓는 대신 JSON 한 칸에 담는다(Tech Report의 RTBB 목록과 같은 방식).
+       */
+      { name: '적층 목록', col: 'layers', type: 'JSON' },
+      /** 구조 그림의 저장 이름 — Tech Report 그림과 같은 저장소를 쓴다. */
+      { name: '그림', col: 'image', type: 'TEXT' },
+      { name: '메모', col: 'note', type: 'TEXT' },
+    ],
+  },
+  {
     name: 'Reball 의뢰',
     table: 'reball_table',
     description: 'Reball 의뢰서 작성 화면에서 등록한다. 시료당 가격·총액은 단가표를 참조해 자동 계산된다.',

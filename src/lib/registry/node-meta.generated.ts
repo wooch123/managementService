@@ -1916,6 +1916,24 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "onSubmit"
     ]
   },
+  "pkg-stack": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 40
+    },
+    "defaultProps": {
+      "title": "PKG Stack",
+      "description": ""
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": [
+      "onSubmit"
+    ]
+  },
   "tech-report": {
     "isContainer": false,
     "allowedChildren": null,
