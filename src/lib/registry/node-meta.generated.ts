@@ -1352,7 +1352,9 @@ export const nodeMeta: Record<string, NodeMeta> = {
     "defaultProps": {
       "title": "이동평균 추이",
       "window": 5,
-      "yLabel": ""
+      "yLabel": "",
+      "baseAs": "line",
+      "baseLabel": "실측"
     },
     "bindingModes": [
       "list",

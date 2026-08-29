@@ -31,7 +31,7 @@ const COST_LABELS: Record<CostColumn, string> = {
   component_detach: 'Component detach',
   underfill: 'Underfill 제거',
   grinding: 'Grinding',
-  urgent: '긴급 가산',
+  urgent: '긴급',
 };
 
 /** 서버가 넘겨준 list 바인딩 결과에서 단가 한 줄을 꺼낸다(없으면 전부 0). */
@@ -216,8 +216,14 @@ export function ReballCost({
         <Check label="Grinding" hint={`연마 · ${won(cost.grinding)}`} checked={grinding} onChange={setGrinding} />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <label className="flex min-w-0 flex-col gap-1.5">
+      {/*
+        세 칸의 이름·입력칸·설명이 각각 같은 줄에 놓이도록 부모의 줄을 그대로 물려받게 한다
+        (subgrid). 예전에는 칸마다 제 높이대로 쌓아 두고 긴급 칸만 아래로 밀어 맞췄는데,
+        Ball 수에만 설명 줄이 있어서 입력칸 높이가 서로 어긋났다 — 이름은 위에 나란한데
+        입력칸은 한 칸만 내려와 있는 모양이었다.
+      */}
+      <div className="grid gap-x-3 gap-y-1.5 sm:grid-cols-3 sm:grid-rows-[auto_auto_auto]">
+        <label className="grid min-w-0 content-start gap-1.5 sm:row-span-3 sm:grid-rows-subgrid">
           <span className="text-sm font-medium">Ball 수</span>
           <input
             type="number"
@@ -233,7 +239,7 @@ export function ReballCost({
             {won(overBall ? cost.upper_200ball : cost.under_200ball)}
           </span>
         </label>
-        <label className="flex min-w-0 flex-col gap-1.5">
+        <label className="grid min-w-0 content-start gap-1.5 sm:row-span-3 sm:grid-rows-subgrid">
           <span className="text-sm font-medium">시료 개수</span>
           <input
             type="number"
@@ -243,19 +249,27 @@ export function ReballCost({
             value={count}
             onChange={(e) => setCount(Math.max(0, Number(e.target.value) || 0))}
           />
+          <span className="text-[11px] text-muted-foreground">이 개수로 총액을 계산합니다</span>
         </label>
-        <label className="flex min-w-0 flex-col justify-end gap-1.5">
+        {/*
+          바깥은 label이 아니라 div다. 예전에는 이름표까지 통째로 label이라 '긴급 여부'라는
+          글씨를 눌러도 체크가 토글됐다 — 누를 곳과 눌리는 것이 어긋나 있었다.
+        */}
+        <div className="grid min-w-0 content-start gap-1.5 sm:row-span-3 sm:grid-rows-subgrid">
           <span className="text-sm font-medium">긴급 여부</span>
-          <span
+          <label
             className={cn(
               'flex h-9 cursor-pointer items-center gap-2 rounded-md border px-3 text-sm transition-colors',
               urgent ? 'border-amber-500/60 bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'hover:bg-muted/50'
             )}
           >
-            <input type="checkbox" className="size-4 accent-[var(--primary)]" checked={urgent} onChange={(e) => setUrgent(e.target.checked)} />
-            긴급 ({won(cost.urgent)} 가산)
+            <input type="checkbox" className="size-4 shrink-0 accent-[var(--primary)]" checked={urgent} onChange={(e) => setUrgent(e.target.checked)} />
+            긴급
+          </label>
+          <span className={cn('text-[11px]', urgent ? 'text-primary' : 'text-muted-foreground')}>
+            {urgent ? `${won(cost.urgent)} 포함` : `선택하면 ${won(cost.urgent)}`}
           </span>
-        </label>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-end justify-between gap-3 rounded-lg border border-primary/40 bg-primary/5 p-3">

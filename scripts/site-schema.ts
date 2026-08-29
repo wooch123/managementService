@@ -6,8 +6,7 @@
  * snake_case, 표시명은 메타에 별도 보관".
  *
  * 문서에서 한 곳만 고쳤다: 단가표의 `urgnet` → `urgent`(같은 표의 뜻은 "긴급건일 때 가격"이고
- * 의뢰서 표에도 `urgent`가 있다). 오타가 컬럼 이름으로 굳으면 되돌리기 어려워 여기서 바로잡고
- * 표시명에 "긴급 가산"을 남긴다.
+ * 의뢰서 표에도 `urgent`가 있다). 오타가 컬럼 이름으로 굳으면 되돌리기 어려워 여기서 바로잡는다.
  *
  * ── 분석 값을 덮어써도 예전 값이 남는 구조 ──────────────────────────────────────
  * 문서에서 "분석 이후에 분석 Tool 통해 DB에 update 할 값"으로 표시된 18개 칸은 **같은 sample에
@@ -200,7 +199,7 @@ export const ENTITIES: EntityPlan[] = [
       { name: 'Underfill 제거', col: 'underfill', type: 'REAL' },
       { name: 'Grinding', col: 'grinding', type: 'REAL' },
       // 설계 문서의 `urgnet`(오타)을 바로잡은 이름.
-      { name: '긴급 가산', col: 'urgent', type: 'REAL' },
+      { name: '긴급', col: 'urgent', type: 'REAL' },
     ],
   },
 ];

@@ -340,7 +340,8 @@ function overview(): SitePage {
         span: 6,
         row: 11,
         rowSpan: 13,
-        props: { title: '월간 접수 변동 (3개월 이동 평균)', window: 3, yLabel: '' },
+        // 월간 접수는 막대, 3개월 이동평균은 선(사용자 지정) — '이번 달 얼마'와 '흐름'이 갈린다.
+        props: { title: '월간 접수 변동 (3개월 이동 평균)', window: 3, yLabel: '', baseAs: 'bar', baseLabel: '월간 접수' },
         bind: { mode: 'group', table: 'far_table', groupField: 'rcv_date', groupTransform: 'month', fn: 'count', filters: p, orderBy: 'label', limit: 24 },
       },
 

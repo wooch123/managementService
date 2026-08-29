@@ -71,6 +71,14 @@ export type MatrixSeries = {
   values: Map<string, Map<string, number>>;
   /** 분류별 합 — 누적 막대의 총합, 히트맵의 행 합계. */
   totals: Map<string, number>;
+  /**
+   * 채워진 칸(0이 아닌 칸)의 값 범위.
+   *
+   * 히트맵의 농도를 0~max로 잡으면 값이 서로 비슷할 때(27~42처럼) 농도가 0.64~1.0 구간에만
+   * 몰려 **전부 같은 색으로 보인다**. 실제로 그렸다가 확인했다. 가장 작은 칸을 옅은 쪽 끝으로
+   * 두려면 min도 알아야 한다.
+   */
+  min: number;
   max: number;
 };
 
@@ -81,7 +89,7 @@ export type MatrixSeries = {
  * 바인딩 모양에 따라 갈라지지 않게 하려는 것이다.
  */
 export function toMatrixSeries(data: unknown, seriesLimit = 8): MatrixSeries {
-  const empty: MatrixSeries = { labels: [], seriesKeys: [], values: new Map(), totals: new Map(), max: 0 };
+  const empty: MatrixSeries = { labels: [], seriesKeys: [], values: new Map(), totals: new Map(), min: 0, max: 0 };
   const result = asSeriesResult(data);
   if (!result) return empty;
 
@@ -130,10 +138,19 @@ export function toMatrixSeries(data: unknown, seriesLimit = 8): MatrixSeries {
     kept.push('기타');
   }
 
+  // 빈 칸(0)은 범위 계산에서 뺀다 — 0이 하나만 있어도 나머지가 전부 짙은 쪽으로 몰린다.
+  let min = Infinity;
   let max = 0;
-  for (const cells of values.values()) for (const v of cells.values()) max = Math.max(max, v);
+  for (const cells of values.values()) {
+    for (const v of cells.values()) {
+      if (v === 0) continue;
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+  }
+  if (min === Infinity) min = 0;
 
-  return { labels, seriesKeys: kept, values, totals, max };
+  return { labels, seriesKeys: kept, values, totals, min, max };
 }
 
 /** 격자를 recharts가 먹는 평평한 행(`{ label, [계열]: 값 }`)으로. */

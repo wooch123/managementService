@@ -22,7 +22,14 @@ import {
   YAxis,
   ZAxis,
 } from 'recharts';
-import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
+import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from '@/components/ui/chart';
 import { categoricalXAxisProps, yAxisLabelProps } from '@/lib/chart-axis';
 import {
   asSeriesResult,
@@ -131,11 +138,14 @@ function StatShell({
   title,
   note,
   isEmpty,
+  config,
   children,
 }: {
   title?: string;
   note?: string;
   isEmpty: boolean;
+  /** 범례·툴팁의 이름표는 이 표에서 온다(dataKey → 이름). 계열 이름이 차트마다 다른 경우에만 넘긴다. */
+  config?: ChartConfig;
   children: React.ReactElement;
 }) {
   return (
@@ -147,7 +157,7 @@ function StatShell({
           표시할 데이터가 없습니다
         </div>
       ) : (
-        <ChartContainer config={chartConfig} className="aspect-auto h-full min-h-0 w-full flex-1">
+        <ChartContainer config={config ?? chartConfig} className="aspect-auto h-full min-h-0 w-full flex-1">
           {children}
         </ChartContainer>
       )}
@@ -565,22 +575,55 @@ const movingAverageChart = defineComponent({
   // 날짜 버킷(월/주)을 쓰면 조회 기간을 바꿀 때 시계열도 함께 따라온다.
   bindingModes: ['list', 'group'],
   events: [],
-  propsSchema: z.object({ title: z.string().default('이동평균 추이'), window: z.number().min(2).max(30).default(5), yLabel: z.string().default('') }),
-  defaultProps: { title: '이동평균 추이', window: 5, yLabel: '' },
+  propsSchema: z.object({
+    title: z.string().default('이동평균 추이'),
+    window: z.number().min(2).max(30).default(5),
+    yLabel: z.string().default(''),
+    /**
+     * 실측값을 무엇으로 그릴지. 선 둘을 겹치면 어느 쪽이 실측이고 어느 쪽이 평균인지
+     * 색으로만 구별해야 한다 — 실측을 막대로 두면 "이번 달 얼마"와 "흐름"이 한눈에 갈린다.
+     * 기본은 지금까지의 모양(선)이다.
+     */
+    baseAs: z.enum(['line', 'bar']).default('line'),
+    /** 실측 이름 — 범례와 툴팁에 그대로 쓴다(예: '월간 접수'). */
+    baseLabel: z.string().default('실측'),
+  }),
+  defaultProps: { title: '이동평균 추이', window: 5, yLabel: '', baseAs: 'line', baseLabel: '실측' },
   defaultGrid: { span: 6, rowSpan: 22 },
   render: ({ props, data }) => {
     const base = data === undefined ? SAMPLE_VALUES.map((v, i) => ({ label: String(i + 1), value: v })) : series(data);
     const ma = movingAverage(base.map((b) => b.value), props.window);
     const rows = base.map((b, i) => ({ ...b, ma: ma[i] }));
+    const maName = `${props.window}개월 이동평균`;
+    const baseColor = props.baseAs === 'bar' ? 'var(--chart-1)' : 'var(--chart-2)';
+    const maColor = props.baseAs === 'bar' ? 'var(--chart-2)' : 'var(--chart-1)';
     return (
-      <StatShell title={props.title} isEmpty={rows.length === 0} note={`이동평균 구간 ${props.window}`}>
+      <StatShell
+        title={props.title}
+        isEmpty={rows.length === 0}
+        config={{ value: { label: props.baseLabel, color: baseColor }, ma: { label: maName, color: maColor } }}
+      >
         <ComposedChart data={rows}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="label" {...axisProps} {...catAxis(rows, 'label')} />
           <YAxis domain={['auto', 'auto']} {...axisProps} {...yAxisLabelProps(props.yLabel)} />
           <ChartTooltip content={<ChartTooltipContent />} />
-          <Line dataKey="value" name="실측" stroke="var(--chart-2)" strokeWidth={1.5} dot={false} />
-          <Line dataKey="ma" name={`MA${props.window}`} stroke="var(--chart-1)" strokeWidth={2.5} dot={false} connectNulls />
+          {/* 막대와 선을 함께 그리면 이름표가 있어야 읽힌다 — 색만으로는 어느 쪽인지 알 수 없다. */}
+          <ChartLegend content={<ChartLegendContent />} verticalAlign="top" />
+          {props.baseAs === 'bar' ? (
+            <Bar dataKey="value" name={props.baseLabel} fill={baseColor} radius={[3, 3, 0, 0]} />
+          ) : (
+            <Line dataKey="value" name={props.baseLabel} stroke={baseColor} strokeWidth={1.5} dot={false} />
+          )}
+          <Line
+            dataKey="ma"
+            name={maName}
+            // 막대 위에 겹치는 선이라 막대와 다른 색으로 두고 조금 더 굵게 그린다.
+            stroke={maColor}
+            strokeWidth={2.5}
+            dot={false}
+            connectNulls
+          />
         </ComposedChart>
       </StatShell>
     );
@@ -684,6 +727,21 @@ const residualPlot = defineComponent({
 });
 
 // ── 17. 히트맵 ───────────────────────────────────────────────────────────────
+/**
+ * 히트맵 칸의 색 — 카드 바탕에 강조색을 **섞는다**(투명도를 주지 않는다).
+ *
+ * 투명도로 농도를 만들면 그 투명도가 글자에도 걸린다. 옅은 칸일수록 숫자까지 함께 흐려져,
+ * 정작 값이 작은 칸은 읽히지 않았다(실제로 그렇게 만들었다가 화면에서 확인했다).
+ * 배경색만 섞으면 글자는 언제나 제 색으로 남는다.
+ *
+ * 섞는 비율의 위 끝을 70%로 둔 이유: 그 위로 가면 밝은 테마에서는 바탕이 너무 짙어 글자가
+ * 묻히고, 어두운 테마에서는 반대로 바탕이 너무 밝아진다. 두 테마 모두에서 본문색이 4.5:1을
+ * 넘기는 한계가 여기다.
+ */
+const TINT_MIN = 8;
+const TINT_MAX = 70;
+const cellTint = (percent: number) => `color-mix(in oklab, var(--chart-1) ${percent.toFixed(1)}%, var(--card))`;
+
 /** 교차 히트맵의 팔레트 미리보기 — 축이 둘인 결과와 같은 봉투. */
 const SAMPLE_MATRIX = {
   columns: [
@@ -767,6 +825,14 @@ const crosstabHeatmap = defineComponent({
   render: ({ props, data }) => {
     const matrix = toMatrixSeries(data === undefined ? SAMPLE_MATRIX : data, props.maxColumns);
     const empty = matrix.labels.length === 0 || matrix.seriesKeys.length === 0;
+    /**
+     * 칸의 진하기 — **가장 작은 칸을 옅은 끝, 가장 큰 칸을 짙은 끝**으로 펼친다.
+     *
+     * 0을 기준으로 잡으면 값이 서로 비슷할 때 색이 거의 같아진다: 27~42짜리 표에서
+     * 0~max 기준이면 농도가 0.64~1.0에만 몰려 전부 한 색으로 보였다.
+     */
+    const span = matrix.max - matrix.min;
+    const tintPercent = (v: number) => TINT_MIN + (span === 0 ? 1 : (v - matrix.min) / span) * (TINT_MAX - TINT_MIN);
 
     return (
       <div className="flex h-full min-h-[140px] flex-col gap-1">
@@ -797,26 +863,15 @@ const crosstabHeatmap = defineComponent({
                     </div>
                     {matrix.seriesKeys.map((key) => {
                       const v = matrix.values.get(label)?.get(key) ?? 0;
-                      // 색 농도는 가장 큰 칸을 1로 두고 상대적으로. 0인 칸은 칠하지 않는다.
-                      const strength = matrix.max === 0 ? 0 : v / matrix.max;
                       return (
                         <div
                           key={key}
                           data-slot="crosstab-cell"
                           className="flex min-h-7 items-center justify-center rounded-sm text-[11px] tabular-nums"
-                          /*
-                           * 진하기 폭을 0.15~0.55로 **좁게** 잡는다. 색을 끝까지 올리면 밝은 테마에서는
-                           * 짙은 보라 위의 글자가 묻히고, 어두운 테마에서는 반대쪽 끝이 묻힌다 — 두 테마가
-                           * 서로 반대 방향으로 당기므로 어느 쪽에서도 글자색(--foreground)이 살아남는
-                           * 폭만 쓴다. 농도 차이는 이 범위로도 충분히 읽힌다.
-                           */
-                          style={{
-                            backgroundColor: v === 0 ? 'var(--muted)' : 'var(--chart-1)',
-                            opacity: v === 0 ? 0.4 : 0.15 + strength * 0.4,
-                          }}
+                          style={{ backgroundColor: v === 0 ? 'var(--muted)' : cellTint(tintPercent(v)) }}
                           title={`${label} · ${key}: ${format(v)}`}
                         >
-                          <span className={v === 0 ? 'text-muted-foreground' : 'font-medium text-foreground'}>
+                          <span className={v === 0 ? 'text-muted-foreground' : 'font-semibold text-foreground'}>
                             {v === 0 ? '·' : format(v)}
                           </span>
                         </div>
@@ -827,12 +882,13 @@ const crosstabHeatmap = defineComponent({
               </div>
             </div>
             {props.showLegend ? (
-              <div className="flex items-center justify-end gap-1.5 text-[10px] text-muted-foreground">
-                <span>낮음</span>
-                {[0.15, 0.25, 0.35, 0.45, 0.55].map((o) => (
-                  <span key={o} className="size-2.5 rounded-[2px]" style={{ backgroundColor: 'var(--chart-1)', opacity: o }} />
+              // 눈금에 실제 값을 적는다 — 농도가 무엇의 농도인지 알려면 양 끝 숫자가 있어야 한다.
+              <div className="flex items-center justify-end gap-1.5 text-[10px] tabular-nums text-muted-foreground">
+                <span>{format(matrix.min)}</span>
+                {[0, 0.25, 0.5, 0.75, 1].map((t) => (
+                  <span key={t} className="size-3 rounded-[2px]" style={{ backgroundColor: cellTint(TINT_MIN + t * (TINT_MAX - TINT_MIN)) }} />
                 ))}
-                <span>높음</span>
+                <span>{format(matrix.max)}</span>
               </div>
             ) : null}
           </div>
