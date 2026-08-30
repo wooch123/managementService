@@ -26,6 +26,7 @@ export function SelectableTable<TData extends Record<string, unknown>>({
   data,
   emptyText,
   showSearch,
+  pageSize,
   showExport,
   showCopy,
   exportName,
@@ -37,6 +38,7 @@ export function SelectableTable<TData extends Record<string, unknown>>({
   data: TData[];
   emptyText: string;
   showSearch: boolean;
+  pageSize?: number;
   showExport?: boolean;
   showCopy?: boolean;
   exportName?: string;
@@ -80,6 +82,7 @@ export function SelectableTable<TData extends Record<string, unknown>>({
       data={data}
       emptyText={emptyText}
       showSearch={showSearch}
+      pageSize={pageSize}
       showExport={showExport}
       showCopy={showCopy}
       exportName={exportName}

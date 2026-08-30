@@ -217,6 +217,25 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "onChange"
     ]
   },
+  "option-or-text": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 4,
+      "rowSpan": 8
+    },
+    "defaultProps": {
+      "label": "라벨",
+      "placeholder": "고르세요",
+      "newLabel": "직접 입력"
+    },
+    "bindingModes": [
+      "group"
+    ],
+    "events": [
+      "onChange"
+    ]
+  },
   "select": {
     "isContainer": false,
     "allowedChildren": null,
@@ -492,6 +511,7 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "title": "",
       "columns": [],
       "showSearch": true,
+      "pageSize": 10,
       "showExport": false,
       "showCopy": false,
       "selectable": false,
@@ -1737,6 +1757,7 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "input",
       "textarea",
       "option-select",
+      "option-or-text",
       "select",
       "native-select",
       "date-picker",

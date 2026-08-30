@@ -283,6 +283,11 @@ export const dataDisplayComponents = [
         )
         .default([]),
       showSearch: z.boolean().default(true),
+      /**
+       * 한 쪽에 몇 줄을 보여 줄지. 카드 높이에 맞춰 정한다 — 예전에는 열 줄로 고정이라
+       * 카드를 키워도 표는 그대로고 아래만 비었다.
+       */
+      pageSize: z.number().int().min(5).max(100).default(10),
       showExport: z.boolean().default(false),
       /** 표 위 복사 단추 — 스프레드시트에 그대로 붙여 넣을 형식으로 클립보드에 담는다. */
       showCopy: z.boolean().default(false),
@@ -310,6 +315,7 @@ export const dataDisplayComponents = [
       title: '',
       columns: [],
       showSearch: true,
+      pageSize: 10,
       showExport: false,
       showCopy: false,
       selectable: false,
@@ -376,6 +382,7 @@ export const dataDisplayComponents = [
               data={rows}
               emptyText={props.emptyText}
               showSearch={props.showSearch}
+              pageSize={props.pageSize}
               showExport={props.showExport}
               showCopy={props.showCopy}
               exportName={props.title || '표'}
@@ -389,6 +396,7 @@ export const dataDisplayComponents = [
               data={rows}
               emptyText={props.emptyText}
               showSearch={props.showSearch}
+              pageSize={props.pageSize}
               showExport={props.showExport}
               showCopy={props.showCopy}
               exportName={props.title || '표'}

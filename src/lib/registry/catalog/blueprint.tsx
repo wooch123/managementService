@@ -42,6 +42,8 @@ const FORM_CHILDREN = [
   'input',
   'textarea',
   'option-select',
+  // 고르거나 직접 적는 선택 상자 — 담당자처럼 목록이 자라는 칸에 쓴다.
+  'option-or-text',
   'select',
   'native-select',
   'date-picker',

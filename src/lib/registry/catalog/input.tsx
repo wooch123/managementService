@@ -1,5 +1,6 @@
 import type { ChangeEvent } from 'react';
 import { z } from 'zod';
+import { OptionOrText, OptionOrTextPreview } from '@/components/runtime/OptionOrText';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
@@ -114,6 +115,43 @@ export const inputComponents = [
       </div>
     ),
   }),
+  /**
+   * 고르거나 직접 적는 선택 상자 — 담당자처럼 **목록이 자라는 값**을 위한 것.
+   *
+   * 고를 값은 바인딩(항목별 집계)이 준다. 목록에 없는 이름은 그 자리에서 적어 저장하면
+   * 다음에 열 때 목록에 들어와 있다 — 이름 목록을 따로 관리하는 표를 두지 않는다.
+   */
+  defineComponent({
+    key: 'option-or-text',
+    label: '선택 + 직접 입력',
+    group: '입력',
+    icon: 'list-plus',
+    description: '기존 값 중에서 고르거나, 없으면 직접 적어 새로 만든다',
+    isContainer: false,
+    bindingModes: ['group'],
+    events: [{ name: 'onChange', label: '값 변경 시', payload: 'value' }],
+    propsSchema: z.object({
+      label: z.string().default('라벨'),
+      placeholder: z.string().default('고르세요'),
+      newLabel: z.string().default('직접 입력'),
+    }),
+    defaultProps: { label: '라벨', placeholder: '고르세요', newLabel: '직접 입력' },
+    defaultGrid: { span: 4, rowSpan: 8 },
+    render: ({ props, data, value, onValueChange }) =>
+      typeof onValueChange === 'function' ? (
+        <OptionOrText
+          label={props.label}
+          placeholder={props.placeholder}
+          newLabel={props.newLabel}
+          data={data}
+          value={value}
+          onValueChange={onValueChange}
+        />
+      ) : (
+        <OptionOrTextPreview label={props.label} placeholder={props.placeholder} />
+      ),
+  }),
+
   defineComponent({
     key: 'select',
     label: '선택 상자',

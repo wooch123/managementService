@@ -127,16 +127,6 @@ const kpi = (
   },
 });
 
-const textInput = (key: string, label: string, type = 'text', placeholder = ''): NodePlan => ({
-  key,
-  type: 'input',
-  col: 1,
-  span: 4,
-  row: 1,
-  rowSpan: 8,
-  props: { label, placeholder, type },
-});
-
 const search = (row: number, col: number, span: number, label: string, placeholder: string, rowSpan = 3, param = 'q'): NodePlan => ({
   type: 'search-filter',
   col,
@@ -482,6 +472,8 @@ function faAssign(): SitePage {
         props: {
           title: '접수 목록',
           showSearch: false,
+          // 카드 높이(30줄)에 맞춰 한 쪽에 스무 줄을 보여 준다 — 열 줄로 두면 아래가 크게 빈다.
+          pageSize: 20,
           showExport: false,
           selectable: false,
           density: 'compact',
@@ -508,7 +500,9 @@ function faAssign(): SitePage {
         col: 8,
         span: 5,
         row: 15,
-        rowSpan: 16,
+        // 오른쪽 두 칸(상세 + 담당자 지정)의 합이 왼쪽 목록과 같아야 좌우가 나란히 끝난다.
+        // 담당자 칸은 내용만큼만 갖고, 남는 높이는 전부 이쪽이 받는다.
+        rowSpan: 23,
         props: { title: '선택한 접수 건', emptyText: '왼쪽 목록에서 FAR No를 고르세요', subtitleCount: 2 },
         bind: {
           mode: 'list',
@@ -523,15 +517,35 @@ function faAssign(): SitePage {
         type: 'form-card',
         col: 8,
         span: 5,
-        row: 31,
-        rowSpan: 14,
+        row: 38,
+        /**
+         * 내용에 딱 맞는 높이 — 예전에는 아래가 크게 비어 있었다.
+         *
+         * 왼쪽 목록과 오른쪽 두 칸은 같은 줄 띠를 나눠 쓰므로, 목록이 길어지면 그 늘어난 만큼이
+         * 오른쪽에도 줄 수에 비례해 나뉜다. 여기를 작게 잡을수록 남는 높이는 위(상세)가 가져간다.
+         * 폼 카드는 내용만큼 늘어나므로(growsWithContent) 작게 잡아도 글자가 잘리지 않는다.
+         */
+        rowSpan: 7,
         props: {
           title: '담당자 지정 · 변경',
           description: '고른 FAR No의 모든 sample에 적용됩니다.',
           columns: 1,
           footnote: '인수인계도 이 자리에서 새 담당자 이름으로 바꾸면 됩니다.',
         },
-        children: [textInput('assign-name', '분석 담당자', 'text', '예: 홍길동'), submitButton('담당자 저장', 'fa-assign')],
+        children: [
+          {
+            key: 'assign-name',
+            type: 'option-or-text',
+            col: 1,
+            span: 4,
+            row: 1,
+            rowSpan: 8,
+            props: { label: '분석 담당자', placeholder: '담당자를 고르세요', newLabel: '새 담당자 직접 입력' },
+            // 고를 이름은 원장에 이미 있는 담당자들이다 — 새로 저장하면 다음에 목록에 들어와 있다.
+            bind: groupBy('far_table', 'name', 100),
+          },
+          submitButton('담당자 저장', 'fa-assign'),
+        ],
       },
 
       /**
