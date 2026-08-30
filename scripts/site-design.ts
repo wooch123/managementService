@@ -488,12 +488,13 @@ function faAssign(): SitePage {
         col: 1,
         span: 7,
         row: 21,
-        rowSpan: 30,
+        // 오른쪽 두 칸의 합(상세 17 + 담당자 7)과 **같은 수**여야 좌우가 나란히 끝난다.
+        rowSpan: 24,
         props: {
           title: '접수 목록',
           showSearch: false,
-          // 카드 높이(30줄)에 맞춰 한 쪽에 스무 줄을 보여 준다 — 열 줄로 두면 아래가 크게 빈다.
-          pageSize: 20,
+          // 카드 높이에 맞춘 줄 수 — 적으면 아래가 비고, 많으면 카드가 넘쳐 좌우가 어긋난다.
+          pageSize: 14,
           showExport: false,
           selectable: false,
           density: 'compact',
@@ -501,11 +502,13 @@ function faAssign(): SitePage {
           selectParam: 'sel',
           selectFieldId: 'far_no',
         },
-        headers: ['FAR No', 'Sample', '접수일', '마감일', '고객명', '제품명', '담당자'],
+        // 마감일은 뺐다(사용자 지정) — 이 화면은 '누가 맡을지'를 정하는 곳이고, 마감은
+        // 분석 현황·종합 현황에서 본다.
+        headers: ['FAR No', 'Sample', '접수일', '고객명', '제품명', '담당자'],
         bind: {
           mode: 'list',
           table: 'far_table',
-          select: ['far_no', 'sample_no', 'rcv_date', 'due_date', 'cust_name', 'device', 'name'],
+          select: ['far_no', 'sample_no', 'rcv_date', 'cust_name', 'device', 'name'],
           filters: [
             { col: 'far_no', cols: ['far_no', 'cust_name', 'device', 'part_id'], op: 'contains', source: 'query', ref: 'q' },
             byParam('name', 'name'),
@@ -521,8 +524,8 @@ function faAssign(): SitePage {
         span: 5,
         row: 21,
         // 오른쪽 두 칸(상세 + 담당자 지정)의 합이 왼쪽 목록과 같아야 좌우가 나란히 끝난다.
-        // 담당자 칸은 내용만큼만 갖고, 남는 높이는 전부 이쪽이 받는다.
-        rowSpan: 23,
+        // 내용(FAR No + 칸 여덟 줄)에 맞춘 높이 — 예전에는 아래가 230px 비어 있었다.
+        rowSpan: 17,
         props: { title: '선택한 접수 건', emptyText: '왼쪽 목록에서 FAR No를 고르세요', subtitleCount: 2 },
         bind: {
           mode: 'list',
@@ -537,7 +540,7 @@ function faAssign(): SitePage {
         type: 'form-card',
         col: 8,
         span: 5,
-        row: 44,
+        row: 38,
         /**
          * 내용에 딱 맞는 높이 — 예전에는 아래가 크게 비어 있었다.
          *
@@ -576,12 +579,12 @@ function faAssign(): SitePage {
        *
        * 위의 기간 필터가 이 표만 좁힌다 — 이 화면의 다른 바인딩은 from/to를 읽지 않는다.
        */
-      { type: 'date-range-filter', col: 1, span: 12, row: 51, rowSpan: 3, props: { title: '집계 기간', defaultPreset: '12m', showPresets: true, showCustom: true } },
+      { type: 'date-range-filter', col: 1, span: 12, row: 45, rowSpan: 3, props: { title: '집계 기간', defaultPreset: '12m', showPresets: true, showCustom: true } },
       {
         type: 'crosstab-table',
         col: 1,
         span: 12,
-        row: 54,
+        row: 48,
         rowSpan: 20,
         props: {
           title: '담당자별 월 담당 건수',
