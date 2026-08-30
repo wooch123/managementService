@@ -449,7 +449,7 @@ function faAssign(): SitePage {
     nodes: [
       callout(
         1,
-        '왼쪽 목록에서 행을 고르면 오른쪽에 그 건의 정보가 열립니다. 담당자는 같은 FAR No의 모든 sample에 함께 적용되며, 인수인계도 같은 자리에서 이름만 바꾸면 됩니다.',
+        '왼쪽 목록에서 행을 고르면 오른쪽에 그 건의 정보가 열립니다. 담당자 지정과 분석 인계는 따로 적습니다 — 인계해도 처음 지정한 담당자는 그대로 남고, 인계 담당자가 적히면 지금 맡은 사람은 그쪽입니다. 둘 다 같은 FAR No의 모든 sample에 함께 적용됩니다.',
         'info',
         4
       ),
@@ -488,13 +488,13 @@ function faAssign(): SitePage {
         col: 1,
         span: 7,
         row: 21,
-        // 오른쪽 두 칸의 합(상세 17 + 담당자 7)과 **같은 수**여야 좌우가 나란히 끝난다.
-        rowSpan: 24,
+        // 오른쪽 세 칸의 합(상세 17 + 지정 7 + 인계 7)과 **같은 수**여야 좌우가 나란히 끝난다.
+        rowSpan: 31,
         props: {
           title: '접수 목록',
           showSearch: false,
           // 카드 높이에 맞춘 줄 수 — 적으면 아래가 비고, 많으면 카드가 넘쳐 좌우가 어긋난다.
-          pageSize: 14,
+          pageSize: 22,
           showExport: false,
           selectable: false,
           density: 'compact',
@@ -504,11 +504,12 @@ function faAssign(): SitePage {
         },
         // 마감일은 뺐다(사용자 지정) — 이 화면은 '누가 맡을지'를 정하는 곳이고, 마감은
         // 분석 현황·종합 현황에서 본다.
-        headers: ['FAR No', 'Sample', '접수일', '고객명', '제품명', '담당자'],
+        // 담당자와 인계 담당자를 나란히 둔다 — 어느 건이 넘어갔는지 목록에서 바로 보인다.
+        headers: ['FAR No', 'Sample', '접수일', '고객명', '제품명', '담당자', '인계 담당자'],
         bind: {
           mode: 'list',
           table: 'far_table',
-          select: ['far_no', 'sample_no', 'rcv_date', 'cust_name', 'device', 'name'],
+          select: ['far_no', 'sample_no', 'rcv_date', 'cust_name', 'device', 'name', 'handover_name'],
           filters: [
             { col: 'far_no', cols: ['far_no', 'cust_name', 'device', 'part_id'], op: 'contains', source: 'query', ref: 'q' },
             byParam('name', 'name'),
@@ -523,16 +524,18 @@ function faAssign(): SitePage {
         col: 8,
         span: 5,
         row: 21,
-        // 오른쪽 두 칸(상세 + 담당자 지정)의 합이 왼쪽 목록과 같아야 좌우가 나란히 끝난다.
+        // 오른쪽 세 칸(상세 + 지정 + 인계)의 합이 왼쪽 목록과 같아야 좌우가 나란히 끝난다.
         // 내용(FAR No + 칸 여덟 줄)에 맞춘 높이 — 예전에는 아래가 230px 비어 있었다.
         rowSpan: 17,
         props: { title: '선택한 접수 건', emptyText: '왼쪽 목록에서 FAR No를 고르세요', subtitleCount: 2 },
         bind: {
           mode: 'list',
           table: 'far_table',
-          select: ['far_no', 'cust_name', 'name', 'sample_no', 'rcv_date', 'due_date', 'part_id', 'device', 'app', 'failmode1', 'failmode2', 'fail_loc'],
+          select: ['far_no', 'cust_name', 'name', 'handover_name', 'sample_no', 'rcv_date', 'due_date', 'part_id', 'device', 'app', 'failmode1', 'failmode2', 'fail_loc'],
           filters: [selected('far_no')],
-          sort: [['sample_no', 'asc']],
+          // Sample No는 글자로 적혀 있어 그냥 정렬하면 1 다음에 10이 온다. 여기는 한 줄만 쓰므로
+          // 정렬이 곧 "몇 번 sample을 보여줄지"다 — 수로 세어야 1번이 나온다.
+          sort: [['sample_no', 'asc', 'numeric']],
           pageSize: 1,
         },
       },
@@ -550,10 +553,10 @@ function faAssign(): SitePage {
          */
         rowSpan: 7,
         props: {
-          title: '담당자 지정 · 변경',
+          title: '담당자 지정',
           description: '고른 FAR No의 모든 sample에 적용됩니다.',
           columns: 1,
-          footnote: '인수인계도 이 자리에서 새 담당자 이름으로 바꾸면 됩니다.',
+          footnote: '처음 맡을 사람을 정하는 자리입니다. 넘길 때는 아래 분석 인계를 쓰세요 — 여기를 고치면 처음 맡았던 사람이 지워집니다.',
         },
         children: [
           {
@@ -570,6 +573,43 @@ function faAssign(): SitePage {
           submitButton('담당자 저장', 'fa-assign'),
         ],
       },
+      /**
+       * 분석 인계 — 지정과 **다른 칸**에 적는다(사용자 지정).
+       *
+       * 카드를 따로 둔 것은 둘이 다른 일이기 때문이다. 지정은 처음 한 번, 인계는 그 뒤에 넘기는
+       * 일이다. 한 칸에서 이름만 바꾸면 넘긴 순간 처음 맡았던 사람이 사라져, 나중에 "원래 누가
+       * 맡았나"를 되물을 수 없다. 지금 맡은 사람은 인계 칸이 비어 있지 않으면 그쪽이다.
+       *
+       * 비우고 저장하면 인계가 취소된다 — 잘못 넘겼을 때 되돌릴 길을 남긴다.
+       */
+      {
+        type: 'form-card',
+        col: 8,
+        span: 5,
+        row: 45,
+        rowSpan: 7,
+        props: {
+          title: '분석 인계',
+          description: '분석을 넘겨받을 사람을 적습니다. 지정 담당자는 그대로 남습니다.',
+          columns: 1,
+          footnote: '비운 채로 저장하면 인계가 취소되고 지정 담당자가 다시 담당이 됩니다.',
+        },
+        children: [
+          {
+            key: 'handover-name',
+            type: 'option-or-text',
+            col: 1,
+            span: 4,
+            row: 1,
+            rowSpan: 8,
+            props: { label: '인계 담당자', placeholder: '넘겨받을 사람을 고르세요', newLabel: '새 담당자 직접 입력' },
+            // 고를 이름은 **지정 담당자** 쪽에서 가져온다 — 인계는 분석자끼리 주고받는 일이라
+            // 그쪽이 곧 사람 명부다. 아직 한 번도 지정된 적 없는 사람은 직접 적으면 된다.
+            bind: groupBy('far_table', 'name', 100),
+          },
+          submitButton('인계 저장', 'fa-handover'),
+        ],
+      },
 
       /**
        * 담당자별 월 집계(사용자 지정).
@@ -579,16 +619,17 @@ function faAssign(): SitePage {
        *
        * 위의 기간 필터가 이 표만 좁힌다 — 이 화면의 다른 바인딩은 from/to를 읽지 않는다.
        */
-      { type: 'date-range-filter', col: 1, span: 12, row: 45, rowSpan: 3, props: { title: '집계 기간', defaultPreset: '12m', showPresets: true, showCustom: true } },
+      { type: 'date-range-filter', col: 1, span: 12, row: 52, rowSpan: 3, props: { title: '집계 기간', defaultPreset: '12m', showPresets: true, showCustom: true } },
       {
         type: 'crosstab-table',
         col: 1,
         span: 12,
-        row: 48,
+        row: 55,
         rowSpan: 20,
         props: {
           title: '담당자별 월 담당 건수',
-          description: '접수일 기준 · FAR 단위로 셉니다(같은 FAR의 sample 여러 개는 한 건).',
+          // 인계는 세지 않는다 — 이 표가 답하는 것은 "누구에게 몇 건을 맡겼나"다.
+          description: '접수일 기준 · 지정 담당자로 셉니다(인계는 반영하지 않습니다) · FAR 단위(같은 FAR의 sample 여러 개는 한 건).',
           rowLabel: '월',
           maxColumns: 8,
         },
@@ -623,7 +664,7 @@ function faStatus(): SitePage {
       kpi(7, 1, '평균 SLC EC', 'far_table', 'avg', [{ col: 'slc_avg_ec', op: 'isNotNull', source: 'fixed' }], { unit: '회' }, 'slc_avg_ec'),
       kpi(10, 1, '평균 Write', 'far_table', 'avg', [{ col: 'write_size', op: 'isNotNull', source: 'fixed' }], { unit: 'GB' }, 'write_size'),
 
-      search(8, 1, 4, '통합 검색', 'FAR No · 고객명 · 제품명 · Firmware'),
+      search(8, 1, 4, '통합 검색', 'FAR No · 고객명 · 제품명 · 담당자'),
       pickFilter(8, 5, 3, '담당자', 'name', '전체 담당자', groupBy('far_table', 'name')),
       pickFilter(8, 8, 3, '불량 대분류', 'fm', '전체 불량 모드', groupBy('far_table', 'failmode1')),
       // FAR 원장 전체를 서버가 만들어 주는 CSV. 표 위 CSV 단추는 지금 화면에 올라온 행만
@@ -640,6 +681,8 @@ function faStatus(): SitePage {
         props: {
           title: '분석 대상 목록',
           showSearch: false,
+          // 오른쪽 상세 카드 높이에 맞춘 줄 수 — 기본값(10줄)으로는 아래가 270px 비어 있었다.
+          pageSize: 17,
           showExport: false,
           selectable: false,
           density: 'compact',
@@ -647,13 +690,16 @@ function faStatus(): SitePage {
           selectParam: 'sel',
           selectFieldId: 'far_no',
         },
-        headers: ['FAR No', 'Sample', '담당자', '고객명', '제품명', '불량 대분류', 'Firmware', '마감일'],
+        // Firmware는 뺐다(사용자 지정) — 이 목록은 '어느 건인지'를 고르는 자리고, Firmware는
+        // 바로 아래 sample별 분석값 표에 회차와 함께 나온다(같은 값을 두 번 늘어놓지 않는다).
+        // 대신 담당자와 인계 담당자를 나란히 둔다 — 넘어간 건인지 목록에서 바로 가른다.
+        headers: ['FAR No', 'Sample', '담당자', '인계 담당자', '고객명', '제품명', '불량 대분류', '마감일'],
         bind: {
           mode: 'list',
           table: 'far_table',
-          select: ['far_no', 'sample_no', 'name', 'cust_name', 'device', 'failmode1', 'firmware', 'due_date'],
+          select: ['far_no', 'sample_no', 'name', 'handover_name', 'cust_name', 'device', 'failmode1', 'due_date'],
           filters: [
-            { col: 'far_no', cols: ['far_no', 'cust_name', 'device', 'firmware'], op: 'contains', source: 'query', ref: 'q' },
+            { col: 'far_no', cols: ['far_no', 'cust_name', 'device', 'name', 'handover_name'], op: 'contains', source: 'query', ref: 'q' },
             byParam('name', 'name'),
             byParam('failmode1', 'fm'),
           ],
@@ -672,13 +718,13 @@ function faStatus(): SitePage {
           mode: 'list',
           table: 'far_table',
           select: [
-            'far_no', 'cust_name', 'name',
+            'far_no', 'cust_name', 'name', 'handover_name',
             'sample_no', 'rcv_date', 'due_date', 'part_id', 'app', 'device', 'ctrl', 'nand', 'dram',
             'fbga', 'density', 'lot_id', 'comp_wc', 'fail_loc', 'failmode1', 'failmode2', 'fail_symptom',
             'visual_inspaction_top', 'visual_inspaction_bottom',
           ],
           filters: [selected('far_no')],
-          sort: [['sample_no', 'asc']],
+          sort: [['sample_no', 'asc', 'numeric']],
           pageSize: 1,
         },
       },
@@ -706,7 +752,8 @@ function faStatus(): SitePage {
           table: 'far_table',
           select: ['sample_no', 'firmware', 'init', 'slc_avg_ec', 'mlc_avg_ec', 'open_count', 'rtbb_count', 'reclaim_count', 'write_size', 'read_size', 'spor_count', 'ecid'],
           filters: [selected('far_no')],
-          sort: [['sample_no', 'asc']],
+          // Sample No는 TEXT라 글자로 정렬하면 1 → 10 → 11 → 2가 된다(사용자 지적). 수로 센다.
+          sort: [['sample_no', 'asc', 'numeric']],
           pageSize: 50,
         },
       },
@@ -742,7 +789,7 @@ function faStatus(): SitePage {
           filters: [selected('far_no')],
           // sample끼리 섞지 않고 묶어서, 각 sample 안에서 최신 회차부터 본다. 시각 하나로만
           // 정렬하면 여러 sample의 기록이 번갈아 나와 "이 sample이 어떻게 변해 왔는지"가 안 보인다.
-          sort: [['sample_no', 'asc'], ['rev', 'desc']],
+          sort: [['sample_no', 'asc', 'numeric'], ['rev', 'desc']],
           pageSize: 50,
         },
       },
@@ -1198,12 +1245,24 @@ export function buildActions(): ActionPlan[] {
     {
       key: 'fa-assign',
       name: 'FA 담당자 지정',
-      desc: '고른 FAR No의 모든 sample에 분석 담당자를 지정한다(인수인계 시 변경도 같은 동작)',
+      desc: '고른 FAR No의 모든 sample에 분석 담당자를 지정한다(처음 맡을 사람 — 넘기는 것은 fa-handover)',
       kind: 'UPDATE',
       table: 'far_table',
       keyCol: 'far_no',
       keyFrom: { from: 'route', param: 'sel' },
       values: { name: { from: 'component', node: 'assign-name' } },
+    },
+    {
+      key: 'fa-handover',
+      name: 'FA 분석 인계',
+      // 지정과 다른 칸에 적으므로 이 동작은 처음 담당자를 건드리지 않는다. 빈 값을 저장하면
+      // 인계가 취소된다 — 잘못 넘겼을 때 되돌릴 길이다.
+      desc: '고른 FAR No의 모든 sample에 인계 담당자를 적는다 — 지정 담당자는 그대로 둔다',
+      kind: 'UPDATE',
+      table: 'far_table',
+      keyCol: 'far_no',
+      keyFrom: { from: 'route', param: 'sel' },
+      values: { handover_name: { from: 'component', node: 'handover-name' } },
     },
     {
       key: 'reball-create',

@@ -26,7 +26,8 @@ export type BindPlan =
       table: string;
       select: string[];
       filters?: FilterPlan[];
-      sort?: [string, 'asc' | 'desc'][];
+      /** [컬럼, 방향] — 세 번째 자리에 'numeric'을 적으면 글자가 아니라 수로 정렬한다(Sample No). */
+      sort?: ([string, 'asc' | 'desc'] | [string, 'asc' | 'desc', 'numeric'])[];
       pageSize?: number;
     }
   | {
@@ -196,7 +197,11 @@ export function toBindingJson(schema: Map<string, EntityInfo>, bind: BindPlan): 
       entityId: entityOf(schema, bind.table).id,
       select: bind.select.map((col) => fieldOf(schema, bind.table, col).id),
       filters: toFilters(schema, bind.table, bind.filters),
-      sort: (bind.sort ?? []).map(([col, dir]) => ({ fieldId: fieldOf(schema, bind.table, col).id, dir })),
+      sort: (bind.sort ?? []).map(([col, dir, kind]) => ({
+        fieldId: fieldOf(schema, bind.table, col).id,
+        dir,
+        ...(kind === 'numeric' ? { numeric: true } : {}),
+      })),
       pageSize: bind.pageSize ?? 30,
     });
   }

@@ -82,6 +82,14 @@ export const ENTITIES: EntityPlan[] = [
       { name: 'FAR No', col: 'far_no', type: 'TEXT', required: true },
       { name: 'Sample No', col: 'sample_no', type: 'TEXT', required: true },
       { name: '분석 담당자', col: 'name', type: 'TEXT' },
+      /**
+       * 인계받은 담당자 — **지정과 따로 적는다**(사용자 지정, 2026-08-30).
+       *
+       * 예전에는 인계도 `name`을 고쳐서 했다. 그러면 넘긴 순간 처음 맡았던 사람이 사라져,
+       * "이 건 원래 누가 맡았나"에 답할 수 없고 담당자별 집계도 과거가 통째로 바뀐다.
+       * 두 칸으로 나누면 둘 다 남는다 — 지금 맡은 사람은 이 칸이 비어 있지 않으면 이 사람이다.
+       */
+      { name: '인계 담당자', col: 'handover_name', type: 'TEXT' },
       ...INTAKE_FIELDS,
       ...TOOL_FIELDS,
       { name: '상단부 사진', col: 'visual_inspaction_top', type: 'TEXT' },

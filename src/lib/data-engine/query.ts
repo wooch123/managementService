@@ -125,7 +125,10 @@ export function buildOrderClause(entity: ResolvedEntity, sort: Sort[]): string {
   const parts = sort.map((s) => {
     const field = resolveField(entity, s.fieldId);
     const dir = s.dir === 'desc' ? 'DESC' : 'ASC';
-    return `${quoteIdent(field.columnName)} ${dir}`;
+    const col = quoteIdent(field.columnName);
+    // 수로 읽어야 하는 칸(Sample No 등)은 CAST로 먼저 세고, 수가 아닌 값들은 전부 0이 되므로
+    // 글자 순서로 한 번 더 가른다. 컬럼 이름은 설계에서 찾은 것이라 주소로 바꿔치기할 수 없다.
+    return s.numeric ? `CAST(${col} AS INTEGER) ${dir}, ${col} ${dir}` : `${col} ${dir}`;
   });
   return `ORDER BY ${parts.join(', ')}`;
 }

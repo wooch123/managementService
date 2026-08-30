@@ -32,6 +32,14 @@ export type Filter = z.infer<typeof filterSchema>;
 export const sortSchema = z.object({
   fieldId: z.string(),
   dir: z.enum(['asc', 'desc']),
+  /**
+   * 글자로 적혀 있지만 **수로 읽어야 하는** 칸을 위한 표시.
+   *
+   * Sample No가 그렇다. 값이 TEXT라 그냥 정렬하면 글자 순서로 1 → 10 → 11 → 2가 된다.
+   * 숫자 타입으로 바꾸면 될 것 같지만 안 된다 — 이 칸에는 `1-2`, `A3`처럼 수가 아닌 값도 들어온다.
+   * 그래서 정렬할 때만 수로 읽고, 수로 읽히지 않는 값끼리는 글자 순서로 뒤를 가른다.
+   */
+  numeric: z.boolean().optional(),
 });
 export type Sort = z.infer<typeof sortSchema>;
 
