@@ -27,7 +27,17 @@ git clone https://github.com/wooch123/managementService.git && cd managementServ
 ./run.sh
 ```
 
-**Windows·macOS**나 이미 Node·pnpm이 갖춰진 환경이라면:
+**Windows**도 한 줄이다. `start.bat`을 두 번 누르거나(탐색기), 명령 프롬프트에서:
+
+```bat
+git clone https://github.com/wooch123/managementService.git && cd managementService
+start.bat
+```
+
+하는 일과 옵션은 `run.sh`와 같다(`start.bat dev`, `--port 8080`, `--host`, `setup`, `--skip-build`).
+Node가 없으면 winget으로 설치하고, winget이 없으면 받는 곳을 안내한다.
+
+**macOS**나 이미 Node·pnpm이 갖춰진 환경이라면:
 
 ```bash
 pnpm install
@@ -40,19 +50,23 @@ pnpm dev
 필요한 것은 **Node 20 이상과 pnpm**뿐이다. C++ 빌드 도구나 Python은 필요 없다 —
 SQLite 드라이버가 미리 빌드된 바이너리를 담아 오기 때문이다(새 PC에서 clone → install → 실행까지 실측).
 
-`run.sh` 옵션:
+옵션은 둘이 같다 — 리눅스는 `./run.sh`, 윈도우는 `start.bat`으로 바꿔 읽으면 된다.
 
 | 명령 | 하는 일 |
 |---|---|
-| `./run.sh` | 설치·준비 후 **빌드해서 실행**(프로덕션) |
-| `./run.sh dev` | 개발 서버(파일을 고치면 바로 반영) |
-| `./run.sh --port 8080` | 포트 지정 |
-| `./run.sh --host` | `0.0.0.0`에 바인딩 — 같은 망의 다른 기기에서 접속 |
-| `./run.sh setup` | 설치·준비까지만 하고 실행하지 않음 |
-| `./run.sh --skip-build` | 이미 빌드해 뒀을 때 빌드를 건너뛴다 |
+| `./run.sh` · `start.bat` | 설치·준비 후 **빌드해서 실행**(프로덕션) |
+| `… dev` | 개발 서버(파일을 고치면 바로 반영) |
+| `… --port 8080` | 포트 지정 |
+| `… --host` | `0.0.0.0`에 바인딩 — 같은 망의 다른 기기에서 접속 |
+| `… setup` | 설치·준비까지만 하고 실행하지 않음 |
+| `… --skip-build` | 이미 빌드해 뒀을 때 빌드를 건너뛴다 |
+| `… --skip-install` | 의존성 설치를 건너뛴다 |
 
-Node가 없으면 NodeSource(apt)로 설치하고, `sudo`를 쓸 수 없으면 nvm으로 홈 디렉터리에 설치한다.
-이미 갖춰진 단계는 건너뛰므로 몇 번을 실행해도 결과가 같다.
+Node가 없으면 리눅스는 NodeSource(apt)로, `sudo`를 쓸 수 없으면 nvm으로 홈에 설치한다.
+윈도우는 winget으로 설치한다. 이미 갖춰진 단계는 건너뛰므로 몇 번을 실행해도 결과가 같다.
+
+> `start.bat`은 실제 일을 `start.ps1`에 맡긴다. cmd.exe가 배치 파일을 OEM 코드페이지로 읽어
+> UTF-8 한글이 깨지기 때문이다 — 말이 들어가는 쪽만 PowerShell로 옮겼다.
 
 <details>
 <summary><b>pnpm 설치에서 <code>unable to verify signature</code>가 날 때</b></summary>

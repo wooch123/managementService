@@ -9,6 +9,11 @@
 # PowerShell은 Windows에서만 쓰므로 CRLF로 둔다.
 *.ps1 text eol=crlf
 
+# 배치 파일도 CRLF다. LF로 체크아웃되면 cmd.exe가 줄을 잘못 끊어, 특히 `goto`·라벨·여러 줄
+# 구문에서 조용히 다르게 동작한다 — .sh의 `^M` 문제와 같은 종류의 고장이 방향만 반대로 난다.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
 # SQLite DB와 이미지 — 줄바꿈 변환이 닿으면 파일이 깨진다.
 *.db binary
 *.png binary
