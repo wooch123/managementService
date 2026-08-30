@@ -74,7 +74,9 @@ const INTAKE_FIELDS: FieldPlan[] = [
 
 export const ENTITIES: EntityPlan[] = [
   {
-    name: 'FAR 원장',
+    // 표시명은 'FAR List'다(사용자 지정, 2026-08-30). 물리 이름 far_table은 그대로 둔다 —
+    // 이미 쌓인 데이터와 색인이 그 이름에 걸려 있고, 표시명은 메타에만 있으면 되는 값이다.
+    name: 'FAR List',
     table: 'far_table',
     description:
       'Claim 접수 원장. 한 FAR No에 여러 sample이 달릴 수 있어 행 하나 = sample 하나다. 접수·제품 정보는 외부 서버 API로 채우고(이관 후 연동), 분석 값은 분석 Tool이 갱신한다 — 갱신할 때마다 FAR 분석 이력에 그 시점 값이 함께 쌓인다.',

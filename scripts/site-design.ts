@@ -667,7 +667,7 @@ function faStatus(): SitePage {
       search(8, 1, 4, '통합 검색', 'FAR No · 고객명 · 제품명 · 담당자'),
       pickFilter(8, 5, 3, '담당자', 'name', '전체 담당자', groupBy('far_table', 'name')),
       pickFilter(8, 8, 3, '불량 대분류', 'fm', '전체 불량 모드', groupBy('far_table', 'failmode1')),
-      // FAR 원장 전체를 서버가 만들어 주는 CSV. 표 위 CSV 단추는 지금 화면에 올라온 행만
+      // FAR List 전체를 서버가 만들어 주는 CSV. 표 위 CSV 단추는 지금 화면에 올라온 행만
       // 담으므로(쪽 단위 조회), 원장을 통째로 받는 길은 따로 남겨 둔다.
       // 아래 표가 11줄부터 시작하므로 여기서는 필터와 같은 3줄로 맞춘다.
       exportButton(8, 11, 2, 'far-export', 3),
@@ -1330,7 +1330,7 @@ export function buildActions(): ActionPlan[] {
         rcv_date: { from: 'component', node: 'intake-add', path: 'rcv_date' },
       },
     },
-    { key: 'far-export', name: 'FAR 원장 CSV 내보내기', desc: 'FAR 원장을 CSV로 내려받는다', kind: 'EXPORT_CSV', table: 'far_table', filename: 'far_table.csv' },
+    { key: 'far-export', name: 'FAR List CSV 내보내기', desc: 'FAR List를 CSV로 내려받는다', kind: 'EXPORT_CSV', table: 'far_table', filename: 'far_table.csv' },
     { key: 'reball-export', name: 'Reball 의뢰 CSV 내보내기', desc: 'Reball 의뢰 목록을 CSV로 내려받는다', kind: 'EXPORT_CSV', table: 'reball_table', filename: 'reball_table.csv' },
   ];
 }
