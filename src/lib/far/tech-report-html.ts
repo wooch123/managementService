@@ -311,7 +311,7 @@ export async function renderTechReportHtml(doc: TechReportDoc): Promise<string> 
     ${imageBlock('상단부 사진', top)}
     ${imageBlock('하단부 사진', bottom)}
 
-    ${divider('Secure Smart report')}
+    ${divider('초도 분석')}
   </div>
 
   ${samples}

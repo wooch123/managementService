@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { ClipboardPaste, FileDown, FileSearch, ImagePlus, MoveUpRight, Plus, Trash2, X } from 'lucide-react';
+import { Check, ClipboardCopy, ClipboardPaste, FileDown, FileSearch, ImagePlus, MoveUpRight, Plus, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   IMAGE_SLOTS,
@@ -29,6 +29,18 @@ import type { ApiResult } from '@/types/auth';
  */
 
 const AUTOSAVE_DELAY_MS = 800;
+
+/** 붙여넣을 HTML에 값을 넣기 전에 — 값 안의 <, & 가 태그로 읽히면 안 된다. */
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/** 큰따옴표·쉼표·줄바꿈이 든 칸은 감싼다(RFC 4180). */
+function csvCell(value: string): string {
+  const needsQuotes = /["\n\r,]/.test(value);
+  return needsQuotes ? `"${value.replace(/"/g, '""')}"` : value;
+}
+
 const IMAGE_URL = (file: string) => `/api/runtime/tech-report/image?f=${encodeURIComponent(file)}`;
 
 // ── 양식의 낱개 조각들 ──────────────────────────────────────────────────────
@@ -358,8 +370,69 @@ export function TechReport({ title, description }: { title: string; description:
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [ssrCopied, setSsrCopied] = useState(false);
 
   const disabled = doc === null;
+
+  /**
+   * sample 전부의 Smart Report를 **한 표로** 편다 — 줄이 항목, 칸이 sample이다.
+   *
+   * 화면의 세로 표와 같은 방향이라 눈으로 옮겨 적던 것을 그대로 옮긴 셈이고, sample을 나란히
+   * 놓아 서로 견주기도 쉽다.
+   */
+  function ssrTable(): { head: string[]; body: string[][] } {
+    const samples = doc?.samples ?? [];
+    return {
+      head: ['항목', ...samples.map((s) => `Sample ${s.sample_no}`)],
+      body: PERF_ROWS.map((row) => [row.label.toUpperCase(), ...samples.map((s) => s.perf?.[row.col] ?? '')]),
+    };
+  }
+
+  /**
+   * 클립보드에 두 벌을 담는다 — 글자(TSV)와 표(HTML).
+   *
+   * 글자만 담으면 메일 편집기에서 한 줄로 뭉개진다. HTML을 함께 담으면 아웃룩·지메일·워드가
+   * 그쪽을 골라 진짜 표로 붙인다(Reball 의뢰 표의 '표 복사'와 같은 방식).
+   */
+  async function copySsr() {
+    const { head, body } = ssrTable();
+    const cell = (v: string) => `<td style="border:1px solid #d4d4d8;padding:4px 8px;font-size:12px">${escapeHtml(v)}</td>`;
+    const html =
+      `<p style="font-family:sans-serif;font-size:12px;margin:0 0 6px">${escapeHtml(doc?.far_no ?? '')} Smart Report</p>` +
+      `<table style="border-collapse:collapse;font-family:sans-serif"><thead><tr>${head
+        .map((h) => `<th style="border:1px solid #d4d4d8;padding:4px 8px;background:#f4f4f5;text-align:left;font-size:12px">${escapeHtml(h)}</th>`)
+        .join('')}</tr></thead><tbody>${body.map((r) => `<tr>${r.map(cell).join('')}</tr>`).join('')}</tbody></table>`;
+    const text = [`${doc?.far_no ?? ''} Smart Report`, head.join('\t'), ...body.map((r) => r.join('\t'))].join('\n');
+
+    try {
+      if (typeof ClipboardItem === 'function' && navigator.clipboard?.write) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/html': new Blob([html], { type: 'text/html' }),
+            'text/plain': new Blob([text], { type: 'text/plain' }),
+          }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(text);
+      }
+      setSsrCopied(true);
+      setTimeout(() => setSsrCopied(false), 1600);
+    } catch {
+      toast.error('클립보드에 담지 못했습니다.');
+    }
+  }
+
+  function downloadSsrCsv() {
+    const { head, body } = ssrTable();
+    const csv = [head, ...body].map((r) => r.map(csvCell).join(',')).join('\r\n');
+    // 엑셀은 BOM이 없으면 UTF-8을 시스템 코드페이지로 읽어 한글이 깨진다.
+    const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${doc?.far_no ?? 'tech-report'} Smart Report.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
   /** 불러오기 직후에는 저장하지 않는다 — 방금 읽은 것을 그대로 되쓸 이유가 없다. */
   const skipNextSave = useRef(true);
 
@@ -545,8 +618,8 @@ export function TechReport({ title, description }: { title: string; description:
         onClear={() => setDoc((prev) => (prev ? { ...prev, visual_bottom: '' } : prev))}
       />
 
-      {/* ④ Secure Smart report — sample 탭 */}
-      <Divider label="Secure Smart report" />
+      {/* ④ 초도 분석 — sample 탭 */}
+      <Divider label="초도 분석" />
       <div className="tr-span-12 flex flex-col gap-3">
         <div className="tr-tablist" role="tablist" aria-label="Sample 탭">
           {(doc?.samples ?? [{ sample_no: '1' }, { sample_no: '2' }, { sample_no: '3' }]).map((s, index) => (
@@ -562,13 +635,30 @@ export function TechReport({ title, description }: { title: string; description:
               Sample {s.sample_no}
             </button>
           ))}
+          {/*
+            탭 줄 오른쪽 끝 — sample 전부의 Smart Report 값을 한 번에 꺼내는 자리(사용자 지정).
+            탭마다 표를 열어 손으로 옮겨 적을 이유가 없다. 붙여넣기와 파일 둘 다 둔다:
+            메일·문서에는 붙여넣기가, 다시 계산해 볼 때는 CSV가 편하다.
+          */}
+          {doc && (
+            <span className="ml-auto flex items-center gap-1 pb-1">
+              <button type="button" className="tr-tool-button" onClick={() => void copySsr()} title="모든 sample의 Smart Report를 클립보드로">
+                {ssrCopied ? <Check className="size-3.5" /> : <ClipboardCopy className="size-3.5" />}
+                {ssrCopied ? '복사됨' : 'SSR Copy'}
+              </button>
+              <button type="button" className="tr-tool-button" onClick={downloadSsrCsv} title="모든 sample의 Smart Report를 CSV 파일로">
+                <FileDown className="size-3.5" />
+                CSV
+              </button>
+            </span>
+          )}
         </div>
 
         {(doc?.samples ?? []).map((s, index) => (
           <div key={s.sample_no} hidden={index !== active} className="tech-report-tabpanel" role="tabpanel">
             <div className="tr-grid">
-              {/* Performance table — 라벨 | 값 세로 표 */}
-              <Card title="Performance table" span={12}>
+              {/* Smart Report — 라벨 | 값 세로 표. 칸 이름은 대문자·가운데(사용자 지정). */}
+              <Card title="Smart Report" span={12}>
                 <div className="tr-table-wrap">
                   <table className="tr-table tr-table-vertical">
                     <tbody>

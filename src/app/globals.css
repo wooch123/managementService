@@ -596,12 +596,19 @@ select optgroup {
   text-transform: uppercase;
   white-space: nowrap;
 }
-/* 라벨 | 값 두 칸짜리 세로 표(Performance table) — 왼쪽 라벨 칸 폭을 잡아 준다. */
+/*
+ * 라벨 | 값 두 칸짜리 세로 표(Smart Report) — 왼쪽 라벨 칸 폭을 잡아 준다.
+ * 칸 이름은 대문자·가운데 정렬이다(사용자 지정) — 발행물(PDF)과 같은 규격으로 맞춘다.
+ */
 .tr-table-vertical th {
   width: 40%;
   background: var(--muted);
-  font-weight: 500;
-  text-align: left;
+  font-weight: 700;
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--muted-foreground);
 }
 .tr-cell-input {
   min-width: 4rem;
@@ -691,6 +698,24 @@ select optgroup {
 }
 
 /* 탭 */
+/* 탭 줄 오른쪽 끝의 작은 도구 단추(SSR 복사·CSV) — 탭보다 물러나 있어야 한다. */
+.tr-tool-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.tr-tool-button:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
 .tr-tablist {
   display: flex;
   gap: 0.25rem;
