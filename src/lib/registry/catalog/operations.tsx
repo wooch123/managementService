@@ -4,6 +4,7 @@ import { VisitStats, VisitStatsPreview } from '@/components/runtime/VisitStats';
 import { ReballCost, ReballCostPreview, toCostRow, type ReballWorkValue } from '@/components/runtime/ReballCost';
 import { ReballRequestTable, ReballRequestTablePreview, type ReballRow } from '@/components/runtime/ReballRequestTable';
 import { PkgStack, PkgStackPreview, type PkgStackEdit, type PkgStackValue } from '@/components/runtime/PkgStack';
+import { ManualIntake, ManualIntakePreview } from '@/components/runtime/ManualIntake';
 import { TechReport, TechReportPreview } from '@/components/runtime/TechReport';
 import { defineComponent, type ComponentDef } from '@/lib/registry/types';
 
@@ -183,6 +184,41 @@ export const operationsComponents = [
         />
       ) : (
         <PkgStackPreview title={props.title} />
+      ),
+  }),
+
+  /**
+   * 접수 직접 추가 — 자동으로 들어오지 못한 FA를 손으로 채운다.
+   *
+   * FAR No 하나와 sample 총 개수를 받아 1번부터 그 수만큼 **등록 액션을 한 번씩** 실행한다.
+   * 어떤 칸이 어느 컬럼으로 가는지는 배포된 스펙이 갖고 있어야 하므로 여기서는 줄만 넘긴다
+   * (Reball 의뢰 표와 같은 방식).
+   */
+  defineComponent({
+    key: 'manual-intake',
+    label: '접수 직접 추가',
+    group: '입력',
+    icon: 'file-plus-2',
+    description: 'FAR No와 sample 총 개수를 받아 원장에 줄을 만든다 — 자동으로 못 불러온 건을 위한 자리',
+    isContainer: false,
+    growsWithContent: true,
+    bindingModes: [],
+    events: [{ name: 'onSubmit', label: 'sample 한 줄 등록', payload: 'FAR No · sample 번호 · 접수일' }],
+    propsSchema: z.object({
+      title: z.string().default('접수 직접 추가'),
+      description: z.string().default(''),
+    }),
+    defaultProps: { title: '접수 직접 추가', description: '' },
+    defaultGrid: { span: 12, rowSpan: 6 },
+    render: ({ props, dispatch }) =>
+      typeof dispatch === 'function' ? (
+        <ManualIntake
+          title={props.title}
+          description={props.description}
+          onSubmitRow={(row) => dispatch('onSubmit', row)}
+        />
+      ) : (
+        <ManualIntakePreview title={props.title} />
       ),
   }),
 

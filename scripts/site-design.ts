@@ -459,15 +459,35 @@ function faAssign(): SitePage {
       kpi(7, 5, '마감 초과', 'far_table', 'count', [overdue]),
       kpi(10, 5, '전체 Sample', 'far_table', 'count', []),
 
-      search(12, 1, 5, 'FAR 검색', 'FAR No · 고객명 · 제품명 · Part ID'),
-      pickFilter(12, 6, 3, '담당자', 'name', '전체 담당자', groupBy('far_table', 'name')),
-      pickFilter(12, 9, 4, '고객사', 'cust', '전체 고객사', groupBy('far_table', 'cust_name')),
+      /**
+       * 자동으로 들어오지 못한 FA를 손으로 넣는 자리(사용자 지정).
+       *
+       * 평소에는 단추 하나로 접혀 있다 — 가끔 쓰는 기능이 접수 목록을 아래로 밀어낼 이유가 없다.
+       * 펴면 그만큼 늘어난다(growsWithContent).
+       */
+      {
+        key: 'intake-add',
+        type: 'manual-intake',
+        col: 1,
+        span: 12,
+        row: 12,
+        rowSpan: 6,
+        props: {
+          title: '접수 직접 추가',
+          description: '자동으로 불러오지 못한 FA는 여기서 FAR No와 sample 총 개수를 적어 넣습니다.',
+        },
+        on: { onSubmit: 'intake-create' },
+      },
+
+      search(18, 1, 5, 'FAR 검색', 'FAR No · 고객명 · 제품명 · Part ID'),
+      pickFilter(18, 6, 3, '담당자', 'name', '전체 담당자', groupBy('far_table', 'name')),
+      pickFilter(18, 9, 4, '고객사', 'cust', '전체 고객사', groupBy('far_table', 'cust_name')),
 
       {
         type: 'data-table',
         col: 1,
         span: 7,
-        row: 15,
+        row: 21,
         rowSpan: 30,
         props: {
           title: '접수 목록',
@@ -499,7 +519,7 @@ function faAssign(): SitePage {
         type: 'record-detail',
         col: 8,
         span: 5,
-        row: 15,
+        row: 21,
         // 오른쪽 두 칸(상세 + 담당자 지정)의 합이 왼쪽 목록과 같아야 좌우가 나란히 끝난다.
         // 담당자 칸은 내용만큼만 갖고, 남는 높이는 전부 이쪽이 받는다.
         rowSpan: 23,
@@ -517,7 +537,7 @@ function faAssign(): SitePage {
         type: 'form-card',
         col: 8,
         span: 5,
-        row: 38,
+        row: 44,
         /**
          * 내용에 딱 맞는 높이 — 예전에는 아래가 크게 비어 있었다.
          *
@@ -556,12 +576,12 @@ function faAssign(): SitePage {
        *
        * 위의 기간 필터가 이 표만 좁힌다 — 이 화면의 다른 바인딩은 from/to를 읽지 않는다.
        */
-      { type: 'date-range-filter', col: 1, span: 12, row: 45, rowSpan: 3, props: { title: '집계 기간', defaultPreset: '12m', showPresets: true, showCustom: true } },
+      { type: 'date-range-filter', col: 1, span: 12, row: 51, rowSpan: 3, props: { title: '집계 기간', defaultPreset: '12m', showPresets: true, showCustom: true } },
       {
         type: 'crosstab-table',
         col: 1,
         span: 12,
-        row: 48,
+        row: 54,
         rowSpan: 20,
         props: {
           title: '담당자별 월 담당 건수',
@@ -1234,6 +1254,18 @@ export function buildActions(): ActionPlan[] {
         layers: { from: 'component', node: 'pkg-rows', path: 'layers' },
         image: { from: 'component', node: 'pkg-rows', path: 'image' },
         note: { from: 'component', node: 'pkg-rows', path: 'note' },
+      },
+    },
+    {
+      key: 'intake-create',
+      name: '접수 직접 추가',
+      desc: '자동으로 불러오지 못한 FA를 원장에 넣는다 — sample 한 줄씩 실행된다',
+      kind: 'CREATE',
+      table: 'far_table',
+      values: {
+        far_no: { from: 'component', node: 'intake-add', path: 'far_no' },
+        sample_no: { from: 'component', node: 'intake-add', path: 'sample_no' },
+        rcv_date: { from: 'component', node: 'intake-add', path: 'rcv_date' },
       },
     },
     { key: 'far-export', name: 'FAR 원장 CSV 내보내기', desc: 'FAR 원장을 CSV로 내려받는다', kind: 'EXPORT_CSV', table: 'far_table', filename: 'far_table.csv' },

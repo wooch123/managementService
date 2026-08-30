@@ -1974,6 +1974,22 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "onUpdate"
     ]
   },
+  "manual-intake": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 6
+    },
+    "defaultProps": {
+      "title": "접수 직접 추가",
+      "description": ""
+    },
+    "bindingModes": [],
+    "events": [
+      "onSubmit"
+    ]
+  },
   "tech-report": {
     "isContainer": false,
     "allowedChildren": null,
