@@ -54,6 +54,28 @@ SQLite 드라이버가 미리 빌드된 바이너리를 담아 오기 때문이�
 Node가 없으면 NodeSource(apt)로 설치하고, `sudo`를 쓸 수 없으면 nvm으로 홈 디렉터리에 설치한다.
 이미 갖춰진 단계는 건너뛰므로 몇 번을 실행해도 결과가 같다.
 
+<details>
+<summary><b>pnpm 설치에서 <code>unable to verify signature</code>가 날 때</b></summary>
+
+corepack이 pnpm 꾸러미를 받아 **서명을 확인하다** 막힌 것이다. `run.sh`는 이 경우 npm으로
+넘어가지만, 이미 손으로 `corepack enable`을 해 뒀다면 그 자리표(shim)가 계속 앞을 막는다.
+
+```bash
+corepack disable pnpm
+npm install -g pnpm@11.22.0
+pnpm --version
+```
+
+원인은 둘 중 하나다.
+
+- **corepack에 박힌 npm 서명 키가 낡았다.** corepack은 자기 안에 키를 들고 있어, 레지스트리가
+  키를 바꾸면 옛 corepack은 확인에 실패한다. `npm install -g corepack@latest` 후 다시 해도 된다.
+- **회사망이 TLS를 가로챈다.** `curl -sSI https://registry.npmjs.org/pnpm`이 인증서 오류로
+  끝나면 이쪽이다. 사내 CA를 `NODE_EXTRA_CA_CERTS=/경로/사내CA.pem`으로 알려 준다.
+  확인 자체를 끄는 설정(`strict-ssl=false` 등)은 쓰지 않는다 — 받은 것이 진짜인지 못 보게 된다.
+
+</details>
+
 무엇이 함께 들어 있는지:
 
 | 파일 | 내용 |

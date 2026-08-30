@@ -164,8 +164,17 @@ step "pnpm"
 # npm 사용자 전역 설치를 쓸 수 있게 PATH를 미리 넓힌다.
 export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"
 
-if command -v pnpm >/dev/null 2>&1; then
-  ok "이미 있음 (pnpm $(pnpm --version 2>/dev/null || echo '?'))"
+# package.json이 못 박아 둔 pnpm 버전 — 대체 경로로 넣을 때도 같은 것을 넣는다.
+want_pnpm="$(sed -n 's/.*"packageManager"[[:space:]]*:[[:space:]]*"pnpm@\([^"]*\)".*/\1/p' package.json | head -1)"
+
+# pnpm이 **실제로 도는지** 본다. PATH에 있는지만 보면 안 된다 — corepack은 `enable` 하는 순간
+# 자리표(shim)를 PATH에 만들고, 진짜 내려받기와 서명 확인은 처음 실행할 때 일어난다. 그 확인이
+# 막히면 자리표만 있고 pnpm은 없는 상태가 되는데, 예전에는 그것을 '설치 성공'으로 세어 아래
+# 대체 경로가 한 번도 돌지 않았다(설치는 성공했다고 하고 다음 단계에서 서명 오류로 죽었다).
+pnpm_works() { command -v pnpm >/dev/null 2>&1 && pnpm --version >/dev/null 2>&1; }
+
+if pnpm_works; then
+  ok "이미 있음 (pnpm $(pnpm --version))"
 else
   info "pnpm이 없습니다 — 설치합니다"
   installed=0
@@ -173,22 +182,30 @@ else
   if command -v corepack >/dev/null 2>&1; then
     if corepack enable pnpm >/dev/null 2>&1 || { [ -n "$SUDO" ] && $SUDO corepack enable pnpm >/dev/null 2>&1; }; then
       corepack prepare --activate >/dev/null 2>&1 || true
-      if command -v pnpm >/dev/null 2>&1; then installed=1; fi
+      if pnpm_works; then installed=1; fi
+    fi
+    if [ "$installed" -eq 0 ]; then
+      # corepack이 못 가져왔다(대개 서명 확인 실패 — 낡은 corepack에 박힌 npm 서명 키가
+      # 지금 레지스트리 키와 맞지 않는다). 자리표를 걷어내지 않으면 아래에서 npm으로 넣은
+      # pnpm을 그 자리표가 계속 가린다.
+      warn "corepack으로 가져오지 못했습니다 — npm으로 넣습니다"
+      corepack disable pnpm >/dev/null 2>&1 || { [ -n "$SUDO" ] && $SUDO corepack disable pnpm >/dev/null 2>&1; } || true
+      hash -r 2>/dev/null || true
     fi
   fi
-  # (b) npm 전역
+  # (b) npm 전역 — 못 박아 둔 버전 그대로. npm도 레지스트리가 준 무결성 해시로 받은 것을 확인한다.
   if [ "$installed" -eq 0 ] && command -v npm >/dev/null 2>&1; then
-    if npm install -g pnpm >/dev/null 2>&1; then installed=1; fi
+    if npm install -g "pnpm@${want_pnpm:-latest}" >/dev/null 2>&1 && pnpm_works; then installed=1; fi
     if [ "$installed" -eq 0 ] && [ -n "$SUDO" ]; then
-      if $SUDO npm install -g pnpm >/dev/null 2>&1; then installed=1; fi
+      if $SUDO npm install -g "pnpm@${want_pnpm:-latest}" >/dev/null 2>&1 && pnpm_works; then installed=1; fi
     fi
   fi
   # (c) 권한 없이 홈에 설치 — 전역 경로에 쓸 권한이 없을 때
   if [ "$installed" -eq 0 ] && command -v npm >/dev/null 2>&1; then
-    if npm install -g --prefix "$HOME/.local" pnpm >/dev/null 2>&1; then installed=1; fi
+    if npm install -g --prefix "$HOME/.local" "pnpm@${want_pnpm:-latest}" >/dev/null 2>&1 && pnpm_works; then installed=1; fi
   fi
 
-  command -v pnpm >/dev/null 2>&1 || die "pnpm 설치에 실패했습니다. 직접 설치해 주세요: npm install -g pnpm"
+  pnpm_works || die "pnpm 설치에 실패했습니다. 직접 설치해 주세요: npm install -g pnpm@${want_pnpm:-latest}"
   ok "설치 완료 (pnpm $(pnpm --version))"
 fi
 
