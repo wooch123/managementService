@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  LISTED_THEMES,
   THEMES,
   THEMES_BY_CATEGORY,
   THEME_CATEGORIES,
@@ -29,6 +30,20 @@ describe('테마 팔레트', () => {
     // 눈이 덜 부신 밝은 테마 둘(소프트 그레이·소프트 샌드)이 그레이에 더해졌다.
     const counts = Object.fromEntries(THEMES_BY_CATEGORY.map(({ category, themes }) => [category, themes.length]));
     expect(counts).toEqual({ 다크: 4, 그레이: 6, 라이트: 4, 메탈릭: 4, 모던: 4 });
+  });
+
+  /**
+   * 고르는 자리에는 넷만 내놓는다(사용자 지정) — 나머지는 감출 뿐 지우지 않는다.
+   *
+   * 감춘 테마의 정의와 CSS가 남아 있어야, 이미 그 테마를 골라 둔 사람의 화면이 다음 접속에
+   * 말없이 다른 색으로 바뀌지 않는다(CSS가 스물둘 그대로인 것은 아래 규칙 시험이 지킨다).
+   */
+  it('고르는 목록은 넷뿐이다 — 감춘 테마는 정의만 남는다', () => {
+    expect(LISTED_THEMES.map((t) => t.id)).toEqual(['classic', 'indigo', 'graphite', 'titanium']);
+    // 밝은 것 둘 → 어두운 것 둘. 분류 이름이 사라진 자리에서 그 정도 묶음은 있어야 읽힌다.
+    expect(LISTED_THEMES.map((t) => t.isDark)).toEqual([false, false, true, true]);
+    // 감춘 것은 목록에서만 빠진다 — 팔레트 자체는 그대로다.
+    expect(THEMES.length).toBeGreaterThan(LISTED_THEMES.length);
   });
 
   /**

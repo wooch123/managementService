@@ -7,13 +7,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import {
-  THEMES_BY_CATEGORY,
+  LISTED_THEMES,
   THEME_STORAGE_KEY,
   getTheme,
   type ThemeDef,
@@ -81,36 +80,30 @@ export function ThemePicker() {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="max-h-[70vh] w-64 overflow-y-auto">
-            <DropdownMenuItem onSelect={useSystem}>
-              <Monitor className="size-4" />
-              시스템 설정 따르기
-              {mounted && current === null && <Check className="ml-auto size-4" />}
-            </DropdownMenuItem>
+        <DropdownMenuItem onSelect={useSystem}>
+          <Monitor className="size-4" />
+          시스템 설정 따르기
+          {mounted && current === null && <Check className="ml-auto size-4" />}
+        </DropdownMenuItem>
 
-            {THEMES_BY_CATEGORY.map(({ category, themes }) => (
-              <div key={category}>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel className="text-xs text-muted-foreground">{category}</DropdownMenuLabel>
-                {themes.map((def) => (
-                  <DropdownMenuItem key={def.id} onSelect={() => apply(def)}>
-                    <span className="flex shrink-0 items-center gap-0.5" aria-hidden>
-                      {def.swatch.map((color, i) => (
-                        <span
-                          key={i}
-                          className={cn(
-                            'size-3 rounded-full border border-black/10',
-                            i > 0 && '-ml-1.5'
-                          )}
-                          style={{ background: color }}
-                        />
-                      ))}
-                    </span>
-                    <span className="truncate">{def.label}</span>
-                    {mounted && current === def.id && <Check className="ml-auto size-4 shrink-0" />}
-                  </DropdownMenuItem>
-                ))}
-              </div>
-            ))}
+        <DropdownMenuSeparator />
+
+        {/* 분류 이름 없이 한 줄로 늘어놓는다 — 넷을 다섯 갈래로 나눠 보여 줄 이유가 없다. */}
+        {LISTED_THEMES.map((def) => (
+          <DropdownMenuItem key={def.id} onSelect={() => apply(def)}>
+            <span className="flex shrink-0 items-center gap-0.5" aria-hidden>
+              {def.swatch.map((color, i) => (
+                <span
+                  key={i}
+                  className={cn('size-3 rounded-full border border-black/10', i > 0 && '-ml-1.5')}
+                  style={{ background: color }}
+                />
+              ))}
+            </span>
+            <span className="truncate">{def.label}</span>
+            {mounted && current === def.id && <Check className="ml-auto size-4 shrink-0" />}
+          </DropdownMenuItem>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );

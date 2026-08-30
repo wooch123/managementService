@@ -193,6 +193,28 @@ export const THEMES_BY_CATEGORY: { category: ThemeCategory; themes: ThemeDef[] }
   (category) => ({ category, themes: THEMES.filter((t) => t.category === category) })
 );
 
+/**
+ * 고르는 자리에 **내놓을** 테마 — 넷만 남긴다(사용자 지정, 2026-08-30).
+ *
+ * 스물두 종을 다섯 분류로 늘어놓으니 고르는 일이 오히려 일이 됐다. 실제로 쓰이는 것은
+ * 밝은 둘과 어두운 둘이라 그것만 내놓고 나머지는 감춘다. 분류 이름도 함께 감춘다 — 넷을
+ * 다섯 갈래로 나눠 보여 줄 이유가 없다.
+ *
+ * **지우지는 않는다.** 감춘 테마의 정의와 CSS는 그대로 둔다 — 이미 그 테마를 골라 둔 사람의
+ * 브라우저에는 그 이름이 저장되어 있고, 정의를 지우면 그 화면이 다음 접속에 말없이 다른 색으로
+ * 바뀐다. 감춘 테마를 쓰던 사람은 계속 그대로 보되, 다시 고를 수는 없다.
+ *
+ * 차례는 밝은 것 → 어두운 것이다. 분류 이름이 사라진 자리에서 그 정도 묶음은 있어야 읽힌다.
+ */
+const LISTED_THEME_IDS = ['classic', 'indigo', 'graphite', 'titanium'] as const;
+
+export const LISTED_THEMES: ThemeDef[] = LISTED_THEME_IDS.map((id) => {
+  const def = THEMES.find((t) => t.id === id);
+  // 목록에 적어 둔 이름이 팔레트에서 사라지면 조용히 빈 목록이 되는 대신 여기서 멈춘다.
+  if (!def) throw new Error(`목록에 내놓을 테마를 찾지 못했습니다: ${id}`);
+  return def;
+});
+
 export function getTheme(id: string | null | undefined): ThemeDef | undefined {
   return THEMES.find((t) => t.id === id);
 }
