@@ -3184,3 +3184,42 @@ FAR No 하나와 **sample 총 개수**를 받아 1번부터 그 수만큼 줄을
 줄은 50개로 제한했다 — 손으로 넣는 자리라 실수로 큰 수를 적었을 때를 막는다.
 
 `pnpm typecheck` · `pnpm lint` 무경고, `pnpm test` 318개 통과.
+
+---
+
+## 2026-08-30 · Tech Report — Smart Report 규격 통일 · SSR 한 번에 꺼내기
+
+📊 진행 상황
+├ 전체 진척도: 100% (Phase 8 / 8)
+├ 현재 작업: Tech Report 작성 화면
+├ 이번 작업: 완료
+├ 예상 남은 시간: 0m
+└ 리스크: 없음
+
+### 이름과 규격을 화면·발행물에 맞췄다
+
+화면의 `Performance table`을 **Smart Report**로 바꾸고 칸 이름을 **대문자·가운데**로 맞췄다.
+발행물(PDF)은 이미 그 규격이었는데 화면만 예전 이름·왼쪽 정렬로 남아 있었다 — 이제 둘이 같다.
+구분선 `Secure Smart report`는 **초도 분석**으로 바꿨다(화면·발행물 모두).
+
+### sample 전부의 SSR을 한 번에
+
+sample 탭 줄 **오른쪽 끝**에 `SSR Copy`와 `CSV`를 뒀다. 줄이 항목, 칸이 sample인 표 하나로
+편다 — 화면의 세로 표와 같은 방향이라 눈으로 옮겨 적던 것을 그대로 옮긴 셈이고, sample을
+나란히 놓아 견주기도 쉽다.
+
+둘 다 두는 이유: **메일·문서에는 붙여넣기가, 다시 계산해 볼 때는 CSV가** 편하다. 클립보드에는
+글자(TSV)와 표(HTML) 두 벌을 담는다 — 글자만 담으면 메일 편집기에서 한 줄로 뭉개진다.
+CSV에는 BOM을 붙인다(엑셀이 UTF-8을 시스템 코드페이지로 읽어 한글을 깨뜨리지 않게).
+
+```
+화면    SMART REPORT · 칸 이름 uppercase/center · 구분선 '초도 분석'
+        탭 줄 오른쪽 [SSR Copy] [CSV]
+복사    types ["text/plain","text/html"] · 21줄
+        머리 'FAR-25-1251 Smart Report' · 칸 이름 '항목 | Sample 1 | Sample 2 | Sample 3'
+CSV     'FAR-25-1251 Smart Report.csv' · 20줄 · BOM 있음
+발행물  <h4>Smart Report</h4> · table.vertical th uppercase/center · 구분선 '초도 분석'
+운영    demo.dove9999.com 리비전 #71에서 위 전부 확인 · PDF 200 337KB
+```
+
+`pnpm typecheck` · `pnpm lint` 무경고, `pnpm test` 318개 통과.
