@@ -716,6 +716,59 @@ select optgroup {
   color: var(--foreground);
 }
 
+/*
+ * sample 탭 줄 — 탭이 많으면 **가운데 띠만** 옆으로 움직인다.
+ *
+ * 도구 단추(SSR Copy·CSV)는 그 바깥에 있어 넘겨도 제자리다(사용자 지정). 밑줄은 줄 전체에
+ * 그어야 하므로 바깥 상자가 갖는다 — 띠에 두면 넘길 때 밑줄까지 따라 움직인다.
+ */
+.tr-tabbar {
+  display: flex;
+  align-items: stretch;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+}
+.tr-tabstrip {
+  display: flex;
+  gap: 0.25rem;
+  min-width: 0;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+  /* 끌어서 넘기는 동안 글자가 잡히지 않게 — 잡히면 탭 이름이 파랗게 반전된다. */
+  user-select: none;
+}
+.tr-tabstrip::-webkit-scrollbar {
+  display: none;
+}
+.tr-tabstrip-dragging {
+  cursor: grabbing;
+}
+/* 좌우 화살표 — 탭보다 물러나 있고, 끝에 닿으면 흐려진다. */
+.tr-tab-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 1.75rem;
+  color: var(--muted-foreground);
+}
+.tr-tab-nav:hover:not(:disabled) {
+  color: var(--foreground);
+}
+.tr-tab-nav:disabled {
+  opacity: 0.3;
+}
+/* 넘겨도 제자리에 있는 도구 단추들. */
+.tr-tabbar-tools {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.25rem;
+  padding-bottom: 0.25rem;
+  padding-left: 0.5rem;
+}
+
 .tr-tablist {
   display: flex;
   gap: 0.25rem;
@@ -727,6 +780,9 @@ select optgroup {
   font-size: 0.8125rem;
   font-weight: 500;
   color: var(--muted-foreground);
+  /* 옆으로 넘기는 띠 안에서는 좁아졌다고 접히면 안 된다 — 접히면 'Sample / 3'으로 두 줄이 된다. */
+  flex: none;
+  white-space: nowrap;
 }
 .tr-tab-active {
   border-bottom-color: var(--primary);

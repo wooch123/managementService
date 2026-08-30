@@ -2,7 +2,20 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Check, ClipboardCopy, ClipboardPaste, FileDown, FileSearch, ImagePlus, MoveUpRight, Plus, Trash2, X } from 'lucide-react';
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardCopy,
+  ClipboardPaste,
+  FileDown,
+  FileSearch,
+  ImagePlus,
+  MoveUpRight,
+  Plus,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   IMAGE_SLOTS,
@@ -148,6 +161,134 @@ function StackFromDb({ label, stack }: { label: string; stack: SampleStack }) {
         <p className="text-[11px] text-muted-foreground">PKG Stack에 등록된 그림이 없습니다.</p>
       )}
     </section>
+  );
+}
+
+/**
+ * sample 탭 줄 — 탭이 많아 한 줄에 다 들어가지 않으면 **옆으로 넘겨** 본다(사용자 지정).
+ *
+ * 세 가지로 넘길 수 있다: 좌우 화살표, 마우스로 끌기, 그리고 원래부터 되던 휠·터치 스크롤.
+ * 화살표만 두면 마우스를 쥔 채 여러 번 눌러야 하고, 끌기만 두면 있는 줄도 모른다.
+ *
+ * 도구 단추(SSR Copy·CSV)는 **넘겨도 제자리에 있다**(사용자 지정) — 넘기는 것은 탭이지
+ * 그 줄 전체가 아니다. 그래서 스크롤되는 것은 가운데 띠뿐이고 단추는 그 바깥에 둔다.
+ */
+function SampleTabs({
+  samples,
+  active,
+  disabled,
+  onSelect,
+  tools,
+}: {
+  samples: { sample_no: string }[];
+  active: number;
+  disabled: boolean;
+  onSelect: (index: number) => void;
+  tools: React.ReactNode;
+}) {
+  const stripRef = useRef<HTMLDivElement>(null);
+  const [edge, setEdge] = useState({ overflow: false, atStart: true, atEnd: true });
+  /** 끌어서 움직인 뒤의 pointerup은 탭 선택으로 치지 않는다 — 끌다 멈춘 자리의 탭이 눌린다. */
+  const draggedRef = useRef(false);
+  const dragRef = useRef<{ x: number; left: number } | null>(null);
+
+  const measure = useCallback(() => {
+    const el = stripRef.current;
+    if (!el) return;
+    // 1px 여유 — 소수점 폭 때문에 끝에 닿아도 미세하게 남는 경우가 있다.
+    const overflow = el.scrollWidth - el.clientWidth > 1;
+    setEdge({
+      overflow,
+      atStart: el.scrollLeft <= 1,
+      atEnd: el.scrollLeft >= el.scrollWidth - el.clientWidth - 1,
+    });
+  }, []);
+
+  useEffect(() => {
+    const el = stripRef.current;
+    if (!el) return;
+    measure();
+    // 탭 수가 바뀌거나 창 폭이 바뀌면 다시 잰다 — 넘길 수 있는지가 그때 달라진다.
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [measure, samples.length]);
+
+  /** 고른 탭이 화면 밖이면 끌어온다 — 화살표로 넘기다 다른 탭을 골랐을 때. */
+  useEffect(() => {
+    stripRef.current?.children[active]?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [active]);
+
+  const nudge = (dir: 1 | -1) => {
+    const el = stripRef.current;
+    if (!el) return;
+    // 한 번에 보이는 폭의 3분의 2씩 — 한 탭씩이면 답답하고, 한 화면씩이면 어디였는지 놓친다.
+    el.scrollBy({ left: dir * Math.max(120, el.clientWidth * 0.66), behavior: 'smooth' });
+  };
+
+  return (
+    <div className="tr-tabbar">
+      {edge.overflow && (
+        <button type="button" className="tr-tab-nav" onClick={() => nudge(-1)} disabled={edge.atStart} aria-label="이전 sample 탭">
+          <ChevronLeft className="size-4" />
+        </button>
+      )}
+
+      <div
+        ref={stripRef}
+        className={cn('tr-tabstrip', dragRef.current && 'tr-tabstrip-dragging')}
+        role="tablist"
+        aria-label="Sample 탭"
+        onScroll={measure}
+        onPointerDown={(e) => {
+          if (!edge.overflow || e.button !== 0) return;
+          dragRef.current = { x: e.clientX, left: e.currentTarget.scrollLeft };
+          draggedRef.current = false;
+        }}
+        onPointerMove={(e) => {
+          const start = dragRef.current;
+          if (!start) return;
+          const moved = e.clientX - start.x;
+          // 몇 픽셀 흔들린 것은 누른 것이다 — 그 이상 움직여야 끌기로 본다.
+          if (Math.abs(moved) > 4) draggedRef.current = true;
+          e.currentTarget.scrollLeft = start.left - moved;
+        }}
+        onPointerUp={() => {
+          dragRef.current = null;
+        }}
+        onPointerLeave={() => {
+          dragRef.current = null;
+        }}
+      >
+        {samples.map((s, index) => (
+          <button
+            key={s.sample_no}
+            type="button"
+            role="tab"
+            aria-selected={index === active}
+            disabled={disabled}
+            onClick={() => {
+              if (draggedRef.current) {
+                draggedRef.current = false;
+                return;
+              }
+              onSelect(index);
+            }}
+            className={cn('tr-tab', index === active && 'tr-tab-active')}
+          >
+            Sample {s.sample_no}
+          </button>
+        ))}
+      </div>
+
+      {edge.overflow && (
+        <button type="button" className="tr-tab-nav" onClick={() => nudge(1)} disabled={edge.atEnd} aria-label="다음 sample 탭">
+          <ChevronRight className="size-4" />
+        </button>
+      )}
+
+      {tools && <span className="tr-tabbar-tools">{tools}</span>}
+    </div>
   );
 }
 
@@ -621,38 +762,31 @@ export function TechReport({ title, description }: { title: string; description:
       {/* ④ 초도 분석 — sample 탭 */}
       <Divider label="초도 분석" />
       <div className="tr-span-12 flex flex-col gap-3">
-        <div className="tr-tablist" role="tablist" aria-label="Sample 탭">
-          {(doc?.samples ?? [{ sample_no: '1' }, { sample_no: '2' }, { sample_no: '3' }]).map((s, index) => (
-            <button
-              key={s.sample_no}
-              type="button"
-              role="tab"
-              aria-selected={index === active}
-              disabled={disabled}
-              onClick={() => setActive(index)}
-              className={cn('tr-tab', index === active && 'tr-tab-active')}
-            >
-              Sample {s.sample_no}
-            </button>
-          ))}
-          {/*
-            탭 줄 오른쪽 끝 — sample 전부의 Smart Report 값을 한 번에 꺼내는 자리(사용자 지정).
-            탭마다 표를 열어 손으로 옮겨 적을 이유가 없다. 붙여넣기와 파일 둘 다 둔다:
-            메일·문서에는 붙여넣기가, 다시 계산해 볼 때는 CSV가 편하다.
-          */}
-          {doc && (
-            <span className="ml-auto flex items-center gap-1 pb-1">
-              <button type="button" className="tr-tool-button" onClick={() => void copySsr()} title="모든 sample의 Smart Report를 클립보드로">
-                {ssrCopied ? <Check className="size-3.5" /> : <ClipboardCopy className="size-3.5" />}
-                {ssrCopied ? '복사됨' : 'SSR Copy'}
-              </button>
-              <button type="button" className="tr-tool-button" onClick={downloadSsrCsv} title="모든 sample의 Smart Report를 CSV 파일로">
-                <FileDown className="size-3.5" />
-                CSV
-              </button>
-            </span>
-          )}
-        </div>
+        <SampleTabs
+          samples={doc?.samples ?? [{ sample_no: '1' }, { sample_no: '2' }, { sample_no: '3' }]}
+          active={active}
+          disabled={disabled}
+          onSelect={setActive}
+          tools={
+            /*
+              sample 전부의 Smart Report 값을 한 번에 꺼내는 자리(사용자 지정). 탭마다 표를 열어
+              손으로 옮겨 적을 이유가 없다. 붙여넣기와 파일 둘 다 둔다: 메일·문서에는 붙여넣기가,
+              다시 계산해 볼 때는 CSV가 편하다.
+            */
+            doc ? (
+              <>
+                <button type="button" className="tr-tool-button" onClick={() => void copySsr()} title="모든 sample의 Smart Report를 클립보드로">
+                  {ssrCopied ? <Check className="size-3.5" /> : <ClipboardCopy className="size-3.5" />}
+                  {ssrCopied ? '복사됨' : 'SSR Copy'}
+                </button>
+                <button type="button" className="tr-tool-button" onClick={downloadSsrCsv} title="모든 sample의 Smart Report를 CSV 파일로">
+                  <FileDown className="size-3.5" />
+                  CSV
+                </button>
+              </>
+            ) : null
+          }
+        />
 
         {(doc?.samples ?? []).map((s, index) => (
           <div key={s.sample_no} hidden={index !== active} className="tech-report-tabpanel" role="tabpanel">
