@@ -451,13 +451,21 @@ select optgroup {
 .board-clamp {
   max-height: calc(3 * 1.25rem);
   overflow: hidden;
+}
+/*
+ * 잘린 티. **max-height는 상한일 뿐**이라 짧은 글의 상자는 그만큼 낮은데, 마스크는 상자 높이를
+ * 기준으로 걸린다 — 한 줄짜리 글에 씌우면 그 한 줄의 아래가 흐려진다. 그래서 실제로 잘린 글에만
+ * 이 클래스를 붙인다(BoardWidget의 clipped).
+ */
+.board-clamp-fade {
   -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
   mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
 }
 
 /* 움직임을 줄이는 설정과 무관하게, 마스크는 인쇄할 때는 방해가 된다 — 인쇄에서는 전부 보인다. */
 @media print {
-  .board-clamp {
+  .board-clamp,
+  .board-clamp-fade {
     max-height: none;
     -webkit-mask-image: none;
     mask-image: none;

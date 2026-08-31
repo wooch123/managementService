@@ -200,7 +200,17 @@ function CollapsibleBody({ text }: { text: string }) {
 
   return (
     <>
-      <div ref={ref} data-clamped={!expanded} className={expanded ? undefined : 'board-clamp'}>
+      {/*
+        흐리게 지우는 마스크는 **실제로 잘렸을 때만** 씌운다(사용자 지적).
+        `.board-clamp`의 max-height는 상한일 뿐이라 짧은 글의 상자는 그만큼 낮은데, 마스크는
+        상자 높이를 기준으로 걸린다 — 한 줄짜리 글에도 그 한 줄의 아래쪽이 흐려졌다.
+        잘리지 않은 글에는 지울 것이 없으므로 씌우지 않는다.
+      */}
+      <div
+        ref={ref}
+        data-clamped={!expanded}
+        className={cn(!expanded && 'board-clamp', !expanded && clipped && 'board-clamp-fade')}
+      >
         <Markdown text={text} className="space-y-2 text-sm" />
       </div>
       {/* 펼친 뒤에는 다시 접을 길이 있어야 하므로, 접었을 때 잘렸던 글에는 계속 단추를 둔다. */}
@@ -277,11 +287,18 @@ function MessageRow({
       )}
     >
       {/* 왼쪽 기둥: 머리글이 있는 줄은 아바타, 이어지는 줄은 가리키면 시각이 뜬다. */}
-      <div className="w-9 shrink-0 pt-0.5">
+      <div className="relative w-9 shrink-0 pt-0.5">
         {head ? (
           <Avatar name={message.author} />
         ) : (
-          <span className="hidden pt-0.5 text-right text-[10px] leading-5 text-muted-foreground group-hover/msg:block">
+          /*
+            시각은 **흐름 밖에 띄운다**(사용자 지적). 흐름 안에 두면 가리킬 때 이 기둥이
+            글자 한 줄만큼 높아지고, 줄 높이가 그 순간 달라져 아래 대화가 통째로 밀린다 —
+            마우스를 움직일 때마다 글이 아래위로 흔들린다. 자리를 차지하지 않게 두면
+            나타나고 사라지는 동안에도 줄 높이가 그대로다. 기둥 폭(w-9)은 아바타 때문에
+            늘 비워 두는 자리라 겹칠 것도 없다.
+          */
+          <span className="pointer-events-none absolute inset-x-0 top-0.5 hidden text-right text-[10px] leading-5 text-muted-foreground group-hover/msg:block">
             {timeOf(message.createdAt)}
           </span>
         )}
