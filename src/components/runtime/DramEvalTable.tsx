@@ -32,6 +32,10 @@ type Verdict = (typeof VERDICTS)[number];
 const MAX_SIGNATURES = 8;
 /** 펼쳤을 때 처음 보이는 그림 칸 수 — 사용자 지정. 모자라면 `+`로 늘린다. */
 const DEFAULT_IMAGE_SLOTS = 2;
+/** 한 쪽에 보일 줄 수 — 사용자 지정. 이보다 많으면 화면이 세로로 끝없이 길어진다. */
+const PAGE_SIZE = 25;
+/** 보고 있던 쪽을 적어 두는 주소 파라미터. 새로고침해도 그 쪽으로 돌아온다. */
+const PAGE_PARAM = 'p';
 
 const IMAGE_URL = (file: string) => `/api/runtime/tech-report/image?f=${encodeURIComponent(file)}`;
 
@@ -187,11 +191,32 @@ export function DramEvalTable({
       const value = query.trim();
       if (value === '') next.delete('q');
       else next.set('q', value);
+      // 찾는 말이 바뀌면 첫 쪽으로 — 3쪽을 보다가 한 건짜리로 좁히면 빈 쪽에 남는다.
+      next.delete(PAGE_PARAM);
       const qs = next.toString();
       router.push(qs ? `${window.location.pathname}?${qs}` : window.location.pathname, { scroll: false });
     }, 350);
     return () => clearTimeout(timer);
   }, [query, urlQuery, router, searchParams]);
+
+  /**
+   * 보고 있는 쪽도 **주소에 적는다**(사용자 지정) — 새로고침해도 그 쪽으로 돌아온다.
+   * 화면 안의 상태로 들고 있으면 새로고침 한 번에 1쪽으로 튕긴다.
+   */
+  const totalPages = Math.max(1, Math.ceil(current.length / PAGE_SIZE));
+  // 줄이 줄어들어 지금 쪽이 사라졌으면(찾기로 좁힌 뒤 등) 마지막 쪽으로 당긴다.
+  const pageNo = Math.min(Math.max(1, Number(searchParams.get(PAGE_PARAM) ?? '1') || 1), totalPages);
+  const pageStart = (pageNo - 1) * PAGE_SIZE;
+  const visible = current.slice(pageStart, pageStart + PAGE_SIZE);
+
+  function goPage(next: number) {
+    const target = Math.min(Math.max(1, next), totalPages);
+    const params = new URLSearchParams(searchParams.toString());
+    if (target === 1) params.delete(PAGE_PARAM);
+    else params.set(PAGE_PARAM, String(target));
+    const qs = params.toString();
+    router.push(qs ? `${window.location.pathname}?${qs}` : window.location.pathname, { scroll: false });
+  }
 
   function patch(index: number, next: Partial<DramRow>) {
     setRows(current.map((r, i) => (i === index ? { ...r, ...next } : r)));
@@ -285,6 +310,8 @@ export function DramEvalTable({
             onClick={() => {
               setRows([...current, emptyRow()]);
               setOpenIndex(current.length);
+              // 새 줄은 맨 뒤에 붙는다 — 지금 쪽에 없으면 그 줄이 있는 쪽으로 따라간다.
+              goPage(Math.ceil((current.length + 1) / PAGE_SIZE));
             }}
           >
             <Plus className="size-4" /> 줄 추가
@@ -324,7 +351,10 @@ export function DramEvalTable({
                 </td>
               </tr>
             ) : (
-              current.map((row, index) => {
+              visible.map((row, offset) => {
+                // 자리 번호는 **전체 목록 기준**이다. 쪽 안의 번호(offset)로 고치면 2쪽에서 1쪽의
+                // 줄을 건드리게 된다 — 쪽을 나누는 순간 이 둘이 갈라진다.
+                const index = pageStart + offset;
                 const open = openIndex === index;
                 /**
                  * 실제로 그림이 든 마지막 칸까지의 길이. `images.length`를 쓰면 안 된다 — 가운데
@@ -366,6 +396,37 @@ export function DramEvalTable({
           </tbody>
         </table>
       </div>
+
+      {/*
+        쪽 넘김. 한 쪽뿐이면 내지 않는다 — 넘길 곳이 없는데 단추만 있으면 눌러 볼 이유가 생긴다.
+        지금 쪽은 주소에 있으므로 새로고침해도, 링크로 열어도 같은 자리다.
+      */}
+      {totalPages > 1 && (
+        <div className="flex shrink-0 items-center justify-end gap-2 text-xs">
+          <span className="text-muted-foreground tabular-nums">
+            {current.length}줄 중 {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, current.length)}
+          </span>
+          <button
+            type="button"
+            className="inline-flex h-7 items-center rounded-md border px-2.5 hover:bg-muted disabled:opacity-40"
+            onClick={() => goPage(pageNo - 1)}
+            disabled={pageNo <= 1}
+          >
+            이전
+          </button>
+          <span className="tabular-nums">
+            {pageNo} / {totalPages}
+          </span>
+          <button
+            type="button"
+            className="inline-flex h-7 items-center rounded-md border px-2.5 hover:bg-muted disabled:opacity-40"
+            onClick={() => goPage(pageNo + 1)}
+            disabled={pageNo >= totalPages}
+          >
+            다음
+          </button>
+        </div>
+      )}
 
       <input
         ref={fileRef}

@@ -1078,7 +1078,8 @@ function dramLf(): SitePage {
           select: ['far_no', 'sample_no', 'result', 'dc_open', 'dc_short', 'pin_lkg', 'idd2p', 'ate', 'fail_symptom', 'fail_type', 'fail_address', 'signatures', 'images'],
           filters: [{ col: 'far_no', op: 'contains', source: 'query', ref: 'q' }],
           sort: [['far_no', 'asc'], ['sample_no', 'asc', 'numeric']],
-          pageSize: 100,
+          // 한 쪽에 25줄씩 나눠 보되, 받아 오는 것은 한 번에 받는다(바인딩이 허용하는 최대).
+          pageSize: 200,
         },
       },
     ],
