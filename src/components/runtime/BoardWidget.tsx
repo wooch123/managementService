@@ -620,7 +620,13 @@ function Composer({
           aria-label={ariaLabel}
           rows={2}
           maxLength={20000}
-          className="min-h-9 flex-1 resize-none"
+          /*
+            한 줄일 때 **다른 칸과 같은 36px**이 되게 세로 여백을 줄인다(사용자 지적).
+            기본 `py-2`면 8+8 + 테두리 2 + 줄 20 = 38이라 `min-h-9`(36)가 무효가 되고,
+            옆의 작성자 칸(36)·단추(36)와 2px씩 어긋난다. 6+6이면 34라 min-h-9가 살아나
+            36으로 맞는다. 여러 줄을 적으면 그때는 내용만큼 자란다(field-sizing: content).
+          */
+          className="min-h-9 flex-1 resize-none py-1.5"
         />
         <input
           ref={fileInputRef}
@@ -633,10 +639,11 @@ function Composer({
             e.target.value = '';
           }}
         />
-        <Button variant="ghost" size="icon" onClick={() => fileInputRef.current?.click()} aria-label="이미지 첨부">
+        {/* size="icon"은 32px이라 옆의 칸들(36px)보다 4px 낮았다 — 같은 줄에 서는 것들은 같은 키여야 한다. */}
+        <Button variant="ghost" size="icon" className="size-9" onClick={() => fileInputRef.current?.click()} aria-label="이미지 첨부">
           <Paperclip className="size-4" />
         </Button>
-        <Button size="icon" onClick={submit} disabled={sending || uploading > 0} aria-label="보내기">
+        <Button size="icon" className="size-9" onClick={submit} disabled={sending || uploading > 0} aria-label="보내기">
           {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
         </Button>
       </div>
