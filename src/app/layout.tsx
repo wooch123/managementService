@@ -1,19 +1,35 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { ThemeProvider } from "@/components/shell/ThemeProvider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { THEME_INIT_SCRIPT } from "@/lib/theme/palettes";
 
-const geistSans = Geist({
+/**
+ * 서체는 **저장소에 담아** 쓴다 — 빌드가 바깥 망에 매이지 않게 한다(사용자 결정, 2026-08-31).
+ *
+ * 예전에는 `next/font/google`로 빌드할 때마다 구글에서 Geist를 받아왔다. 받지 못하면
+ * `Failed to fetch \`Geist\` from Google Fonts.`로 **빌드가 죽는다** — 세 번 재시도하고,
+ * 개발 모드와 달리 빌드에는 시간 제한도 없다. 사내망처럼 바깥이 막힌 곳에서는 이 저장소의
+ * 약속("clone 하면 바로 뜬다") 자체가 성립하지 않았다.
+ *
+ * 담은 것은 **latin 부분집합의 가변 서체 두 벌**(합쳐 52KB)뿐이다. 이 화면의 글자는 한글과
+ * 아스키인데 Geist에는 한글이 없어 어차피 시스템 서체로 떨어진다 — 나머지 부분집합(키릴 등)을
+ * 담을 이유가 없다. `weight: '100 900'`은 가변 서체라 한 파일이 그 구간 전체를 낸다는 뜻이다.
+ */
+const geistSans = localFont({
+  src: "./fonts/geist-latin-variable.woff2",
   variable: "--font-geist-sans",
-  subsets: ["latin"],
+  weight: "100 900",
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
+const geistMono = localFont({
+  src: "./fonts/geist-mono-latin-variable.woff2",
   variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: "100 900",
+  display: "swap",
 });
 
 /**

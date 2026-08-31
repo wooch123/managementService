@@ -14,8 +14,10 @@
 *.bat text eol=crlf
 *.cmd text eol=crlf
 
-# SQLite DB와 이미지 — 줄바꿈 변환이 닿으면 파일이 깨진다.
+# SQLite DB·이미지·서체 — 줄바꿈 변환이 닿으면 파일이 깨진다.
 *.db binary
+*.woff2 binary
+*.woff binary
 *.png binary
 *.jpg binary
 *.jpeg binary
