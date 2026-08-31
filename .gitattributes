@@ -5,6 +5,8 @@
 # `bad interpreter: /usr/bin/env bash^M`로 즉시 실패한다 — 파일 내용은 멀쩡해 보이는데
 # 실행만 안 되는, 원인을 찾기 어려운 종류의 고장이다.
 *.sh text eol=lf
+# git 훅도 셸 스크립트다 — 확장자가 없어 위 규칙에 걸리지 않으므로 따로 못 박는다.
+.githooks/* text eol=lf
 
 # PowerShell은 Windows에서만 쓰므로 CRLF로 둔다.
 *.ps1 text eol=crlf
