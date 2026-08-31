@@ -3594,3 +3594,44 @@ webapp-v1 env에 `PLAYWRIGHT_BROWSERS_PATH`를 넣었다. redeploy가 `pm2 start
 cloudflared 탐색 경로와 주소 뽑는 정규식은 실제 출력 모양으로 확인했다.
 
 `pnpm typecheck` · `pnpm lint` 무경고, `pnpm test` 324개 통과.
+
+---
+
+## 2026-08-31 — 커밋에서 조용히 빠지던 DB 변경 (WAL)
+
+```
+📊 진행 상황
+├ 전체 진척도: 100% (운영 중 · 리비전 #80)
+├ 현재 작업: 누락된 리비전 되살리기 · 재발 방지 — 완료
+├ 이번 작업: 100% (실측 4/4 통과)
+├ 예상 남은 시간: 0m
+└ 리스크: 없음
+```
+
+리비전 #80(FAR List 줄 단추)이 저장소에 안 올라가 있었다(사용자 지적). 새로 clone한
+사람은 #79를 보게 되는 상태였다. **운영은 멀쩡했다** — 이 PC에서만 맞고 저장소가 틀렸다.
+
+원인은 WAL이다. meta.db·app.db는 WAL 모드라 새로 쓴 내용이 한동안 `*.db-wal`에만 있다.
+그 파일은 커밋하지 않으므로(다른 PC에서 열 때 어긋난다) 그대로 커밋하면 본체만 올라가고
+최근 변경은 통째로 빠진다.
+
+**눈에 띄지 않는 것이 이 고장의 핵심이다.** 본체가 안 바뀌었으니 `git status`는 깨끗하다고
+하고, 이 PC는 WAL을 함께 읽으므로 화면도 멀쩡하다. 틀어진 것은 clone한 사람 쪽뿐이다.
+
+```
+커밋 50be36e의 meta.db를 떼어 읽기   활성 #79 · rowActionLabel 없음
+같은 시각 이 PC의 meta.db-wal        4.1MB
+체크포인트 후 본체를 떼어 읽기        활성 #80 · rowActionLabel 있음
+지금 커밋된 meta.db                  활성 #80 · rowActionSlug=tech-report · FAR List · 인계 담당자 모두 있음
+```
+
+되살리는 것에 더해 두 가지를 넣었다.
+
+- `pnpm db:checkpoint` — WAL을 본체로 접어 넣는다. busy면 조용히 넘어가지 않고 밝힌다.
+- `.githooks/pre-commit` — .db가 스테이지에 있으면 위를 돌리고 다시 담는다. 실패하면
+  커밋을 멈춘다. `.git/hooks`는 저장소에 안 담기므로 `.githooks/`에 두고 `pnpm setup:local`이
+  `core.hooksPath`를 켜 준다. 훅도 셸 스크립트라 `.gitattributes`에 LF로 못 박았다
+  (확장자가 없어 `*.sh` 규칙에 안 걸린다).
+
+앞으로 DB를 담은 커밋은 훅이 알아서 체크포인트한다. 다른 PC에서 받았다면 `pnpm setup:local`을
+한 번 돌려야 훅이 켜진다.
