@@ -2,8 +2,9 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { ClipboardPaste, ImagePlus, Loader2, Pencil, Plus, Save, Trash2, X } from 'lucide-react';
+import { ImagePlus, Loader2, Pencil, Plus, Save, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PasteImageButton } from '@/components/runtime/PasteImageButton';
 
 /**
  * PKG Stack 정보 — Part ID 하나의 적층 구조를 적고, 적어 둔 것들을 갤러리로 편다.
@@ -213,28 +214,6 @@ export function PkgStack({
     }
   }
 
-  /** 클립보드의 그림을 이 칸에 붙인다 — Tech Report의 붙여넣기 단추와 같은 방식이다. */
-  async function pasteImage() {
-    try {
-      const clipboard = navigator.clipboard as Clipboard | undefined;
-      const read = clipboard?.read as Clipboard['read'] | undefined;
-      if (typeof read !== 'function') {
-        toast.error('이 브라우저는 클립보드 읽기를 지원하지 않습니다. 파일로 올려 주세요.');
-        return;
-      }
-      for (const item of await read.call(clipboard!)) {
-        const type = item.types.find((t) => t.startsWith('image/'));
-        if (!type) continue;
-        const blob = await item.getType(type);
-        await upload(new File([blob], `clipboard.${type.split('/')[1] || 'png'}`, { type }));
-        return;
-      }
-      toast.error('클립보드에 그림이 없습니다.');
-    } catch {
-      toast.error('클립보드를 읽지 못했습니다.');
-    }
-  }
-
   async function save() {
     if (partId.trim() === '') {
       toast.error('Part ID를 적어 주세요.');
@@ -311,15 +290,8 @@ export function PkgStack({
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[11px] font-medium text-muted-foreground">그림</span>
                 <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                    onClick={() => void pasteImage()}
-                    title="클립보드의 그림을 붙여넣기"
-                    aria-label="클립보드 그림 붙여넣기"
-                  >
-                    <ClipboardPaste className="size-3.5" />
-                  </button>
+                  {/* 공용 단추 — 클립보드를 못 읽는 브라우저에서는 Ctrl+V 한 번을 받아 준다. */}
+                  <PasteImageButton label="구조 그림" onPick={(file) => void upload(file)} />
                   {image && (
                     <button
                       type="button"

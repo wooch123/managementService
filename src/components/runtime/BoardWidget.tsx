@@ -23,6 +23,7 @@ import { NativeSelect } from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
 import { Markdown } from '@/components/runtime/Markdown';
 import { cn } from '@/lib/utils';
+import { PasteImageButton } from '@/components/runtime/PasteImageButton';
 
 type Attachment = { id: string; url: string; name: string; width: number | null; height: number | null };
 /** 채널 목록에 "N개의 답글"을 그리기 위한 요약 — 답글 본문은 스레드를 열 때 가져온다. */
@@ -638,6 +639,15 @@ function Composer({
             void uploadFiles([...(e.target.files ?? [])]);
             e.target.value = '';
           }}
+        />
+        {/*
+          입력칸 안에서 Ctrl+V로도 붙지만, 눈에 보이는 길도 함께 둔다(사용자 지정) — 다른 화면의
+          그림 칸들과 같은 단추라 "여기서도 붙일 수 있다"를 따로 배우지 않아도 된다.
+        */}
+        <PasteImageButton
+          label="글"
+          className="size-9 rounded-md hover:bg-accent"
+          onPick={(file) => void uploadFiles([file])}
         />
         {/* size="icon"은 32px이라 옆의 칸들(36px)보다 4px 낮았다 — 같은 줄에 서는 것들은 같은 키여야 한다. */}
         <Button variant="ghost" size="icon" className="size-9" onClick={() => fileInputRef.current?.click()} aria-label="이미지 첨부">

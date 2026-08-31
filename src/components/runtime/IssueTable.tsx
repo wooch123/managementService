@@ -17,6 +17,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PasteImageButton } from '@/components/runtime/PasteImageButton';
 import type { ApiResult } from '@/types/auth';
 
 /**
@@ -193,6 +194,16 @@ export function IssueTable({
     patch(target.row, { images });
   }
 
+
+  /** 붙여넣기 단추가 준 그림 — 파일 고르기와 같은 자리로 들어간다. */
+  async function pasteImage(rowIndex: number, slot: number, file: File) {
+    const stored = await upload(file);
+    if (!stored) return;
+    const images = [...current[rowIndex].images];
+    images[slot] = stored;
+    patch(rowIndex, { images });
+  }
+
   async function saveRow(index: number) {
     const row = current[index];
     const payload: Record<string, unknown> = {
@@ -359,6 +370,7 @@ export function IssueTable({
                       images[i] = '';
                       patch(index, { images });
                     }}
+                    onPasteImage={(slot, file) => void pasteImage(index, slot, file)}
                     onPick={(slot) => {
                       pickTarget.current = { row: index, slot };
                       fileRef.current?.click();
@@ -403,6 +415,7 @@ function RowPair({
   onAddSlot,
   onRemoveSlot,
   onClearImage,
+  onPasteImage,
   onPick,
 }: {
   row: IssueRow;
@@ -421,6 +434,7 @@ function RowPair({
   onAddSlot: () => void;
   onRemoveSlot: () => void;
   onClearImage: (slot: number) => void;
+  onPasteImage: (slot: number, file: File) => void;
   onPick: (slot: number) => void;
 }) {
   const filledImages = row.images.filter(Boolean).length;
@@ -538,15 +552,24 @@ function RowPair({
                             </button>
                           </>
                         ) : (
-                          <button
-                            type="button"
-                            className="flex h-24 w-full flex-col items-center justify-center gap-1 rounded border border-dashed text-[11px] text-muted-foreground hover:bg-muted/50 disabled:opacity-40"
-                            onClick={() => onPick(i)}
-                            disabled={locked}
-                          >
-                            <ImagePlus className="size-4" />
-                            눌러서 고르기
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              className="flex h-24 w-full flex-col items-center justify-center gap-1 rounded border border-dashed text-[11px] text-muted-foreground hover:bg-muted/50 disabled:opacity-40"
+                              onClick={() => onPick(i)}
+                              disabled={locked}
+                            >
+                              <ImagePlus className="size-4" />
+                              눌러서 고르기
+                            </button>
+                            {/* 화면을 캡처해 붙이는 것이 가장 흔한 쓰임이라, 파일을 고르는 길 옆에 함께 둔다. */}
+                            <PasteImageButton
+                              label={`${index + 1}행 그림 ${i + 1}`}
+                              disabled={locked}
+                              className="absolute top-1 right-1 bg-background/80"
+                              onPick={(file) => onPasteImage(i, file)}
+                            />
+                          </>
                         )}
                       </div>
                     );
