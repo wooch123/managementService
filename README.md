@@ -137,7 +137,7 @@ pnpm --version
 | 파일 | 내용 |
 |---|---|
 | `prisma/meta.db` | 설계 전체 — 페이지 16 · 컴포넌트 284 · 엔티티 8 · 액션 33 · 관계 193, 배포 리비전 45개, 게시판 대화와 채팅 |
-| `data/app.db` | 업무 데이터(FAR 원장 · 분석 이력 · Reball 의뢰 · 단가표). 지금 들어 있는 것은 **표본 데이터**다 — `pnpm tsx scripts/seed-sample.mts --clear`로 비운다 |
+| `data/app.db` | 업무 데이터(FAR List · 분석 이력 · Reball 의뢰 · 단가표 · DRAM LF · Issue). 지금 들어 있는 것은 **표본 데이터**다 — `pnpm tsx scripts/seed-sample.mts --clear`로 비운다. DRAM LF·Issue의 보기용 데이터는 따로 있다: `pnpm db:seed-demo --clear` |
 | `data/uploads/board/` | 게시판에 붙은 이미지 25장 |
 
 `pnpm setup:local`이 하는 일은 **저장소에 담을 수 없는 것**을 만드는 것뿐이다 — 세션 서명 키
