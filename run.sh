@@ -20,7 +20,8 @@
 #   ./run.sh                    프로덕션 모드로 빌드 후 실행 (http://localhost:3000)
 #   ./run.sh dev                개발 서버 (파일을 고치면 바로 반영)
 #   ./run.sh --port 8080        포트 지정
-#   ./run.sh --host             0.0.0.0에 바인딩 (같은 망의 다른 기기에서 접속)
+#   ./run.sh --host             0.0.0.0에 바인딩 + 방화벽에 포트를 연다 (다른 기기에서 접속)
+#   ./run.sh --host --no-firewall   바인딩만 하고 방화벽은 건드리지 않는다
 #   ./run.sh --skip-build       빌드를 건너뛰고 기존 산출물로 실행
 #   ./run.sh setup              설치·준비까지만 하고 실행하지 않음
 #
@@ -46,6 +47,7 @@ PORT=3000
 HOST=127.0.0.1
 SKIP_BUILD=0
 SKIP_INSTALL=0
+OPEN_PORT=1         # --host일 때만 의미가 있다. --no-firewall로 끈다.
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -56,9 +58,12 @@ while [ $# -gt 0 ]; do
     --port=*)       PORT="${1#*=}" ;;
     --host)         HOST=0.0.0.0 ;;
     --host=*)       HOST="${1#*=}" ;;
+    --no-firewall)  OPEN_PORT=0 ;;
     --skip-build)   SKIP_BUILD=1 ;;
     --skip-install) SKIP_INSTALL=1 ;;
-    -h|--help)      sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    # 머리 주석을 그대로 도움말로 쓴다. 줄 번호로 자르면 주석이 한 줄만 늘어도 `set -e`까지
+    # 딸려 나온다(실제로 그랬다) — 첫 번째 주석 아닌 줄에서 멈춘다.
+    -h|--help)      awk 'NR>1 && /^#/ { sub(/^# ?/, ""); print; next } NR>1 { exit }' "$0"; exit 0 ;;
     *)              die "모르는 옵션입니다: $1   (./run.sh --help)" ;;
   esac
   shift
@@ -231,6 +236,49 @@ step "실행 준비"
 # 세션 서명 키(.env.local), Prisma 클라이언트, 빈 폴더 — 저장소에 담을 수 없는 것만 만든다.
 pnpm setup:local || die "준비 단계에서 실패했습니다."
 
+# ── 4-b) 방화벽 ─────────────────────────────────────────────────────────────
+#
+# 0.0.0.0에 붙였다고 밖에서 들어올 수 있는 것은 아니다. 대부분의 배포판은 방화벽이 켜져 있어
+# 포트가 막힌 채로 "서버는 떴는데 다른 기기에서만 안 되는" 상태가 된다 — 원인을 찾기 어려운
+# 쪽이라 열어 준다(사용자 지정). 127.0.0.1에 붙을 때는 아무것도 하지 않는다: 밖에서 못 들어오는
+# 것이 맞는 상태라 방화벽을 건드릴 이유가 없다.
+#
+# 켜져 있는 방화벽에만 규칙을 더한다. **꺼져 있는 방화벽을 켜지는 않는다** — SSH로 들어와
+# 있는 서버에서 방화벽을 켜면 그 자리에서 자기 연결이 끊길 수 있다.
+open_firewall_port() {
+  # 'inactive'에도 'active'가 들어 있다 — 줄 전체를 맞춰야 꺼진 방화벽을 켜진 것으로 읽지 않는다.
+  if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | head -1 | grep -qiE '^status:[[:space:]]+active[[:space:]]*$'; then
+    info "ufw에 ${PORT}/tcp를 엽니다"
+    if $SUDO ufw allow "${PORT}/tcp" comment 'WebApp_V1' >/dev/null 2>&1; then
+      ok "ufw ${PORT}/tcp 열림"; return 0
+    fi
+    warn "ufw 규칙을 넣지 못했습니다 — 직접: sudo ufw allow ${PORT}/tcp"; return 1
+  fi
+  if command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
+    info "firewalld에 ${PORT}/tcp를 엽니다"
+    if $SUDO firewall-cmd --permanent --add-port="${PORT}/tcp" >/dev/null 2>&1 \
+       && $SUDO firewall-cmd --reload >/dev/null 2>&1; then
+      ok "firewalld ${PORT}/tcp 열림"; return 0
+    fi
+    warn "firewalld 규칙을 넣지 못했습니다 — 직접: sudo firewall-cmd --permanent --add-port=${PORT}/tcp && sudo firewall-cmd --reload"; return 1
+  fi
+  info "켜져 있는 방화벽(ufw·firewalld)을 찾지 못했습니다 — 열 것이 없습니다"
+  return 0
+}
+
+# 서버를 띄우기 **직전**에 부른다 — 빌드가 깨졌는데 포트만 열려 있는 상태를 만들지 않는다.
+maybe_open_port() {
+  [ "$HOST" = "0.0.0.0" ] || return 0
+  step "방화벽"
+  if [ "$OPEN_PORT" -eq 0 ]; then
+    info "--no-firewall — 방화벽은 건드리지 않습니다"
+  elif [ -z "$SUDO" ] && [ "$(id -u)" -ne 0 ]; then
+    warn "권한이 없어 열지 못했습니다 — 직접: sudo ufw allow ${PORT}/tcp"
+  else
+    open_firewall_port || true
+  fi
+}
+
 # ── 5) 빌드 · 실행 ──────────────────────────────────────────────────────────
 url_host="$HOST"
 if [ "$HOST" = "0.0.0.0" ]; then
@@ -247,6 +295,7 @@ if [ "$MODE" = "setup" ]; then
 fi
 
 if [ "$MODE" = "dev" ]; then
+  maybe_open_port
   step "개발 서버 시작"
   info "주소: http://${url_host}:${PORT}/home"
   info "관리자: http://${url_host}:${PORT}/admin  (admin / 123456 — 바꾸려면 pnpm admin:password \"새 비밀번호\")"
@@ -263,6 +312,8 @@ else
   pnpm build || die "빌드에 실패했습니다. 위 오류를 확인해 주세요."
   ok "빌드 완료"
 fi
+
+maybe_open_port
 
 step "서버 시작"
 info "주소: http://${url_host}:${PORT}/home"

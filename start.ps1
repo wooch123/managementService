@@ -45,6 +45,7 @@ $Port        = 3000
 $BindHost    = '127.0.0.1'  # $Host는 PowerShell이 쓰는 이름이라 못 쓴다
 $SkipBuild   = $false
 $SkipInstall = $false
+$OpenPort    = $true         # --host일 때만 의미가 있다. --no-firewall로 끈다.
 
 for ($i = 0; $i -lt $args.Count; $i++) {
   $a = [string]$args[$i]
@@ -53,6 +54,7 @@ for ($i = 0; $i -lt $args.Count; $i++) {
   elseif ($a -eq 'setup')          { $Mode = 'setup' }
   elseif ($a -eq '--skip-build')   { $SkipBuild = $true }
   elseif ($a -eq '--skip-install') { $SkipInstall = $true }
+  elseif ($a -eq '--no-firewall')  { $OpenPort = $false }
   elseif ($a -eq '--host')         { $BindHost = '0.0.0.0' }
   elseif ($a -like '--host=*')     { $BindHost = $a.Substring(7) }
   elseif ($a -eq '--port') {
@@ -66,7 +68,8 @@ for ($i = 0; $i -lt $args.Count; $i++) {
   start.bat                  프로덕션 모드로 빌드 후 실행 (http://localhost:3000)
   start.bat dev              개발 서버 (파일을 고치면 바로 반영)
   start.bat --port 8080      포트 지정
-  start.bat --host           0.0.0.0에 바인딩 (같은 망의 다른 기기에서 접속)
+  start.bat --host           0.0.0.0에 바인딩 + 방화벽에 포트를 연다 (다른 기기에서 접속)
+  start.bat --no-firewall    --host와 함께 — 바인딩만 하고 방화벽은 건드리지 않는다
   start.bat --skip-build     빌드를 건너뛰고 기존 산출물로 실행
   start.bat --skip-install   의존성 설치를 건너뛴다
   start.bat setup            설치·준비까지만 하고 실행하지 않음
@@ -208,6 +211,71 @@ if ($BindHost -eq '0.0.0.0') {
   if ($ip) { $urlHost = $ip } else { $urlHost = 'localhost' }
 }
 
+# ── 방화벽 ──────────────────────────────────────────────────────────────────
+#
+# 0.0.0.0에 붙였다고 밖에서 들어올 수 있는 것은 아니다. 윈도우 방화벽은 기본으로 막고 있어
+# "서버는 떴는데 다른 기기에서만 안 되는" 상태가 된다 - 원인을 찾기 어려운 쪽이라 열어 준다
+# (사용자 지정). 127.0.0.1에 붙을 때는 아무것도 하지 않는다: 밖에서 못 들어오는 것이 맞다.
+#
+# 규칙은 **개인·도메인 프로필에만** 넣는다. 공용 네트워크(카페 Wi-Fi 등)까지 열면 사무실 밖에서
+# 노트북을 켜는 순간 낯선 망에 그대로 노출된다.
+$FirewallRuleName = "WebApp_V1 (TCP $Port)"
+
+function Test-Admin {
+  $id = [Security.Principal.WindowsIdentity]::GetCurrent()
+  return (New-Object Security.Principal.WindowsPrincipal($id)).IsInRole(
+    [Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function New-PortRule {
+  New-NetFirewallRule -DisplayName $FirewallRuleName -Direction Inbound -Action Allow `
+    -Protocol TCP -LocalPort $Port -Profile Private,Domain -ErrorAction Stop | Out-Null
+}
+
+# 서버를 띄우기 **직전**에 부른다 - 빌드가 깨졌는데 포트만 열려 있는 상태를 만들지 않는다.
+function Open-PortIfAsked {
+  if ($BindHost -ne '0.0.0.0') { return }
+  Step '방화벽'
+  if (-not $OpenPort) { Info '--no-firewall - 방화벽은 건드리지 않습니다'; return }
+
+  # 지금 붙어 있는 망이 '공용'으로 분류돼 있으면 개인·도메인 규칙은 걸리지 않는다. 조용히
+  # 안 되는 것이 가장 나쁘므로 미리 밝힌다 - 넓히는 것은 사람이 판단할 일이다.
+  try {
+    $public = Get-NetConnectionProfile -ErrorAction Stop |
+      Where-Object { $_.NetworkCategory -eq 'Public' } | Select-Object -First 1
+  } catch { $public = $null }
+  if ($public) {
+    Warn "지금 망('$($public.Name)')이 '공용'으로 분류돼 있어 이 규칙이 걸리지 않습니다."
+    Info '  사무실 망이 맞다면 설정 > 네트워크에서 개인으로 바꾸거나, 관리자 PowerShell에서:'
+    Info "  Set-NetConnectionProfile -Name '$($public.Name)' -NetworkCategory Private"
+  }
+
+  $existing = $null
+  try { $existing = Get-NetFirewallRule -DisplayName $FirewallRuleName -ErrorAction Stop } catch { }
+  if ($existing) { Ok "이미 열려 있음 ($FirewallRuleName)"; return }
+
+  if (Test-Admin) {
+    try { New-PortRule; Ok "$Port/tcp 열림 (개인·도메인 프로필)" }
+    catch { Warn "방화벽 규칙을 넣지 못했습니다: $($_.Exception.Message)" }
+    return
+  }
+
+  # 관리자가 아니면 그 한 줄만 올려서 실행한다 - UAC 창이 곧 사용자의 승낙이다.
+  Info '관리자 권한이 필요합니다 - 확인 창이 뜨면 허용해 주세요'
+  $inner = "New-NetFirewallRule -DisplayName '$FirewallRuleName' -Direction Inbound " +
+           "-Action Allow -Protocol TCP -LocalPort $Port -Profile Private,Domain | Out-Null"
+  try {
+    $proc = Start-Process powershell -Verb RunAs -Wait -PassThru `
+      -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', $inner -ErrorAction Stop
+    if ($proc.ExitCode -eq 0) { Ok "$Port/tcp 열림 (개인·도메인 프로필)" }
+    else { Warn "방화벽 규칙을 넣지 못했습니다(종료 코드 $($proc.ExitCode))" }
+  } catch {
+    # 사용자가 확인 창을 취소한 경우가 대부분이다. 서버는 그대로 띄운다 - 같은 PC에서는 된다.
+    Warn '열지 못했습니다. 관리자 PowerShell에서 직접:'
+    Info "  $inner"
+  }
+}
+
 if ($Mode -eq 'setup') {
   Step '준비 완료'
   Info '실행: start.bat          (프로덕션)'
@@ -221,6 +289,7 @@ function Show-Address {
 }
 
 if ($Mode -eq 'dev') {
+  Open-PortIfAsked
   Step '개발 서버 시작'
   Show-Address
   Write-Tint '  중지: Ctrl+C' 'DarkGray'
@@ -239,6 +308,8 @@ if ($SkipBuild) {
   if ($LASTEXITCODE -ne 0) { Die '빌드에 실패했습니다. 위 오류를 확인해 주세요.' }
   Ok '빌드 완료'
 }
+
+Open-PortIfAsked
 
 Step '서버 시작'
 Show-Address
