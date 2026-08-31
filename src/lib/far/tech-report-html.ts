@@ -6,6 +6,7 @@ import {
   META_SLOTS,
   NAND_LOT_COLUMNS,
   PERF_ROWS,
+  PRODUCT_COLUMNS,
   RTBB_COLUMNS,
   type TechReportDoc,
   type TechReportSample,
@@ -94,6 +95,29 @@ function gridTable(columns: readonly string[], rows: Record<string, string>[]): 
     .map((row) => `<tr>${columns.map((c) => `<td>${escapeHtml(row[c] ?? '')}</td>`).join('')}</tr>`)
     .join('');
   return `<table class="grid"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+/**
+ * 제품정보 — 초도 분석 앞에 놓이는 표(사용자 지정).
+ *
+ * 화면과 같은 것을 보여야 하므로 같은 목록(PRODUCT_COLUMNS)에서 같은 순서로 그린다.
+ * 칸 이름을 대문자로 만드는 것은 CSS(`thead th`)가 이미 하고 있어 여기서 손대지 않는다.
+ */
+function productBlock(samples: TechReportSample[]): string {
+  const rows = samples.filter((s) => PRODUCT_COLUMNS.some((c) => (s.product?.[c.col] ?? '') !== ''));
+  const head = `<th>Sample</th>${PRODUCT_COLUMNS.map((c) => `<th>${escapeHtml(c.label)}</th>`).join('')}`;
+  const body = rows
+    .map(
+      (s) =>
+        `<tr><td>${escapeHtml(s.sample_no)}</td>` +
+        PRODUCT_COLUMNS.map((c) => `<td>${escapeHtml(s.product?.[c.col] || '—')}</td>`).join('') +
+        '</tr>'
+    )
+    .join('');
+  const table = rows.length
+    ? `<table class="grid"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`
+    : '<p class="empty">원장에 제품 정보가 아직 없습니다</p>';
+  return `<section class="card full">${table}</section>`;
 }
 
 /**
@@ -310,6 +334,9 @@ export async function renderTechReportHtml(doc: TechReportDoc): Promise<string> 
     ${divider('Visual Inspection')}
     ${imageBlock('상단부 사진', top)}
     ${imageBlock('하단부 사진', bottom)}
+
+    ${divider('제품정보')}
+    ${productBlock(doc.samples ?? [])}
 
     ${divider('초도 분석')}
   </div>

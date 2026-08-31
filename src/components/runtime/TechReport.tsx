@@ -22,6 +22,7 @@ import {
   META_SLOTS,
   NAND_LOT_COLUMNS,
   PERF_ROWS,
+  PRODUCT_COLUMNS,
   RTBB_COLUMNS,
   type SampleStack,
   type TechReportDoc,
@@ -76,6 +77,54 @@ function Divider({ label }: { label: string }) {
       <span className="tr-divider-label">{label}</span>
       <span />
     </div>
+  );
+}
+
+/**
+ * 제품정보 — 초도 분석 앞에 놓이는 표(사용자 지정).
+ *
+ * 값은 전부 원장에서 오므로 **읽기 전용**이다. 여기서 고칠 수 있게 하면 보고서와 원장이
+ * 서서히 어긋나고 나중에 어느 쪽이 맞는지 물을 곳이 없어진다(적층 정보와 같은 규칙).
+ *
+ * sample마다 한 줄을 둔다. 한 FAR 안에서도 Part ID는 sample마다 다르고 DRAM·Ctrl·NAND도
+ * 갈리는 일이 있어, 한 줄로 접으면 어느 sample 것인지 모를 값 하나만 남는다.
+ */
+function ProductInfo({ samples }: { samples: TechReportSample[] }) {
+  const rows = samples.filter((s) => PRODUCT_COLUMNS.some((c) => (s.product?.[c.col] ?? '') !== ''));
+  return (
+    <section className="tr-card tr-span-12">
+      {/* tr-table-vertical은 쓰지 않는다 — 그쪽은 라벨|값 두 칸짜리라 th 폭을 40%로 못 박는다. */}
+      <div className="tr-table-wrap">
+        <table className="tr-table">
+          <thead>
+            <tr>
+              <th>Sample</th>
+              {PRODUCT_COLUMNS.map((c) => (
+                <th key={c.col}>{c.label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={PRODUCT_COLUMNS.length + 1} className="text-muted-foreground">
+                  원장에 제품 정보가 아직 없습니다
+                </td>
+              </tr>
+            ) : (
+              rows.map((s) => (
+                <tr key={s.sample_no}>
+                  <td>{s.sample_no}</td>
+                  {PRODUCT_COLUMNS.map((c) => (
+                    <td key={c.col}>{s.product?.[c.col] || '—'}</td>
+                  ))}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
@@ -759,7 +808,11 @@ export function TechReport({ title, description }: { title: string; description:
         onClear={() => setDoc((prev) => (prev ? { ...prev, visual_bottom: '' } : prev))}
       />
 
-      {/* ④ 초도 분석 — sample 탭 */}
+      {/* ④ 제품정보 — 원장에서 읽어 오는 표(고칠 수 없다) */}
+      <Divider label="제품정보" />
+      <ProductInfo samples={doc?.samples ?? []} />
+
+      {/* ⑤ 초도 분석 — sample 탭 */}
       <Divider label="초도 분석" />
       <div className="tr-span-12 flex flex-col gap-3">
         <SampleTabs

@@ -6,6 +6,7 @@ import {
   ALL_IMAGE_KEYS,
   NAND_LOT_COLUMNS,
   PERF_ROWS,
+  PRODUCT_COLUMNS,
   RTBB_COLUMNS,
   RTBB_DEFAULT_ROWS,
   emptySample,
@@ -83,7 +84,8 @@ export function loadTechReport(farNo: string): TechReportDoc {
 
   const farRows = db
     .prepare(
-      `SELECT "sample_no", "part_id", "comp_wc", "firmware", "open_count", "spor_count", "npor_count", "reclaim_count",
+      `SELECT "sample_no", "part_id", "device", "ctrl", "nand", "dram",
+              "comp_wc", "firmware", "open_count", "spor_count", "npor_count", "reclaim_count",
               "rtbb_count", "slc_max_ec", "slc_avg_ec", "slc_min_ec", "mlc_max_ec", "mlc_avg_ec", "mlc_min_ec",
               "nand_lotid", "visual_inspaction_top", "visual_inspaction_bottom"
          FROM "far_table" WHERE "far_no" = ? ORDER BY CAST("sample_no" AS INTEGER) ASC`
@@ -165,6 +167,8 @@ export function loadTechReport(farNo: string): TechReportDoc {
 
     base.images = parseJson<Record<string, string>>(saved?.images, {});
     base.part_id = far ? text(far.part_id) : '';
+    // 제품정보도 적층 정보와 같다 — 원장에서 읽기만 하고 보고서에 복사해 두지 않는다.
+    base.product = Object.fromEntries(PRODUCT_COLUMNS.map((c) => [c.col, far ? text(far[c.col]) : '']));
     // 적층 정보는 **보고서에 저장하지 않는다** — PKG Stack 표가 바뀌면 다음에 열 때 바뀐 값이
     // 나와야 한다. 보고서에 복사해 두면 두 곳이 서서히 어긋난다.
     base.stack = base.part_id ? stackByPart.get(base.part_id) ?? null : null;

@@ -40,6 +40,24 @@ export const PERF_ROWS: PerfRow[] = [
 export const OPINION_COLUMNS = ['nand_opinion', 'fw_opinion'] as const;
 
 /** RTBB 목록의 열. */
+/**
+ * 제품정보 표의 칸 — 초도 분석 앞에 놓인다(사용자 지정, 2026-08-31).
+ *
+ * 전부 **원장에서 온 값이라 고칠 수 없다.** 여기서 고칠 수 있게 하면 보고서와 원장이 서서히
+ * 어긋나고, 나중에 어느 쪽이 맞는지 물을 곳이 없어진다(적층 정보를 저장하지 않는 것과 같은 이유).
+ *
+ * **sample마다 한 줄**이다. 한 FAR 안에서도 Part ID는 sample마다 다르고 DRAM·Ctrl·NAND도
+ * 갈리는 일이 있어(실제 데이터에서 확인), 한 줄로 접으면 어느 sample 것인지 알 수 없는 값
+ * 하나만 남고 나머지는 조용히 사라진다.
+ */
+export const PRODUCT_COLUMNS = [
+  { col: 'part_id', label: 'Part ID' },
+  { col: 'device', label: 'Device' },
+  { col: 'ctrl', label: 'Ctrl' },
+  { col: 'nand', label: 'NAND' },
+  { col: 'dram', label: 'DRAM' },
+] as const;
+
 export const RTBB_COLUMNS = ['ch', 'way', 'die', 'page', 'block', 'mat'] as const;
 /** 양식이 비워 둔 기본 줄 수. */
 export const RTBB_DEFAULT_ROWS = 6;
@@ -98,6 +116,8 @@ export type TechReportSample = {
    */
   /** 이 sample의 Part ID — 적층 정보를 찾는 열쇠다(원장에서 온다). */
   part_id?: string;
+  /** 제품정보 표의 한 줄(PRODUCT_COLUMNS 순서). 원장에서 오고 저장하지 않는다. */
+  product?: Record<string, string>;
   /** PKG Stack에서 찾은 적층 정보. 없으면 null. */
   stack?: SampleStack | null;
   /** 불러오기가 원장에서 채워 준 칸들(사람이 아직 손대지 않은 값) — 화면에서 표시만 한다. */
