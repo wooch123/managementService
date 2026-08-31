@@ -504,12 +504,19 @@ function faAssign(): SitePage {
         },
         // 마감일은 뺐다(사용자 지정) — 이 화면은 '누가 맡을지'를 정하는 곳이고, 마감은
         // 분석 현황·종합 현황에서 본다.
-        // 담당자와 인계 담당자를 나란히 둔다 — 어느 건이 넘어갔는지 목록에서 바로 보인다.
-        headers: ['FAR No', 'Sample', '접수일', '고객명', '제품명', '담당자', '인계 담당자'],
+        /**
+         * **FAR 하나가 한 줄**이다(사용자 지정, 2026-08-31). 원장은 행 하나가 sample 하나라
+         * 그냥 늘어놓으면 sample 열 개짜리 FAR이 목록의 열 줄을 차지한다 — 여기서 고르는
+         * 단위는 FAR이므로 그만큼 목록이 길어지기만 하고 고르는 데 도움이 되지 않는다.
+         * sample 번호 대신 **몇 개인지**를 적는다. 함께 놓는 칸들은 한 FAR 안에서 같은 값이라
+         * 접어도 잃는 것이 없다(sample마다 갈리는 Part ID·DRAM은 여기 두지 않는다).
+         */
+        headers: ['FAR No', 'Sample 수', '접수일', '고객명', '제품명', '담당자', '인계 담당자'],
         bind: {
           mode: 'list',
           table: 'far_table',
-          select: ['far_no', 'sample_no', 'rcv_date', 'cust_name', 'device', 'name', 'handover_name'],
+          select: ['far_no', 'count()', 'rcv_date', 'cust_name', 'device', 'name', 'handover_name'],
+          groupBy: 'far_no',
           filters: [
             { col: 'far_no', cols: ['far_no', 'cust_name', 'device', 'part_id'], op: 'contains', source: 'query', ref: 'q' },
             byParam('name', 'name'),

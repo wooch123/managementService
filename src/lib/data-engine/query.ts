@@ -133,11 +133,24 @@ export function buildOrderClause(entity: ResolvedEntity, sort: Sort[]): string {
   return `ORDER BY ${parts.join(', ')}`;
 }
 
+/**
+ * select에 적을 수 있는 유일한 가짜 칸 — 묶인 줄이 몇 개인지.
+ *
+ * 이름을 여기 한 곳에 못 박아 두면 SQL에 들어가는 식별자가 설계값에서 오지 않는다(§4.1의
+ * "식별자 화이트리스트"). 조회 결과의 칸 이름도 이것이라 표가 그대로 읽는다.
+ */
+export const COUNT_TOKEN = 'count()';
+const COUNT_COLUMN = 'group_count';
+
 function resolveSelectColumns(entity: ResolvedEntity, select: string[]): ResultColumn[] {
   const cols: ResultColumn[] = [
     { columnName: 'id', fieldId: null, dataType: 'TEXT', implicit: true, label: 'id' },
   ];
   for (const fieldId of select) {
+    if (fieldId === COUNT_TOKEN) {
+      cols.push({ columnName: COUNT_COLUMN, fieldId: null, dataType: 'INTEGER', label: '개수' });
+      continue;
+    }
     const field = resolveField(entity, fieldId);
     cols.push({
       columnName: field.columnName,
@@ -163,15 +176,31 @@ export async function runListQuery(binding: Extract<BindingSpec, { mode: 'list' 
   const orderSql = buildOrderClause(entity, binding.sort);
   const db = getAppDb();
 
-  const selectList = cols.map((c) => quoteIdent(c.columnName)).join(', ');
+  /**
+   * 줄을 묶는 경우 — 한 FAR의 sample 여러 줄이 한 줄이 된다.
+   *
+   * 묶지 않은 칸을 그대로 고르는 것은 SQLite가 허용하는 방식이다(묶음 안의 한 줄에서 가져온다).
+   * 이 화면들은 묶음 안에서 같은 값인 칸만 함께 놓으므로 어느 줄에서 오든 결과가 같다.
+   */
+  const groupField = binding.groupByFieldId ? resolveField(entity, binding.groupByFieldId) : null;
+  const groupSql = groupField ? `GROUP BY ${quoteIdent(groupField.columnName)}` : '';
+
+  const selectList = cols
+    .map((c) => (c.columnName === COUNT_COLUMN ? `COUNT(*) AS ${quoteIdent(COUNT_COLUMN)}` : quoteIdent(c.columnName)))
+    .join(', ');
   const table = quoteIdent(entity.tableName);
   const offset = Math.max(0, (page - 1) * binding.pageSize);
 
   const rows = db
-    .prepare(`SELECT ${selectList} FROM ${table} ${whereSql} ${orderSql} LIMIT ? OFFSET ?`)
+    .prepare(`SELECT ${selectList} FROM ${table} ${whereSql} ${groupSql} ${orderSql} LIMIT ? OFFSET ?`)
     .all(...whereParams, binding.pageSize, offset) as Record<string, unknown>[];
 
-  const totalRow = db.prepare(`SELECT COUNT(*) AS c FROM ${table} ${whereSql}`).get(...whereParams) as { c: number };
+  // 묶었으면 세어야 할 것은 원래 줄 수가 아니라 **묶음 수**다 — 쪽 넘김이 그 수를 따른다.
+  const totalRow = (
+    groupSql
+      ? db.prepare(`SELECT COUNT(*) AS c FROM (SELECT 1 FROM ${table} ${whereSql} ${groupSql})`)
+      : db.prepare(`SELECT COUNT(*) AS c FROM ${table} ${whereSql}`)
+  ).get(...whereParams) as { c: number };
 
   return { rows, total: totalRow.c, columns: cols };
 }

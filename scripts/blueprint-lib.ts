@@ -7,6 +7,10 @@
  */
 import type { PrismaClient } from '@prisma/client';
 
+/** select에 적을 수 있는 유일한 가짜 칸과, 그것이 조회 결과에서 갖는 이름. 런타임과 같은 값을 쓴다. */
+const COUNT_TOKEN = 'count()';
+const COUNT_COLUMN = 'group_count';
+
 export type FilterPlan = {
   col: string;
   /** 같은 값을 여러 컬럼 중 하나라도 만족하면 되는 조건(통합 검색). 비우면 col 하나만 본다. */
@@ -24,7 +28,10 @@ export type BindPlan =
   | {
       mode: 'list';
       table: string;
+      /** 읽을 칸. `count()` 하나만은 예외로 '묶인 줄 수'를 뜻한다(groupBy와 함께 쓴다). */
       select: string[];
+      /** 이 칸으로 줄을 묶는다 — 한 FAR의 sample 여러 줄을 한 줄로 접는다. */
+      groupBy?: string;
       filters?: FilterPlan[];
       /** [컬럼, 방향] — 세 번째 자리에 'numeric'을 적으면 글자가 아니라 수로 정렬한다(Sample No). */
       sort?: ([string, 'asc' | 'desc'] | [string, 'asc' | 'desc', 'numeric'])[];
@@ -195,7 +202,8 @@ export function toBindingJson(schema: Map<string, EntityInfo>, bind: BindPlan): 
     return JSON.stringify({
       mode: 'list',
       entityId: entityOf(schema, bind.table).id,
-      select: bind.select.map((col) => fieldOf(schema, bind.table, col).id),
+      select: bind.select.map((col) => (col === COUNT_TOKEN ? col : fieldOf(schema, bind.table, col).id)),
+      ...(bind.groupBy ? { groupByFieldId: fieldOf(schema, bind.table, bind.groupBy).id } : {}),
       filters: toFilters(schema, bind.table, bind.filters),
       sort: (bind.sort ?? []).map(([col, dir, kind]) => ({
         fieldId: fieldOf(schema, bind.table, col).id,
@@ -252,6 +260,11 @@ function defaultFormat(dataType: string): CellFormat {
 export function tableColumns(schema: Map<string, EntityInfo>, bind: BindPlan, headers?: string[], formats?: (CellFormat | null)[]) {
   if (bind.mode !== 'list') return [];
   return bind.select.map((col, index) => {
+    if (col === COUNT_TOKEN) {
+      // 조회 결과의 칸 이름(_count)을 fieldId 자리에 둔다 — 런타임이 fieldId로 못 찾으면
+      // 그 값을 컬럼명으로 그대로 쓴다. 가짜 칸을 위해 따로 길을 낼 필요가 없다.
+      return { fieldId: COUNT_COLUMN, header: headers?.[index] ?? '개수', align: 'right', format: 'number' as CellFormat };
+    }
     const field = fieldOf(schema, bind.table, col);
     const format = formats?.[index] ?? defaultFormat(field.dataType);
     return {

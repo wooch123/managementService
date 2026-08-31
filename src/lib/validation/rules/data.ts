@@ -1,10 +1,11 @@
 import { issue } from '@/lib/validation/helpers';
 import { isValidIdentifierFormat, isReservedIdentifier } from '@/lib/data-engine/identifiers';
 import { sqlTypeFor } from '@/lib/data-engine/ddl';
+import { COUNT_TOKEN } from '@/lib/data-engine/query';
 import type { ValidationRule, DraftSpec } from '@/lib/validation/types';
 import type { DataType } from '@/types/entity';
 
-type BindingLike = { mode: string; entityId?: string; fieldId?: string; select?: string[]; filters?: { source: string; ref?: string }[]; sort?: unknown[] } | null;
+type BindingLike = { mode: string; entityId?: string; fieldId?: string; select?: string[]; groupByFieldId?: string; filters?: { source: string; ref?: string }[]; sort?: unknown[] } | null;
 
 /** 컴포넌트 타입별 field 바인딩과 궁합이 맞는 dataType — 명시된 것 외에는 허용(보수적 오탐 방지) */
 const COMPONENT_DATATYPE_COMPAT: Record<string, DataType[]> = {
@@ -98,8 +99,14 @@ export const dataBindingRefMissing: ValidationRule = {
       if (b.mode === 'field' && !fieldExists(spec, b.entityId, b.fieldId)) {
         issues.push(issue('E-DATA-005', 'error', 'data', `바인딩이 존재하지 않는 필드를 참조합니다.`, { type: 'COMPONENT', id: n.id }, false));
       }
+      // 묶어 읽는 목록은 `count()`를 select에 적는다 — 필드가 아니라 '묶인 줄 수'라서
+      // 엔티티에서 찾을 수 없다. 그 하나만 빼고 나머지는 그대로 확인한다.
+      if (b.mode === 'list' && b.groupByFieldId && !fieldExists(spec, b.entityId, b.groupByFieldId)) {
+        issues.push(issue('E-DATA-005', 'error', 'data', `바인딩의 묶음 기준이 존재하지 않는 필드입니다.`, { type: 'COMPONENT', id: n.id }, false));
+      }
       if ((b.mode === 'list' || b.mode === 'single') && b.select) {
         for (const fid of b.select) {
+          if (fid === COUNT_TOKEN) continue;
           if (!fieldExists(spec, b.entityId, fid)) {
             issues.push(issue('E-DATA-005', 'error', 'data', `바인딩의 select가 존재하지 않는 필드를 참조합니다.`, { type: 'COMPONENT', id: n.id }, false));
             break;

@@ -48,7 +48,21 @@ export const bindingSpecSchema = z.discriminatedUnion('mode', [
   z.object({
     mode: z.literal('list'),
     entityId: z.string(),
+    /**
+     * 읽을 칸들. 대개 fieldId지만 **`count()` 하나만은 예외**로, 묶인 줄이 몇 개인지를 뜻한다
+     * (`groupByFieldId`와 함께 쓴다). 이렇게 두면 머리글·서식이 select 순서와 그대로 맞물려,
+     * 세는 칸을 표의 아무 자리에나 놓을 수 있다.
+     */
     select: z.array(z.string()),
+    /**
+     * 이 필드로 줄을 **묶는다**. 한 FAR에 sample이 여럿이면 원장은 줄도 여럿인데, 목록에서
+     * 고르는 단위가 FAR이라면 그 여럿을 한 줄로 접어야 목록이 읽힌다.
+     *
+     * 묶으면 select의 나머지 칸은 묶음 안의 값 하나가 나온다. 이 화면들에서 함께 놓는 칸
+     * (접수일·고객명·제품명·담당자)은 한 FAR 안에서 같은 값이라 문제가 되지 않는다 —
+     * sample마다 갈리는 칸(Part ID·DRAM 등)을 여기에 두면 어느 sample 것인지 알 수 없게 된다.
+     */
+    groupByFieldId: z.string().optional(),
     filters: z.array(filterSchema).default([]),
     sort: z.array(sortSchema).default([]),
     pageSize: z.number().int().min(1).max(200).default(10),
