@@ -167,8 +167,10 @@ function DataTable<TData, TValue>({
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   const sortDir = header.column.getIsSorted()
+                  // 칸마다의 덧붙임 클래스 — 오른쪽에 붙여 두는 줄 단추가 이것을 쓴다.
+                  const headMeta = header.column.columnDef.meta as { cellClass?: string } | undefined
                   return (
-                    <TableHead key={header.id}>
+                    <TableHead key={header.id} className={headMeta?.cellClass}>
                       {header.isPlaceholder ? null : header.column.getCanSort() ? (
                         <button
                           type="button"
@@ -222,7 +224,10 @@ function DataTable<TData, TValue>({
                     }
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
+                      <TableCell
+                        key={cell.id}
+                        className={(cell.column.columnDef.meta as { cellClass?: string } | undefined)?.cellClass}
+                      >
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>
                     ))}

@@ -796,3 +796,27 @@ select optgroup {
  * 확대율에 따라 결과가 달라져 "누가 받아도 같은 문서"가 되지 않아 걷어냈다. 발행물의 모양은
  * 이제 서버의 tech-report-html.ts 한 곳에서만 정해진다.
  */
+
+/*
+ * 표가 옆으로 넘칠 때도 **줄 단추는 오른쪽 끝에 붙어 있는다**.
+ *
+ * FAR List에 'Tech Report 작성' 칸을 더하자 표가 카드보다 221px 넓어졌고, 그 단추는 카드
+ * 바깥 199px 지점에 놓였다 — 옆으로 넘겨야 보이는 단추는 없는 것과 다르지 않다. 칸을 지워
+ * 자리를 만드는 대신(그 값들도 다 쓰이는 값이다) 단추만 붙여 둔다. Reball 의뢰 표의 금액 칸을
+ * 오른쪽에 고정한 것과 같은 방식이다.
+ */
+.dt-pin-right {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: var(--card);
+  /* 왼쪽에만 지는 그림자 — 뒤로 글자가 지나가고 있다는 것을 알린다. */
+  box-shadow: -10px 0 10px -10px color-mix(in oklab, var(--foreground) 35%, transparent);
+}
+/* 줄에 색이 들어올 때(가리킴·선택) 붙은 칸만 제 색으로 남지 않게 같은 색을 덮는다. */
+tr:hover > .dt-pin-right {
+  background: color-mix(in oklab, var(--muted) 50%, var(--card));
+}
+tr[data-state='selected'] > .dt-pin-right {
+  background: color-mix(in oklab, var(--primary) 10%, var(--card));
+}

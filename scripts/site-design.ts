@@ -679,7 +679,7 @@ function faStatus(): SitePage {
         row: 11,
         rowSpan: 30,
         props: {
-          title: '분석 대상 목록',
+          title: 'FAR List',
           showSearch: false,
           // 오른쪽 상세 카드 높이에 맞춘 줄 수 — 기본값(10줄)으로는 아래가 270px 비어 있었다.
           pageSize: 17,
@@ -689,6 +689,16 @@ function faStatus(): SitePage {
           emptyText: '조건에 맞는 건이 없습니다',
           selectParam: 'sel',
           selectFieldId: 'far_no',
+          /**
+           * 마지막 칸의 줄 단추(사용자 지정) — 그 FAR로 Tech Report 작성 화면에 바로 간다.
+           *
+           * 행을 누르는 것은 이 화면에서 **고르는** 동작(아래 상세·분석값이 따라온다)이라
+           * 그 자리에 이동을 겹칠 수 없다. 넘어가는 것은 눈에 보이는 단추로 따로 둔다.
+           * 넘어간 화면은 주소의 far_no를 읽어 스스로 그 FAR을 불러온다.
+           */
+          rowActionLabel: 'Tech Report 작성',
+          rowActionSlug: 'tech-report',
+          rowActionParam: 'far_no',
         },
         // Firmware는 뺐다(사용자 지정) — 이 목록은 '어느 건인지'를 고르는 자리고, Firmware는
         // 바로 아래 sample별 분석값 표에 회차와 함께 나온다(같은 값을 두 번 늘어놓지 않는다).

@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/table';
 import { DataTable as DataTableUi } from '@/components/ui/data-table';
 import { SelectableTable } from '@/components/runtime/SelectableTable';
+import { RowActionButton } from '@/components/runtime/RowActionButton';
 import { CrosstabTable, CrosstabTablePreview } from '@/components/runtime/CrosstabTable';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import {
@@ -310,6 +311,15 @@ export const dataDisplayComponents = [
        * 아무 데도 이어지지 않는다 — 청사진 01의 "행 선택 후 바로 이동"이 이 자리다.
        */
       selectSlug: z.string().default(''),
+      /**
+       * 마지막 칸에 붙일 **줄 단추**. 셋이 모두 채워져야 나온다.
+       *
+       * 주소에 싣는 값은 `selectFieldId`가 가리키는 칸이다 — 고를 때 쓰는 업무 키와 넘길 때
+       * 쓰는 값이 다를 이유가 없고, 둘을 따로 두면 어긋났을 때 조용히 빈 주소로 넘어간다.
+       */
+      rowActionLabel: z.string().default(''),
+      rowActionSlug: z.string().default(''),
+      rowActionParam: z.string().default(''),
     }),
     defaultProps: {
       title: '',
@@ -324,6 +334,9 @@ export const dataDisplayComponents = [
       selectParam: '',
       selectFieldId: '',
       selectSlug: '',
+      rowActionLabel: '',
+      rowActionSlug: '',
+      rowActionParam: '',
     },
     defaultGrid: { span: 12, rowSpan: 40 },
     render: ({ props, data }) => {
@@ -373,12 +386,45 @@ export const dataDisplayComponents = [
       // 한다. 필드가 조회 결과에 없으면(설계 변경 등) 조용히 정적인 표로 물러난다.
       const selectColumn = props.selectFieldId ? (columnNameByFieldId.get(props.selectFieldId) ?? null) : null;
       const selectable = props.selectParam !== '' && selectColumn !== null;
+
+      /**
+       * 줄 단추는 맨 뒤에 붙인다. 실을 값이 없으면(설계 변경 등) 조용히 붙이지 않는다 —
+       * 누를 때마다 빈 주소로 넘어가는 단추보다 없는 편이 낫다.
+       *
+       * **새 배열을 만든다.** 위의 `columns`는 props에 칸 정의가 없을 때 모듈 상수(sampleColumns)를
+       * 그대로 가리키므로, 여기서 push하면 그 상수가 영구히 오염돼 빌더 미리보기의 모든 표에
+       * 단추가 쌓인다.
+       */
+      const withAction: ColumnDef<Record<string, unknown>>[] =
+        props.rowActionLabel && props.rowActionSlug && props.rowActionParam && selectColumn
+          ? [
+              ...columns,
+              {
+                id: 'row-action',
+                // 표가 넘쳐도 이 칸만은 오른쪽에 붙어 있는다(globals.css의 .dt-pin-right).
+                meta: { exportHeader: props.rowActionLabel, cellClass: 'dt-pin-right' },
+                header: () => (
+                  <span className="block text-center text-[11px] font-semibold tracking-wider uppercase text-muted-foreground">
+                    {props.rowActionLabel}
+                  </span>
+                ),
+                cell: ({ row }: { row: { original: Record<string, unknown> } }) => (
+                  <RowActionButton
+                    label={props.rowActionLabel}
+                    slug={props.rowActionSlug}
+                    param={props.rowActionParam}
+                    value={String(row.original[selectColumn] ?? '')}
+                  />
+                ),
+              } as ColumnDef<Record<string, unknown>>,
+            ]
+          : columns;
       return (
         <div className="flex flex-col gap-2">
           {props.title && <h3 className="chart-title">{props.title}</h3>}
           {selectable ? (
             <SelectableTable
-              columns={columns}
+              columns={withAction}
               data={rows}
               emptyText={props.emptyText}
               showSearch={props.showSearch}
@@ -392,7 +438,7 @@ export const dataDisplayComponents = [
             />
           ) : (
             <DataTableUi
-              columns={columns}
+              columns={withAction}
               data={rows}
               emptyText={props.emptyText}
               showSearch={props.showSearch}

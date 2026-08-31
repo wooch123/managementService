@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   Check,
@@ -563,6 +564,28 @@ export function TechReport({ title, description }: { title: string; description:
   const [ssrCopied, setSsrCopied] = useState(false);
 
   const disabled = doc === null;
+
+  /**
+   * 주소에 FAR No가 실려 오면 **스스로 불러온다**(사용자 지정, 2026-08-31).
+   *
+   * FAR List에서 'Tech Report 작성'을 누르면 `?far_no=…`로 이 화면에 온다. 그렇게 와 놓고
+   * 다시 번호를 적어 넣고 불러오기를 눌러야 한다면, 단추가 화면만 바꾼 셈이라 아무것도 줄여
+   * 주지 못한다.
+   *
+   * 값이 바뀔 때만 부른다 — 같은 주소로 다시 그려질 때(저장 알림 등)마다 불러오면 사람이
+   * 고치던 내용이 원장 값으로 되돌아간다. 그래서 '무엇을 이미 불러왔는지'를 따로 들고 본다.
+   */
+  const fromUrl = useSearchParams().get('far_no') ?? '';
+  const loadedFromUrl = useRef('');
+  useEffect(() => {
+    const target = fromUrl.trim();
+    if (target === '' || loadedFromUrl.current === target) return;
+    loadedFromUrl.current = target;
+    setFarInput(target);
+    void load(target);
+    // load는 렌더마다 새로 만들어지는 함수라 의존성에 넣지 않는다 — 넣으면 매 렌더마다 다시
+    // 불러온다. 실제로 봐야 하는 것은 주소의 값 하나뿐이고, 그 값은 loadedFromUrl이 지킨다.
+  }, [fromUrl]);
 
   /**
    * sample 전부의 Smart Report를 **한 표로** 편다 — 줄이 항목, 칸이 sample이다.

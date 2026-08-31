@@ -519,7 +519,10 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "emptyText": "데이터가 없습니다",
       "selectParam": "",
       "selectFieldId": "",
-      "selectSlug": ""
+      "selectSlug": "",
+      "rowActionLabel": "",
+      "rowActionSlug": "",
+      "rowActionParam": ""
     },
     "bindingModes": [
       "list"
