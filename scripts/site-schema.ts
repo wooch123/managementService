@@ -191,6 +191,52 @@ export const ENTITIES: EntityPlan[] = [
     ],
   },
   {
+    name: 'Issue',
+    table: 'issue_page',
+    description:
+      '주요 Issue의 하위 화면 하나. 제목만 받아 만들고, 실제 내용은 Issue 항목 표에 쌓인다. **화면(Page)을 만들지 않고 줄로 남기는 이유**: 구성 적용(apply-site)은 배포 때마다 화면을 전부 다시 만든다 — 런타임에 만든 화면은 다음 배포에 사라진다. 줄로 남기면 주소(`?issue=…`)로 같은 화면을 열 수 있고 배포와 무관하게 남는다.',
+    fields: [
+      { name: '제목', col: 'title', type: 'TEXT', required: true },
+      { name: '메모', col: 'note', type: 'TEXT' },
+      /**
+       * 만든 때. 엔진이 붙이는 `created_at`이 이미 있지만 그것은 **설계에 없는 칸**이라
+       * 바인딩의 정렬·조회가 찾지 못한다(찾으면 적용이 그 자리에서 멈춘다 — 실제로 멈췄다).
+       * 목록을 새것부터 보여 주려면 설계에 있는 칸이어야 한다.
+       */
+      { name: '만든 때', col: 'created_on', type: 'DATETIME' },
+    ],
+  },
+  {
+    name: 'Issue 항목',
+    table: 'issue_row',
+    description:
+      'Issue 화면의 표 한 줄 — 양식(첨부 표)의 칸 그대로다. 줄마다 코멘트와 그림을 더 달 수 있어 그 둘은 따로 담는다.',
+    fields: [
+      /** 어느 Issue의 줄인지 — issue_page의 줄 id. */
+      { name: 'Issue', col: 'issue_id', type: 'TEXT', required: true },
+      { name: 'No', col: 'no', type: 'TEXT' },
+      { name: '불량 Location', col: 'fail_location', type: 'TEXT' },
+      { name: '불량 모드', col: 'fail_mode', type: 'TEXT' },
+      { name: '불량 유형', col: 'fail_type', type: 'TEXT' },
+      { name: 'PJT', col: 'pjt', type: 'TEXT' },
+      { name: 'Week Code', col: 'week_code', type: 'TEXT' },
+      /** EC·TBW는 수처럼 보이지만 'N/A'·'>1000'처럼 적는 자리라 글자로 둔다(Smart Report와 같은 판단). */
+      { name: 'SLC Max EC', col: 'slc_max_ec', type: 'TEXT' },
+      { name: 'MLC Max EC', col: 'mlc_max_ec', type: 'TEXT' },
+      { name: 'TBW', col: 'tbw', type: 'TEXT' },
+      { name: 'FAR No', col: 'far_no', type: 'TEXT' },
+      { name: 'Sample No', col: 'sample_no', type: 'TEXT' },
+      { name: '고객 불량 현상', col: 'cust_symptom', type: 'TEXT' },
+      { name: '불량 분석 현황', col: 'fail_analysis', type: 'TEXT' },
+      { name: 'Stack', col: 'stack', type: 'TEXT' },
+      { name: 'Wafer Map', col: 'wafer_map', type: 'TEXT' },
+      { name: '진행 상황', col: 'progress', type: 'TEXT' },
+      /** 펼쳐서 적는 것들 — 표 안에 두면 한 줄이 표 전체를 밀어낸다(DRAM LF 표와 같은 방식). */
+      { name: '코멘트', col: 'comment', type: 'TEXT' },
+      { name: '그림 목록', col: 'images', type: 'JSON' },
+    ],
+  },
+  {
     name: 'DRAM LF 평가',
     table: 'dram_lf_table',
     description:

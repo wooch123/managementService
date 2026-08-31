@@ -225,7 +225,8 @@ async function createPages(flat: ReturnType<typeof flatten>): Promise<Map<string
   for (const { page, parentSlug, order } of flat) {
     if (parentSlug) continue;
     const existing = await prisma.page.findUnique({ where: { slug: page.slug } });
-    const data = { title: page.title, icon: page.icon, parentId: null, order, isVisible: true, isHome: page.isHome ?? false };
+    // hidden이면 메뉴에서만 뺀다 — 주소로는 그대로 열린다(런타임이 그렇게 다룬다).
+    const data = { title: page.title, icon: page.icon, parentId: null, order, isVisible: !page.hidden, isHome: page.isHome ?? false };
     const row = existing
       ? await prisma.page.update({ where: { id: existing.id }, data })
       : await prisma.page.create({ data: { slug: page.slug, ...data } });
@@ -234,7 +235,7 @@ async function createPages(flat: ReturnType<typeof flatten>): Promise<Map<string
   for (const { page, parentSlug, order } of flat) {
     if (!parentSlug) continue;
     const existing = await prisma.page.findUnique({ where: { slug: page.slug } });
-    const data = { title: page.title, icon: page.icon, parentId: ids.get(parentSlug)!, order, isVisible: true, isHome: false };
+    const data = { title: page.title, icon: page.icon, parentId: ids.get(parentSlug)!, order, isVisible: !page.hidden, isHome: false };
     const row = existing
       ? await prisma.page.update({ where: { id: existing.id }, data })
       : await prisma.page.create({ data: { slug: page.slug, ...data } });

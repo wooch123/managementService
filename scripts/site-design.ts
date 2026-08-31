@@ -20,6 +20,12 @@ export type SitePage = {
   title: string;
   icon: string;
   isHome?: boolean;
+  /**
+   * 메뉴에 내지 않는 화면. 주소로는 그대로 열린다(일반적인 CMS 관례이고 런타임도 그렇게 다룬다).
+   * Issue 상세처럼 **어느 줄의 화면인지가 주소로 정해지는** 곳에 쓴다 — 메뉴에 두면 이슈를
+   * 고르지 않은 빈 화면으로 들어가게 되고, 이슈가 늘수록 메뉴가 목록이 되어 버린다.
+   */
+  hidden?: boolean;
   nodes: NodePlan[];
   children?: SitePage[];
 };
@@ -1240,10 +1246,97 @@ export function buildSite(): SitePage[] {
       nodes: [
         callout(
           1,
-          '주요 이슈를 공통 포맷으로 기록하는 자리입니다 — 설계 문서에서 사용자가 + 버튼으로 페이지를 직접 추가할 수 있어야 한다고 적힌 곳이며, 지금은 메뉴 자리만 잡아 두었습니다.',
+          '제목을 적어 Issue 화면을 만들면 아래 목록에 쌓입니다. 목록에서 줄을 누르면 그 Issue의 표로 들어갑니다 — 표에는 불량 Location·모드별 차트가 함께 그려집니다.',
           'info',
-          5
+          4
         ),
+        {
+          key: 'issue-pages',
+          type: 'issue-list',
+          col: 1,
+          span: 12,
+          row: 5,
+          rowSpan: 30,
+          props: { title: 'Issue 화면', description: '제목만 적으면 만들어집니다. 나머지는 들어가서 적습니다.', detailSlug: 'issue-detail' },
+          on: { onSubmit: 'issue-create' },
+          bind: {
+            mode: 'list',
+            table: 'issue_page',
+            select: ['title', 'note', 'created_on'],
+            filters: [],
+            sort: [['created_on', 'desc']],
+            pageSize: 200,
+          },
+        },
+      ],
+    },
+    {
+      /**
+       * Issue 하나의 화면. 사이드바에 두지 않는다 — 이슈마다 메뉴가 늘어나면 사이드바가 목록이
+       * 되어 버린다. 주요 Issue 목록에서 `?issue=<줄 id>`로 들어온다.
+       */
+      slug: 'issue-detail',
+      title: 'Issue 상세',
+      icon: 'triangle-alert',
+      hidden: true,
+      nodes: [
+        // 표 위의 차트 둘(사용자 지정) — 어느 자리에서 얼마나 났는지, 그 자리에서 무엇이 났는지.
+        {
+          type: 'stat-pareto',
+          col: 1,
+          span: 6,
+          row: 1,
+          rowSpan: 14,
+          props: { title: '불량 Location별 개수', subtitle: '많은 자리부터 — 점선은 누적 80%', yLabel: '' },
+          bind: {
+            mode: 'group',
+            table: 'issue_row',
+            groupField: 'fail_location',
+            fn: 'count',
+            filters: [selected('issue_id', 'issue')],
+            orderBy: 'value',
+            limit: 20,
+          },
+        },
+        {
+          type: 'chart-stacked',
+          col: 7,
+          span: 6,
+          row: 1,
+          rowSpan: 14,
+          props: { title: 'Location별 불량 모드', subtitle: '같은 자리에서 무엇이 나는지', unit: '건', yLabel: '', maxSeries: 8, showLegend: true },
+          bind: {
+            mode: 'group',
+            table: 'issue_row',
+            groupField: 'fail_location',
+            seriesField: 'fail_mode',
+            fn: 'count',
+            filters: [selected('issue_id', 'issue')],
+            orderBy: 'value',
+            limit: 12,
+          },
+        },
+        {
+          key: 'issue-rows',
+          type: 'issue-table',
+          col: 1,
+          span: 12,
+          row: 15,
+          rowSpan: 34,
+          props: {
+            title: 'Issue 표',
+            description: '칸 이름을 누르면 그 칸으로 정렬하고, 머리글 아래 칸에 적으면 그 칸에서만 찾습니다. 줄 왼쪽 화살표를 누르면 코멘트와 그림 자리가 펼쳐집니다.',
+          },
+          on: { onSubmit: 'issue-row-create', onUpdate: 'issue-row-update' },
+          bind: {
+            mode: 'list',
+            table: 'issue_row',
+            select: ['no', 'fail_location', 'fail_mode', 'fail_type', 'pjt', 'week_code', 'slc_max_ec', 'mlc_max_ec', 'tbw', 'far_no', 'sample_no', 'cust_symptom', 'fail_analysis', 'stack', 'wafer_map', 'progress', 'comment', 'images'],
+            filters: [selected('issue_id', 'issue')],
+            sort: [['no', 'asc', 'numeric']],
+            pageSize: 200,
+          },
+        },
       ],
     },
     {
@@ -1340,6 +1433,74 @@ export function buildActions(): ActionPlan[] {
       },
     },
 
+    {
+      key: 'issue-create',
+      name: 'Issue 화면 만들기',
+      desc: '제목을 받아 Issue 하나를 만든다 — 그 줄의 id가 곧 하위 화면의 주소가 된다',
+      kind: 'CREATE',
+      table: 'issue_page',
+      values: {
+        title: { from: 'component', node: 'issue-pages', path: 'title' },
+        note: { from: 'component', node: 'issue-pages', path: 'note' },
+        created_on: { from: 'now' },
+      },
+    },
+    {
+      key: 'issue-row-create',
+      name: 'Issue 줄 추가',
+      desc: 'Issue 표의 한 줄을 새로 넣는다 — 어느 Issue의 줄인지는 주소에서 온다',
+      kind: 'CREATE',
+      table: 'issue_row',
+      values: {
+        issue_id: { from: 'route', param: 'issue' },
+        no: { from: 'component', node: 'issue-rows', path: 'no' },
+        fail_location: { from: 'component', node: 'issue-rows', path: 'fail_location' },
+        fail_mode: { from: 'component', node: 'issue-rows', path: 'fail_mode' },
+        fail_type: { from: 'component', node: 'issue-rows', path: 'fail_type' },
+        pjt: { from: 'component', node: 'issue-rows', path: 'pjt' },
+        week_code: { from: 'component', node: 'issue-rows', path: 'week_code' },
+        slc_max_ec: { from: 'component', node: 'issue-rows', path: 'slc_max_ec' },
+        mlc_max_ec: { from: 'component', node: 'issue-rows', path: 'mlc_max_ec' },
+        tbw: { from: 'component', node: 'issue-rows', path: 'tbw' },
+        far_no: { from: 'component', node: 'issue-rows', path: 'far_no' },
+        sample_no: { from: 'component', node: 'issue-rows', path: 'sample_no' },
+        cust_symptom: { from: 'component', node: 'issue-rows', path: 'cust_symptom' },
+        fail_analysis: { from: 'component', node: 'issue-rows', path: 'fail_analysis' },
+        stack: { from: 'component', node: 'issue-rows', path: 'stack' },
+        wafer_map: { from: 'component', node: 'issue-rows', path: 'wafer_map' },
+        progress: { from: 'component', node: 'issue-rows', path: 'progress' },
+        comment: { from: 'component', node: 'issue-rows', path: 'comment' },
+        images: { from: 'component', node: 'issue-rows', path: 'images' },
+      },
+    },
+    {
+      key: 'issue-row-update',
+      name: 'Issue 줄 수정',
+      desc: '이미 있는 줄을 고쳐 저장한다 — 줄의 id로 찾는다',
+      kind: 'UPDATE',
+      table: 'issue_row',
+      keyFrom: { from: 'component', node: 'issue-rows', path: 'id' },
+      values: {
+        no: { from: 'component', node: 'issue-rows', path: 'no' },
+        fail_location: { from: 'component', node: 'issue-rows', path: 'fail_location' },
+        fail_mode: { from: 'component', node: 'issue-rows', path: 'fail_mode' },
+        fail_type: { from: 'component', node: 'issue-rows', path: 'fail_type' },
+        pjt: { from: 'component', node: 'issue-rows', path: 'pjt' },
+        week_code: { from: 'component', node: 'issue-rows', path: 'week_code' },
+        slc_max_ec: { from: 'component', node: 'issue-rows', path: 'slc_max_ec' },
+        mlc_max_ec: { from: 'component', node: 'issue-rows', path: 'mlc_max_ec' },
+        tbw: { from: 'component', node: 'issue-rows', path: 'tbw' },
+        far_no: { from: 'component', node: 'issue-rows', path: 'far_no' },
+        sample_no: { from: 'component', node: 'issue-rows', path: 'sample_no' },
+        cust_symptom: { from: 'component', node: 'issue-rows', path: 'cust_symptom' },
+        fail_analysis: { from: 'component', node: 'issue-rows', path: 'fail_analysis' },
+        stack: { from: 'component', node: 'issue-rows', path: 'stack' },
+        wafer_map: { from: 'component', node: 'issue-rows', path: 'wafer_map' },
+        progress: { from: 'component', node: 'issue-rows', path: 'progress' },
+        comment: { from: 'component', node: 'issue-rows', path: 'comment' },
+        images: { from: 'component', node: 'issue-rows', path: 'images' },
+      },
+    },
     {
       key: 'dram-lf-create',
       name: 'DRAM LF 평가 저장',

@@ -5,6 +5,8 @@ import { ReballCost, ReballCostPreview, toCostRow, type ReballWorkValue } from '
 import { ReballRequestTable, ReballRequestTablePreview, type ReballRow } from '@/components/runtime/ReballRequestTable';
 import { PkgStack, PkgStackPreview, type PkgStackEdit, type PkgStackValue } from '@/components/runtime/PkgStack';
 import { DramEvalTable, DramEvalTablePreview } from '@/components/runtime/DramEvalTable';
+import { IssueList, IssueListPreview } from '@/components/runtime/IssueList';
+import { IssueTable, IssueTablePreview } from '@/components/runtime/IssueTable';
 import { ManualIntake, ManualIntakePreview } from '@/components/runtime/ManualIntake';
 import { TechReport, TechReportPreview } from '@/components/runtime/TechReport';
 import { defineComponent, type ComponentDef } from '@/lib/registry/types';
@@ -218,6 +220,71 @@ export const operationsComponents = [
         />
       ) : (
         <DramEvalTablePreview title={props.title} />
+      ),
+  }),
+
+  defineComponent({
+    key: 'issue-list',
+    label: 'Issue 목록',
+    group: '입력',
+    icon: 'triangle-alert',
+    description: '하위 Issue 화면 목록과 바로가기 — 제목만 받아 새로 만든다',
+    isContainer: false,
+    growsWithContent: true,
+    bindingModes: ['list'],
+    events: [{ name: 'onSubmit', label: 'Issue 만들기', payload: '제목' }],
+    propsSchema: z.object({
+      title: z.string().default('Issue 목록'),
+      description: z.string().default(''),
+      /** 하위 화면의 주소 — 이슈 id를 `?issue=`로 실어 보낸다. */
+      detailSlug: z.string().default('issue-detail'),
+    }),
+    defaultProps: { title: 'Issue 목록', description: '', detailSlug: 'issue-detail' },
+    defaultGrid: { span: 12, rowSpan: 30 },
+    render: ({ props, data, dispatch }) =>
+      typeof dispatch === 'function' ? (
+        <IssueList
+          title={props.title}
+          description={props.description}
+          detailSlug={props.detailSlug}
+          data={data}
+          onSubmit={(row: Record<string, unknown>) => dispatch('onSubmit', row)}
+        />
+      ) : (
+        <IssueListPreview title={props.title} />
+      ),
+  }),
+
+  defineComponent({
+    key: 'issue-table',
+    label: 'Issue 표',
+    group: '입력',
+    icon: 'table',
+    description: '양식 그대로의 Issue 입력표 — 칸마다 찾기·정렬, 줄을 펼쳐 코멘트와 그림',
+    isContainer: false,
+    growsWithContent: true,
+    bindingModes: ['list'],
+    events: [
+      { name: 'onSubmit', label: '새 줄 저장', payload: 'Issue 한 줄' },
+      { name: 'onUpdate', label: '고쳐 저장', payload: 'Issue 한 줄 + 줄 id' },
+    ],
+    propsSchema: z.object({
+      title: z.string().default('Issue 표'),
+      description: z.string().default(''),
+    }),
+    defaultProps: { title: 'Issue 표', description: '' },
+    defaultGrid: { span: 12, rowSpan: 40 },
+    render: ({ props, data, dispatch }) =>
+      typeof dispatch === 'function' ? (
+        <IssueTable
+          title={props.title}
+          description={props.description}
+          data={data}
+          onSubmit={(row: Record<string, unknown>) => dispatch('onSubmit', row)}
+          onUpdate={(row: Record<string, unknown>) => dispatch('onUpdate', row)}
+        />
+      ) : (
+        <IssueTablePreview title={props.title} />
       ),
   }),
 

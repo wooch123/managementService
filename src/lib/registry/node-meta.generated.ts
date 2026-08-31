@@ -1872,24 +1872,20 @@ export const nodeMeta: Record<string, NodeMeta> = {
     "isContainer": false,
     "allowedChildren": null,
     "defaultGrid": {
-      "span": 6,
-      "rowSpan": 20
+      "span": 12,
+      "rowSpan": 30
     },
     "defaultProps": {
-      "title": "",
-      "subtitle": "",
-      "emptyText": "표시할 항목이 없습니다",
-      "maxItems": 10,
-      "moreSlug": "",
-      "moreLabel": "전체 보기",
-      "linkSlug": "",
-      "linkParam": "sel",
-      "clickable": false
+      "title": "Issue 목록",
+      "description": "",
+      "detailSlug": "issue-detail"
     },
     "bindingModes": [
       "list"
     ],
-    "events": []
+    "events": [
+      "onSubmit"
+    ]
   },
   "fail-rate-calculator": {
     "isContainer": false,
@@ -1986,6 +1982,25 @@ export const nodeMeta: Record<string, NodeMeta> = {
     },
     "defaultProps": {
       "title": "DRAM LF 평가",
+      "description": ""
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": [
+      "onSubmit",
+      "onUpdate"
+    ]
+  },
+  "issue-table": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 40
+    },
+    "defaultProps": {
+      "title": "Issue 표",
       "description": ""
     },
     "bindingModes": [
