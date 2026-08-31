@@ -189,6 +189,34 @@ export const ENTITIES: EntityPlan[] = [
     ],
   },
   {
+    name: 'DRAM LF 평가',
+    table: 'dram_lf_table',
+    description:
+      'DRAM LF 평가 결과 — 행 하나가 sample 하나다. 판정 칸(Result·Open·Short·ATE)은 Pass/Fail 둘뿐이고, 측정값과 불량 정보는 사람이 적는다. Signature는 여러 줄이라 JSON 한 칸에 담고, 첨부 그림도 장수가 정해지지 않아 같은 방식으로 담는다.',
+    fields: [
+      { name: 'FAR No', col: 'far_no', type: 'TEXT', required: true },
+      { name: 'Sample No', col: 'sample_no', type: 'TEXT', required: true },
+      /**
+       * 판정 칸 넷. ENUM으로 두는 이유는 값이 정말 둘뿐이기 때문이다 — TEXT로 두면 'PASS'·'pass'·
+       * 'P'가 섞여 들어와도 아무도 막지 못하고, 나중에 세는 쪽에서 그 셋을 다 아는 코드를 써야 한다.
+       */
+      { name: 'Result', col: 'result', type: 'ENUM', enumValues: ['Pass', 'Fail'] },
+      { name: 'DC Open', col: 'dc_open', type: 'ENUM', enumValues: ['Pass', 'Fail'] },
+      { name: 'DC Short', col: 'dc_short', type: 'ENUM', enumValues: ['Pass', 'Fail'] },
+      /** 측정값 — '800uA'처럼 단위를 붙여 적는 자리라 수가 아니라 글자다. */
+      { name: 'Pin Lkg', col: 'pin_lkg', type: 'TEXT' },
+      { name: 'IDD2P', col: 'idd2p', type: 'TEXT' },
+      { name: 'ATE', col: 'ate', type: 'ENUM', enumValues: ['Pass', 'Fail'] },
+      { name: '불량 현상', col: 'fail_symptom', type: 'TEXT' },
+      { name: '불량 유형', col: 'fail_type', type: 'TEXT' },
+      { name: '불량 Address', col: 'fail_address', type: 'TEXT' },
+      /** Signature 목록 — 최대 8줄의 글자 배열. 칸 여덟 벌을 늘어놓는 대신 한 칸에 담는다. */
+      { name: 'Signature 목록', col: 'signatures', type: 'JSON' },
+      /** 첨부 그림의 저장 이름 목록 — Tech Report 그림과 같은 저장소를 쓴다. */
+      { name: '그림 목록', col: 'images', type: 'JSON' },
+    ],
+  },
+  {
     name: 'Reball 의뢰',
     table: 'reball_table',
     description: 'Reball 의뢰서 작성 화면에서 등록한다. 시료당 가격·총액은 단가표를 참조해 자동 계산된다.',

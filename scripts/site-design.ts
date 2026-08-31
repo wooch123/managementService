@@ -1053,6 +1053,39 @@ function boardPage(slug: string, title: string, icon: string, boardKey: string, 
  * 검색은 컴포넌트가 아니라 **화면의 검색 상자 + 바인딩 조건**이 한다. 주소에 남는 방식이라
  * 찾은 결과를 링크로 그대로 건넬 수 있고, 카드가 몇 장이 되든 서버가 걸러 준 만큼만 그린다.
  */
+/** DRAM LF 평가 현황 — 양식(첨부 표)의 칸을 그대로 옮긴 입력 표(사용자 지정, 2026-08-31). */
+function dramLf(): SitePage {
+  return {
+    slug: 'dram-lf',
+    title: 'DRAM 평가 현황(LF)',
+    icon: 'memory-stick',
+    nodes: [
+      search(1, 1, 6, 'FAR 검색', 'FAR No 일부만 적어도 찾습니다', 4),
+      {
+        key: 'dram-rows',
+        type: 'dram-eval-table',
+        col: 1,
+        span: 12,
+        row: 5,
+        rowSpan: 34,
+        props: {
+          title: 'DRAM LF 평가',
+          description: '판정 칸은 Pass/Fail 둘뿐이라 기본값을 Pass로 둡니다. 줄 왼쪽 화살표를 누르면 Signature(최대 8줄)와 그림을 적는 자리가 펼쳐집니다.',
+        },
+        on: { onSubmit: 'dram-lf-create', onUpdate: 'dram-lf-update' },
+        bind: {
+          mode: 'list',
+          table: 'dram_lf_table',
+          select: ['far_no', 'sample_no', 'result', 'dc_open', 'dc_short', 'pin_lkg', 'idd2p', 'ate', 'fail_symptom', 'fail_type', 'fail_address', 'signatures', 'images'],
+          filters: [{ col: 'far_no', op: 'contains', source: 'query', ref: 'q' }],
+          sort: [['far_no', 'asc'], ['sample_no', 'asc', 'numeric']],
+          pageSize: 100,
+        },
+      },
+    ],
+  };
+}
+
 function pkgStack(): SitePage {
   return {
     slug: 'info-pkg-stack',
@@ -1166,13 +1199,13 @@ export function buildSite(): SitePage[] {
       ...hub('intake', '접수 / 분석 현황', 'microscope', [
         { title: 'FA Assign', description: '최초 접수 담당자 지정 · 인수인계', slug: 'fa-assign', meta: '' },
         { title: '분석 현황', description: '분석 중인 정보 조회 · 담당자 확인', slug: 'fa-status', meta: '' },
-        { title: 'DRAM 평가 현황(LF)', description: '미구현', slug: 'dram-lf', meta: '' },
+        { title: 'DRAM 평가 현황(LF)', description: '평가 결과 입력 · Signature · 그림', slug: 'dram-lf', meta: '' },
         { title: 'Tech Report 작성', description: 'FAR 불러오기 · sample별 작성 · PDF 발행', slug: 'tech-report', meta: '' },
       ]),
       children: [
         faAssign(),
         faStatus(),
-        unbuilt('dram-lf', 'DRAM 평가 현황(LF)', 'memory-stick', 'DRAM LF 평가 현황을 보여줄 자리입니다'),
+        dramLf(),
         techReport(),
       ],
     },
@@ -1307,6 +1340,51 @@ export function buildActions(): ActionPlan[] {
       },
     },
 
+    {
+      key: 'dram-lf-create',
+      name: 'DRAM LF 평가 저장',
+      desc: '평가표의 한 줄을 새로 넣는다',
+      kind: 'CREATE',
+      table: 'dram_lf_table',
+      values: {
+        far_no: { from: 'component', node: 'dram-rows', path: 'far_no' },
+        sample_no: { from: 'component', node: 'dram-rows', path: 'sample_no' },
+        result: { from: 'component', node: 'dram-rows', path: 'result' },
+        dc_open: { from: 'component', node: 'dram-rows', path: 'dc_open' },
+        dc_short: { from: 'component', node: 'dram-rows', path: 'dc_short' },
+        pin_lkg: { from: 'component', node: 'dram-rows', path: 'pin_lkg' },
+        idd2p: { from: 'component', node: 'dram-rows', path: 'idd2p' },
+        ate: { from: 'component', node: 'dram-rows', path: 'ate' },
+        fail_symptom: { from: 'component', node: 'dram-rows', path: 'fail_symptom' },
+        fail_type: { from: 'component', node: 'dram-rows', path: 'fail_type' },
+        fail_address: { from: 'component', node: 'dram-rows', path: 'fail_address' },
+        signatures: { from: 'component', node: 'dram-rows', path: 'signatures' },
+        images: { from: 'component', node: 'dram-rows', path: 'images' },
+      },
+    },
+    {
+      key: 'dram-lf-update',
+      name: 'DRAM LF 평가 수정',
+      desc: '이미 있는 줄을 고쳐 저장한다 — 줄의 id로 찾는다(FAR No+Sample No가 겹칠 수 있다)',
+      kind: 'UPDATE',
+      table: 'dram_lf_table',
+      keyFrom: { from: 'component', node: 'dram-rows', path: 'id' },
+      values: {
+        far_no: { from: 'component', node: 'dram-rows', path: 'far_no' },
+        sample_no: { from: 'component', node: 'dram-rows', path: 'sample_no' },
+        result: { from: 'component', node: 'dram-rows', path: 'result' },
+        dc_open: { from: 'component', node: 'dram-rows', path: 'dc_open' },
+        dc_short: { from: 'component', node: 'dram-rows', path: 'dc_short' },
+        pin_lkg: { from: 'component', node: 'dram-rows', path: 'pin_lkg' },
+        idd2p: { from: 'component', node: 'dram-rows', path: 'idd2p' },
+        ate: { from: 'component', node: 'dram-rows', path: 'ate' },
+        fail_symptom: { from: 'component', node: 'dram-rows', path: 'fail_symptom' },
+        fail_type: { from: 'component', node: 'dram-rows', path: 'fail_type' },
+        fail_address: { from: 'component', node: 'dram-rows', path: 'fail_address' },
+        signatures: { from: 'component', node: 'dram-rows', path: 'signatures' },
+        images: { from: 'component', node: 'dram-rows', path: 'images' },
+      },
+    },
     {
       key: 'pkg-stack-create',
       name: 'PKG Stack 저장',

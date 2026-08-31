@@ -4,6 +4,7 @@ import { VisitStats, VisitStatsPreview } from '@/components/runtime/VisitStats';
 import { ReballCost, ReballCostPreview, toCostRow, type ReballWorkValue } from '@/components/runtime/ReballCost';
 import { ReballRequestTable, ReballRequestTablePreview, type ReballRow } from '@/components/runtime/ReballRequestTable';
 import { PkgStack, PkgStackPreview, type PkgStackEdit, type PkgStackValue } from '@/components/runtime/PkgStack';
+import { DramEvalTable, DramEvalTablePreview } from '@/components/runtime/DramEvalTable';
 import { ManualIntake, ManualIntakePreview } from '@/components/runtime/ManualIntake';
 import { TechReport, TechReportPreview } from '@/components/runtime/TechReport';
 import { defineComponent, type ComponentDef } from '@/lib/registry/types';
@@ -184,6 +185,39 @@ export const operationsComponents = [
         />
       ) : (
         <PkgStackPreview title={props.title} />
+      ),
+  }),
+
+  defineComponent({
+    key: 'dram-eval-table',
+    label: 'DRAM LF 평가표',
+    group: '입력',
+    icon: 'memory-stick',
+    description: '양식 그대로의 평가 입력표 — 판정은 Pass/Fail 상자, Signature와 그림은 줄을 펼쳐 적는다',
+    isContainer: false,
+    growsWithContent: true,
+    bindingModes: ['list'],
+    events: [
+      { name: 'onSubmit', label: '새 줄 저장', payload: '평가 한 줄' },
+      { name: 'onUpdate', label: '고쳐 저장', payload: '평가 한 줄 + 줄 id' },
+    ],
+    propsSchema: z.object({
+      title: z.string().default('DRAM LF 평가'),
+      description: z.string().default(''),
+    }),
+    defaultProps: { title: 'DRAM LF 평가', description: '' },
+    defaultGrid: { span: 12, rowSpan: 40 },
+    render: ({ props, data, dispatch }) =>
+      typeof dispatch === 'function' ? (
+        <DramEvalTable
+          title={props.title}
+          description={props.description}
+          data={data}
+          onSubmit={(row: Record<string, unknown>) => dispatch('onSubmit', row)}
+          onUpdate={(row: Record<string, unknown>) => dispatch('onUpdate', row)}
+        />
+      ) : (
+        <DramEvalTablePreview title={props.title} />
       ),
   }),
 

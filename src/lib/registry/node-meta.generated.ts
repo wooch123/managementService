@@ -1977,6 +1977,25 @@ export const nodeMeta: Record<string, NodeMeta> = {
       "onUpdate"
     ]
   },
+  "dram-eval-table": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 40
+    },
+    "defaultProps": {
+      "title": "DRAM LF 평가",
+      "description": ""
+    },
+    "bindingModes": [
+      "list"
+    ],
+    "events": [
+      "onSubmit",
+      "onUpdate"
+    ]
+  },
   "manual-intake": {
     "isContainer": false,
     "allowedChildren": null,
