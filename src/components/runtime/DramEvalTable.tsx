@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
-import { ChevronRight, ImagePlus, Loader2, Plus, Save, Trash2, X } from 'lucide-react';
+import { ChevronRight, ImagePlus, Loader2, Minus, Plus, Save, Search, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ApiResult } from '@/types/auth';
 
@@ -168,6 +169,30 @@ export function DramEvalTable({
 
   const locked = disabled ?? false;
 
+  /**
+   * 찾는 말은 **주소에 적는다** — 표가 이미 받아 온 줄들 안에서만 찾으면, 다음 쪽에 있는 줄은
+   * 처음부터 대상이 아니라 "없다"로 읽힌다. 주소에 적으면 서버가 전체를 대상으로 다시 조회한다
+   * (SearchFilter가 하던 일과 같고, 자리만 표 옆으로 옮긴 것이다).
+   */
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlQuery = searchParams.get('q') ?? '';
+  const [query, setQuery] = useState(urlQuery);
+  useEffect(() => setQuery(urlQuery), [urlQuery]);
+  useEffect(() => {
+    if (query === urlQuery) return;
+    // 글자마다 서버를 부르면 다섯 글자에 다섯 번 조회한다 — 잠깐 멈출 때만 보낸다.
+    const timer = setTimeout(() => {
+      const next = new URLSearchParams(searchParams.toString());
+      const value = query.trim();
+      if (value === '') next.delete('q');
+      else next.set('q', value);
+      const qs = next.toString();
+      router.push(qs ? `${window.location.pathname}?${qs}` : window.location.pathname, { scroll: false });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [query, urlQuery, router, searchParams]);
+
   function patch(index: number, next: Partial<DramRow>) {
     setRows(current.map((r, i) => (i === index ? { ...r, ...next } : r)));
   }
@@ -238,17 +263,33 @@ export function DramEvalTable({
           {title && <h3 className="chart-title">{title}</h3>}
           {description && <p className="text-xs text-muted-foreground">{description}</p>}
         </div>
-        <button
-          type="button"
-          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-          disabled={locked}
-          onClick={() => {
-            setRows([...current, emptyRow()]);
-            setOpenIndex(current.length);
-          }}
-        >
-          <Plus className="size-4" /> 줄 추가
-        </button>
+        {/*
+          찾기는 표 바로 옆에 둔다(사용자 지정) — 예전에는 화면 위에 카드 하나를 통째로 차지했다.
+          카드 한 장이 검색칸 하나를 담느라 표를 아래로 밀어냈고, 찾는 대상(표)과도 떨어져 있었다.
+        */}
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="relative">
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <input
+              className="h-9 w-52 rounded-md border border-input bg-transparent pl-8 pr-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              placeholder="FAR No로 찾기"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              aria-label="FAR No로 찾기"
+            />
+          </span>
+          <button
+            type="button"
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            disabled={locked}
+            onClick={() => {
+              setRows([...current, emptyRow()]);
+              setOpenIndex(current.length);
+            }}
+          >
+            <Plus className="size-4" /> 줄 추가
+          </button>
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto rounded-md border">
@@ -285,7 +326,12 @@ export function DramEvalTable({
             ) : (
               current.map((row, index) => {
                 const open = openIndex === index;
-                const slots = Math.max(slotCount[index] ?? DEFAULT_IMAGE_SLOTS, row.images.length, DEFAULT_IMAGE_SLOTS);
+                /**
+                 * 실제로 그림이 든 마지막 칸까지의 길이. `images.length`를 쓰면 안 된다 — 가운데
+                 * 그림을 지우면 그 자리에 빈 값이 남아 길이는 그대로라, 칸을 줄일 수 없게 된다.
+                 */
+                const usedImages = row.images.reduce((n, file, i) => (file ? i + 1 : n), 0);
+                const slots = Math.max(slotCount[index] ?? DEFAULT_IMAGE_SLOTS, usedImages, DEFAULT_IMAGE_SLOTS);
                 return (
                   <FragmentRow
                     key={row.id ?? `new-${index}`}
@@ -303,6 +349,12 @@ export function DramEvalTable({
                       setOpenIndex(null);
                     }}
                     onAddSlot={() => setSlotCount({ ...slotCount, [index]: slots + 1 })}
+                    onRemoveSlot={() => {
+                      const next = Math.max(DEFAULT_IMAGE_SLOTS, slots - 1);
+                      setSlotCount({ ...slotCount, [index]: next });
+                      // 뒤에 남은 빈 자리는 함께 걷어낸다 — 안 그러면 저장본에 빈 값이 쌓인다.
+                      if (row.images.length > next) patch(index, { images: row.images.slice(0, next) });
+                    }}
                     onPick={(slot) => {
                       pickTarget.current = { row: index, slot };
                       fileRef.current?.click();
@@ -342,6 +394,7 @@ function FragmentRow({
   onSave,
   onRemove,
   onAddSlot,
+  onRemoveSlot,
   onPick,
 }: {
   row: DramRow;
@@ -355,10 +408,14 @@ function FragmentRow({
   onSave: () => void;
   onRemove: () => void;
   onAddSlot: () => void;
+  onRemoveSlot: () => void;
   onPick: (slot: number) => void;
 }) {
   const cell = 'border px-1 py-0.5';
   const filled = row.signatures.filter((s) => s.trim() !== '').length;
+  /** 마지막 칸에 그림이 들어 있으면 줄이지 않는다 — 줄이는 김에 그림을 버리지 않기 위해서다. */
+  const lastSlotFilled = Boolean(row.images[slots - 1]);
+  const canShrink = slots > DEFAULT_IMAGE_SLOTS && !lastSlotFilled;
 
   return (
     <>
@@ -481,6 +538,26 @@ function FragmentRow({
                     disabled={locked}
                   >
                     <Plus className="size-3" /> 칸 추가
+                  </button>
+                  {/*
+                    늘린 칸은 되돌릴 수 있어야 한다(사용자 지정). 다만 **마지막 칸에 그림이 들어
+                    있으면 줄이지 않는다** — 줄이는 김에 그림까지 조용히 버리면, 되돌릴 수 없는 일을
+                    실수로 하게 된다. 먼저 그림을 지우면(칸 위 x) 그때 줄일 수 있다.
+                  */}
+                  <button
+                    type="button"
+                    className="inline-flex h-6 items-center gap-1 rounded border px-2 text-[11px] hover:bg-muted disabled:opacity-40"
+                    onClick={onRemoveSlot}
+                    disabled={locked || !canShrink}
+                    title={
+                      slots <= DEFAULT_IMAGE_SLOTS
+                        ? `기본 ${DEFAULT_IMAGE_SLOTS}칸보다 줄일 수는 없습니다`
+                        : lastSlotFilled
+                          ? '마지막 칸의 그림을 먼저 지우면 줄일 수 있습니다'
+                          : '마지막 빈 칸을 줄입니다'
+                    }
+                  >
+                    <Minus className="size-3" /> 칸 줄이기
                   </button>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">

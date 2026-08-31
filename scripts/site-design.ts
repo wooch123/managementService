@@ -1060,14 +1060,13 @@ function dramLf(): SitePage {
     title: 'DRAM 평가 현황(LF)',
     icon: 'memory-stick',
     nodes: [
-      search(1, 1, 6, 'FAR 검색', 'FAR No 일부만 적어도 찾습니다', 4),
       {
         key: 'dram-rows',
         type: 'dram-eval-table',
         col: 1,
         span: 12,
-        row: 5,
-        rowSpan: 34,
+        row: 1,
+        rowSpan: 38,
         props: {
           title: 'DRAM LF 평가',
           description: '판정 칸은 Pass/Fail 둘뿐이라 기본값을 Pass로 둡니다. 줄 왼쪽 화살표를 누르면 Signature(최대 8줄)와 그림을 적는 자리가 펼쳐집니다.',
