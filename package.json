@@ -32,7 +32,8 @@
     "admin:password": "node scripts/set-admin-password.mjs",
     "db:sync-schema": "tsx scripts/sync-schema.mts",
     "deploy:draft": "tsx scripts/deploy-draft.mts",
-    "verify:board": "node scripts/verify-board.mjs"
+    "verify:board": "node scripts/verify-board.mjs",
+    "db:checkpoint": "tsx scripts/db-checkpoint.mts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -39,6 +39,24 @@ for (const dir of ['data/logs', 'data/backups', 'data/uploads/board']) {
   }
 }
 
+// ── 2-b) git 훅 — DB를 커밋하기 전에 WAL을 본체에 접어 넣게 한다.
+//
+// 이 저장소는 설계·업무 DB를 함께 담는 것이 요점인데, WAL 모드라 최근 변경이 `*.db-wal`에만
+// 남아 있는 채로 커밋되면 본체만 올라간다(실제로 리비전 하나가 그렇게 누락됐다). 훅은
+// 저장소에 담기지 않는 .git/hooks 대신 .githooks/에 두고, 여기서 그 경로를 가리키게 한다.
+try {
+  const current = execSync('git config core.hooksPath', { cwd: root, stdio: 'pipe' }).toString().trim();
+  if (current === '.githooks') steps.push('git 훅 — 이미 켜져 있음');
+  else throw new Error('not set');
+} catch {
+  try {
+    execSync('git config core.hooksPath .githooks', { cwd: root, stdio: 'pipe' });
+    steps.push('git 훅 — 켰다(커밋 전 DB 체크포인트)');
+  } catch {
+    steps.push('git 훅 — 켜지 못했다(git 저장소가 아닐 수 있다). DB를 커밋하기 전에 `pnpm db:checkpoint`를 직접 실행할 것');
+  }
+}
+
 // ── 3) 데이터가 실제로 들어왔는지
 const checks = [
   ['prisma/meta.db', '설계(페이지·컴포넌트·액션·리비전)와 게시판'],
