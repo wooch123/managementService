@@ -3465,3 +3465,70 @@ SSH로 들어와 있는 서버에서 켜면 그 자리에서 자기 연결이 �
 
 여는 것은 OS 방화벽까지다. 인터넷에서 바로 닿게 하려면 포트포워딩이나 터널이 따로
 필요하고, 그건 deploy/의 cloudflared가 이미 하고 있다.
+
+---
+
+## 2026-08-31 — Tech Report 제품정보 표 · 운영 PDF 복구
+
+```
+📊 진행 상황
+├ 전체 진척도: 100% (운영 중 · 리비전 #79)
+├ 현재 작업: 제품정보 표 — 완료 / 운영 PDF NO_BROWSER — 복구
+├ 이번 작업: 100% (실측 6/6 통과)
+├ 예상 남은 시간: 0m
+└ 리스크: 없음
+```
+
+### 제품정보 표 (사용자 지정)
+
+Part ID · Device · Ctrl · NAND · DRAM을 초도 분석 앞에 둔다. 화면과 발행물이 같은
+목록(`PRODUCT_COLUMNS`)에서 같은 순서로 그리므로 둘이 어긋날 수 없다.
+
+**sample마다 한 줄**이다. 요청은 다섯 칸이었지만 Sample 칸을 하나 더 뒀다 — 한 FAR
+안에서도 Part ID는 sample마다 다르고 DRAM·Ctrl·NAND도 갈린다(FAR-25-1251은 Part ID
+셋이 모두 다르고 DRAM이 둘로 갈린다). 한 줄로 접으면 어느 sample 것인지 모를 값 하나만
+남고 나머지는 조용히 사라진다.
+
+**읽기 전용이다.** 원장에서 읽기만 하고 보고서에 저장하지 않는다 — 저장하면 두 곳이
+서서히 어긋나고 나중에 어느 쪽이 맞는지 물을 곳이 없어진다(적층 정보와 같은 규칙).
+
+```
+화면   Visual Inspection → 제품정보 → 초도 분석
+       'SAMPLE | PART ID | DEVICE | CTRL | NAND | DRAM' · uppercase · center · th 147px
+발행물 같은 자리·같은 머리글 (table.grid — thead th가 이미 대문자·가운데다)
+빈 값  제품 정보가 없는 FAR은 '원장에 제품 정보가 아직 없습니다' 한 줄
+```
+
+`tr-table-vertical`은 쓰지 않는다 — 라벨|값 두 칸짜리라 th 폭을 40%로 못 박아 여섯 칸
+표를 무너뜨린다. 대문자·가운데 정렬은 `.tr-table thead th`가 이미 하고 있다.
+
+### 운영 PDF가 NO_BROWSER로 죽던 것 (이번 변경과 무관한 기존 고장)
+
+pm2로 띄운 프로세스에서만 Chromium을 못 찾았다. 탐침으로 갈랐다.
+
+```
+              대화형 셸    pm2 데몬
+ms-playwright  보임(5개)    안 보임
+APPDATA\npm    28개         0개
+LOCALAPPDATA   둘이 같은 값
+```
+
+2026-08-18에 기록해 둔 그 현상이다(`deploy/start-hosting.ps1` 주석) — 부팅 시 작업
+스케줄러가 띄운 데몬은 사용자 AppData 폴더가 통째로 안 보이고, 그 시야를 자식이
+물려받는다. 데몬만 다시 띄우면 다음 재부팅에 또 난다.
+
+그래서 **브라우저를 F:로 옮기고 설정에 박았다**(사용자 결정) — pm2 사본을 F:에 둔 것과
+같은 이유다. `F:/Claude/tools/ms-playwright`(698MB)에 두고 `deploy/ecosystem.json`의
+webapp-v1 env에 `PLAYWRIGHT_BROWSERS_PATH`를 넣었다. redeploy가 `pm2 start … --update-env`로
+기동하므로 그 값이 그대로 실린다.
+
+```
+고치기 전  운영 PDF 503 NO_BROWSER
+고친 뒤    127.0.0.1:3000 → 200 · 3,187,791B · %PDF-
+           demo.dove9999.com → 200 · 3,187,78xB · %PDF-
+```
+
+`deploy/`는 저장소에 담지 않으므로(CLAUDE.md §2) 이 설정 변경은 커밋되지 않는다.
+다른 PC로 옮길 때는 같은 조치를 다시 해야 한다.
+
+`pnpm typecheck` · `pnpm lint` 무경고, `pnpm test` 324개 통과.
