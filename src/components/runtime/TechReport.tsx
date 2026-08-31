@@ -25,6 +25,7 @@ import {
   PERF_ROWS,
   PRODUCT_COLUMNS,
   RTBB_COLUMNS,
+  highestSlotNumber,
   type SampleStack,
   type TechReportDoc,
   type TechReportSample,
@@ -68,6 +69,50 @@ function Card({ title, span, children, className }: { title: string; span: 6 | 1
       {children}
     </section>
   );
+}
+
+/** 목록에서 한 자리만 바꾼다 / 뺀다 — 그림 칸을 늘리고 줄이는 데 쓴다. */
+function replaceAt(list: string[] | undefined, index: number, value: string): string[] {
+  const next = [...(list ?? [])];
+  next[index] = value;
+  return next;
+}
+function removeAt(list: string[] | undefined, index: number): string[] {
+  return (list ?? []).filter((_, i) => i !== index);
+}
+
+/**
+ * 그림 칸을 하나 더 붙이는 자리(사용자 지정, 2026-08-31).
+ *
+ * 양식이 정한 칸 수로는 모자란 sample이 있다. 빈 칸을 미리 잔뜩 깔아 두면 대부분의 보고서에서
+ * 빈 상자만 늘어서므로, **필요할 때 눌러 늘린다**. 그림 칸과 같은 크기로 두어 늘어선 자리에
+ * 그대로 이어 붙는다.
+ */
+function AddImageButton({ label, disabled, onClick }: { label: string; disabled: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className="tr-card tr-span-6 flex min-h-[120px] flex-col items-center justify-center gap-1.5 border-dashed text-sm text-muted-foreground hover:bg-muted/40 disabled:opacity-40"
+      onClick={onClick}
+      disabled={disabled}
+    >
+      <Plus className="size-5" />
+      {label}
+    </button>
+  );
+}
+
+/**
+ * 늘려 쓸 그림 칸의 이름들 — 양식이 정한 칸 **다음 번호**부터 이어 붙인다.
+ *
+ * 보여 줄 개수는 둘 중 큰 쪽이다: 이미 저장된 것 중 가장 큰 번호(다시 불러와도 그대로 보이게)와,
+ * 이번에 눌러서 늘린 수. 저장된 것만 보면 방금 늘린 빈 칸이 사라지고, 늘린 수만 보면 불러온
+ * 그림이 안 보인다.
+ */
+function extraKeys(prefix: 'dist' | 'meta', images: Record<string, string>, added: number): string[] {
+  const base = prefix === 'dist' ? IMAGE_SLOTS.filter((s) => s.key.startsWith('dist')).length : META_SLOTS.length;
+  const count = Math.max(added, Math.max(0, highestSlotNumber(images, prefix) - base));
+  return Array.from({ length: count }, (_, i) => `${prefix}${base + i + 1}`);
 }
 
 /** 양식의 구분선 — 가운데 제목이 놓인 가로줄. */
@@ -562,6 +607,8 @@ export function TechReport({ title, description }: { title: string; description:
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [ssrCopied, setSsrCopied] = useState(false);
+  /** 이번에 눌러서 늘린 그림 칸 수 — 'sample자리:무리' 별로 센다. */
+  const [extraSlots, setExtraSlots] = useState<Record<string, number>>({});
 
   const disabled = doc === null;
 
@@ -830,6 +877,29 @@ export function TechReport({ title, description }: { title: string; description:
         }}
         onClear={() => setDoc((prev) => (prev ? { ...prev, visual_bottom: '' } : prev))}
       />
+      {/*
+        상·하단부 말고 더 붙이는 그림(사용자 지정). 두 장은 뜻이 정해진 자리라 그대로 두고,
+        그 밖의 장수는 정해지지 않아 목록으로 늘린다.
+      */}
+      {(doc?.visual_extra ?? []).map((file, i) => (
+        <ImageSlot
+          key={`visual-extra-${i}`}
+          label={`추가 사진 ${i + 1}`}
+          file={file}
+          disabled={disabled}
+          onPick={async (picked) => {
+            const stored = await upload(picked);
+            if (stored) setDoc((prev) => (prev ? { ...prev, visual_extra: replaceAt(prev.visual_extra, i, stored) } : prev));
+          }}
+          // 지우면 칸까지 걷어낸다 — 빈 칸이 줄줄이 남으면 다시 접을 방법이 없다.
+          onClear={() => setDoc((prev) => (prev ? { ...prev, visual_extra: removeAt(prev.visual_extra, i) } : prev))}
+        />
+      ))}
+      <AddImageButton
+        label="사진 추가"
+        disabled={disabled}
+        onClick={() => setDoc((prev) => (prev ? { ...prev, visual_extra: [...(prev.visual_extra ?? []), ''] } : prev))}
+      />
 
       {/* ④ 제품정보 — 원장에서 읽어 오는 표(고칠 수 없다) */}
       <Divider label="제품정보" />
@@ -946,6 +1016,25 @@ export function TechReport({ title, description }: { title: string; description:
                   />
                 )
               )}
+              {/* 양식의 산포 넷으로 모자랄 때 더 붙인다(사용자 지정) — dist5, dist6 … */}
+              {extraKeys('dist', s.images, extraSlots[`${index}:dist`] ?? 0).map((key, i) => (
+                <ImageSlot
+                  key={key}
+                  label={`산포 ${IMAGE_SLOTS.filter((x) => x.key.startsWith('dist')).length + i + 1}`}
+                  file={s.images[key] ?? ''}
+                  disabled={disabled}
+                  onPick={async (file) => {
+                    const stored = await upload(file);
+                    if (stored) patchSample(index, { images: { ...s.images, [key]: stored } });
+                  }}
+                  onClear={() => patchSample(index, { images: { ...s.images, [key]: '' } })}
+                />
+              ))}
+              <AddImageButton
+                label="산포 추가"
+                disabled={disabled}
+                onClick={() => setExtraSlots((prev) => ({ ...prev, [`${index}:dist`]: (prev[`${index}:dist`] ?? 0) + 1 }))}
+              />
 
               <Divider label="FW 분석 내용" />
 
@@ -972,6 +1061,25 @@ export function TechReport({ title, description }: { title: string; description:
                   onClear={() => patchSample(index, { images: { ...s.images, [slot.key]: '' } })}
                 />
               ))}
+              {/* Meta 셋으로 모자랄 때 더 붙인다(사용자 지정) — meta4, meta5 … */}
+              {extraKeys('meta', s.images, extraSlots[`${index}:meta`] ?? 0).map((key, i) => (
+                <ImageSlot
+                  key={key}
+                  label={`Meta ${META_SLOTS.length + i + 1}`}
+                  file={s.images[key] ?? ''}
+                  disabled={disabled}
+                  onPick={async (file) => {
+                    const stored = await upload(file);
+                    if (stored) patchSample(index, { images: { ...s.images, [key]: stored } });
+                  }}
+                  onClear={() => patchSample(index, { images: { ...s.images, [key]: '' } })}
+                />
+              ))}
+              <AddImageButton
+                label="Meta 추가"
+                disabled={disabled}
+                onClick={() => setExtraSlots((prev) => ({ ...prev, [`${index}:meta`]: (prev[`${index}:meta`] ?? 0) + 1 }))}
+              />
             </div>
           </div>
         ))}

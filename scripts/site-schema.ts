@@ -125,6 +125,8 @@ export const ENTITIES: EntityPlan[] = [
       /** 업로드한 사진의 저장 이름. 비어 있으면 FAR 원장에 적힌 경로를 안내만 한다. */
       { name: '상단부 사진', col: 'visual_top', type: 'TEXT' },
       { name: '하단부 사진', col: 'visual_bottom', type: 'TEXT' },
+      /** Visual Inspection에 더 붙인 그림들 — 장수가 정해지지 않아 목록으로 담는다(사용자 지정). */
+      { name: '추가 사진', col: 'visual_extra', type: 'JSON' },
       { name: '작성자', col: 'author', type: 'TEXT' },
     ],
   },

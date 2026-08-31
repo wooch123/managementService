@@ -3,7 +3,7 @@ import { nanoid } from 'nanoid';
 import { getAppDb } from '@/lib/db/app-db';
 import { quoteIdent } from '@/lib/data-engine/identifiers';
 import {
-  ALL_IMAGE_KEYS,
+  isImageKey,
   NAND_LOT_COLUMNS,
   PERF_ROWS,
   PRODUCT_COLUMNS,
@@ -182,6 +182,7 @@ export function loadTechReport(farNo: string): TechReportDoc {
     overall_opinion: report ? text(report.overall_opinion) : '',
     visual_top: report ? text(report.visual_top) : '',
     visual_bottom: report ? text(report.visual_bottom) : '',
+    visual_extra: parseJson<string[]>(report?.visual_extra, []).filter((f) => typeof f === 'string' && f !== ''),
     author: report ? text(report.author) : '',
     visual_top_path: firstFar ? text(firstFar.visual_inspaction_top) : '',
     visual_bottom_path: firstFar ? text(firstFar.visual_inspaction_bottom) : '',
@@ -204,6 +205,8 @@ export function saveTechReport(doc: TechReportDoc): { savedSamples: number; upda
       overall_opinion: doc.overall_opinion ?? '',
       visual_top: doc.visual_top ?? '',
       visual_bottom: doc.visual_bottom ?? '',
+      // 빈 자리는 담지 않는다 — 화면에서 늘려만 두고 안 채운 칸이 저장본에 쌓이지 않게.
+      visual_extra: JSON.stringify((doc.visual_extra ?? []).filter((f) => f)),
       author: doc.author ?? '',
     };
     if (existing) {
@@ -231,7 +234,7 @@ export function saveTechReport(doc: TechReportDoc): { savedSamples: number; upda
         nand_lot_list: JSON.stringify(sample.nand_lot_list ?? []),
         // 알 수 없는 칸 이름이 저장되지 않게 양식에 있는 그림 칸만 남긴다.
         images: JSON.stringify(
-          Object.fromEntries(ALL_IMAGE_KEYS.filter((k) => sample.images?.[k]).map((k) => [k, sample.images[k]]))
+          Object.fromEntries(Object.entries(sample.images ?? {}).filter(([k, v]) => v && isImageKey(k)))
         ),
       };
       const row = db

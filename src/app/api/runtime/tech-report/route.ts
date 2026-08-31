@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { loadTechReport, saveTechReport } from '@/lib/far/tech-report';
-import { ALL_IMAGE_KEYS, PERF_ROWS } from '@/lib/far/tech-report-fields';
+import { isImageKey, PERF_ROWS } from '@/lib/far/tech-report-fields';
 import type { ApiResult } from '@/types/auth';
 
 /**
@@ -23,10 +23,15 @@ const cell = z.string().max(2000);
  * 아는 이름만 남기는 일은 아래에서 직접 한다.
  */
 const PERF_COLUMNS = new Set(PERF_ROWS.map((r) => r.col));
-const IMAGE_KEYS = new Set(ALL_IMAGE_KEYS);
+
 
 function pick(source: Record<string, string>, allowed: Set<string>): Record<string, string> {
   return Object.fromEntries(Object.entries(source).filter(([key]) => allowed.has(key)));
+}
+
+/** 그림 칸은 이름의 **모양**으로 거른다 — 늘려 만든 dist5·meta9 같은 칸도 받아야 하기 때문이다. */
+function pickImages(source: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(Object.entries(source).filter(([key]) => isImageKey(key)));
 }
 
 const sampleSchema = z.object({
@@ -44,6 +49,8 @@ const putSchema = z.object({
   overall_opinion: z.string().max(20000).default(''),
   visual_top: z.string().max(200).default(''),
   visual_bottom: z.string().max(200).default(''),
+  /** 더 붙인 Visual Inspection 그림들 — 장수가 정해지지 않아 목록으로 받는다. */
+  visual_extra: z.array(z.string().max(200)).max(24).default([]),
   author: z.string().max(40).default(''),
   samples: z.array(sampleSchema).max(64).default([]),
 });
@@ -79,7 +86,7 @@ export async function PUT(request: NextRequest) {
       samples: parsed.data.samples.map((s) => ({
         ...s,
         perf: pick(s.perf, PERF_COLUMNS),
-        images: pick(s.images, IMAGE_KEYS),
+        images: pickImages(s.images),
       })),
     });
     return NextResponse.json<ApiResult<typeof result>>({ ok: true, data: result });

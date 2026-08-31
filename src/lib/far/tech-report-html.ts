@@ -8,6 +8,7 @@ import {
   PERF_ROWS,
   PRODUCT_COLUMNS,
   RTBB_COLUMNS,
+  highestSlotNumber,
   type TechReportDoc,
   type TechReportSample,
 } from '@/lib/far/tech-report-fields';
@@ -151,6 +152,23 @@ async function samplePage(sample: TechReportSample, index: number): Promise<stri
     META_SLOTS.map(async (slot) => imageBlock(slot.label, await toDataUri(sample.images?.[slot.key] ?? '')))
   );
 
+  /**
+   * 화면에서 `+`로 늘려 붙인 칸들도 함께 낸다 — 발행물에만 빠지면 그 그림은 없는 것과 같다.
+   * 몇 개인지는 저장된 이름의 번호에서 되찾는다(화면과 같은 규칙).
+   */
+  const distBase = IMAGE_SLOTS.filter((s) => s.key.startsWith('dist')).length;
+  const extraDist = await Promise.all(
+    Array.from({ length: Math.max(0, highestSlotNumber(sample.images, 'dist') - distBase) }, (_, i) => distBase + i + 1).map(
+      async (n) => imageBlock(`산포 ${n}`, await toDataUri(sample.images?.[`dist${n}`] ?? ''))
+    )
+  );
+  const extraMeta = await Promise.all(
+    Array.from(
+      { length: Math.max(0, highestSlotNumber(sample.images, 'meta') - META_SLOTS.length) },
+      (_, i) => META_SLOTS.length + i + 1
+    ).map(async (n) => imageBlock(`Meta ${n}`, await toDataUri(sample.images?.[`meta${n}`] ?? '')))
+  );
+
   const perf = PERF_ROWS.map(
     (row) => `<tr><th>${escapeHtml(row.label)}</th><td>${escapeHtml(sample.perf?.[row.col] ?? '')}</td></tr>`
   ).join('');
@@ -181,6 +199,7 @@ async function samplePage(sample: TechReportSample, index: number): Promise<stri
     </section>
 
     ${slots.join('\n')}
+    ${extraDist.join('\n')}
 
     ${divider('FW 분석 내용')}
 
@@ -189,12 +208,19 @@ async function samplePage(sample: TechReportSample, index: number): Promise<stri
       <div class="prose">${multiline(sample.fw_opinion ?? '')}</div>
     </section>
     ${metas.join('\n')}
+    ${extraMeta.join('\n')}
   </div>
 </section>`;
 }
 
 export async function renderTechReportHtml(doc: TechReportDoc): Promise<string> {
   const [top, bottom] = await Promise.all([toDataUri(doc.visual_top), toDataUri(doc.visual_bottom)]);
+  // 상·하단부 말고 더 붙인 사진들 — 빈 자리는 내지 않는다(발행물에 빈 상자를 늘어놓을 이유가 없다).
+  const visualExtra = await Promise.all(
+    (doc.visual_extra ?? [])
+      .filter((file) => file)
+      .map(async (file, i) => imageBlock(`추가 사진 ${i + 1}`, await toDataUri(file)))
+  );
   const samples = (await Promise.all(doc.samples.map((s, i) => samplePage(s, i)))).join('\n');
   const issued = new Date().toISOString().replace('T', ' ').slice(0, 16);
 
@@ -334,6 +360,7 @@ export async function renderTechReportHtml(doc: TechReportDoc): Promise<string> 
     ${divider('Visual Inspection')}
     ${imageBlock('상단부 사진', top)}
     ${imageBlock('하단부 사진', bottom)}
+    ${visualExtra.join('\n')}
 
     ${divider('제품정보')}
     ${productBlock(doc.samples ?? [])}

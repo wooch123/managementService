@@ -87,6 +87,32 @@ export const META_SLOTS: ImageSlot[] = [
 export const ALL_IMAGE_KEYS = [...IMAGE_SLOTS, ...META_SLOTS].map((s) => s.key);
 
 /**
+ * 늘려 만드는 그림 칸 — 산포와 Meta는 `+`로 더 붙일 수 있다(사용자 지정, 2026-08-31).
+ *
+ * 양식이 정한 칸 수(산포 4 · Meta 3)로는 모자란 sample이 있다. 그렇다고 칸 이름을 아무거나
+ * 받아 저장하면 화면이 보내는 것을 그대로 믿는 셈이 되므로, **이름의 모양을 정해 두고** 그것만
+ * 받는다 — `dist5`, `meta9`처럼 이미 쓰는 두 이름에 번호만 붙인 꼴이다.
+ */
+const EXTRA_IMAGE_KEY = /^(dist|meta)([1-9][0-9]?)$/;
+
+/** 그 이름의 그림 칸을 저장해도 되는가. 양식의 고정 칸이거나, 위 모양의 번호 칸이어야 한다. */
+export function isImageKey(key: string): boolean {
+  return ALL_IMAGE_KEYS.includes(key) || EXTRA_IMAGE_KEY.test(key);
+}
+
+/** `dist`/`meta` 무리에서 지금 쓰이고 있는 가장 큰 번호 — 늘린 칸이 몇 개인지 여기서 되찾는다. */
+export function highestSlotNumber(images: Record<string, string> | undefined, prefix: 'dist' | 'meta'): number {
+  if (!images) return 0;
+  let top = 0;
+  for (const [key, value] of Object.entries(images)) {
+    if (!value) continue;
+    const match = EXTRA_IMAGE_KEY.exec(key);
+    if (match && match[1] === prefix) top = Math.max(top, Number(match[2]));
+  }
+  return top;
+}
+
+/**
  * PKG Stack 표에서 끌어온 적층 정보 — Part ID로 찾는다.
  *
  * Tech Report의 'Stack 정보' 칸은 원래 사람이 그림을 올리는 자리였다. 같은 내용을 PKG Stack
@@ -129,6 +155,11 @@ export type TechReportDoc = {
   overall_opinion: string;
   visual_top: string;
   visual_bottom: string;
+  /**
+   * Visual Inspection에 더 붙인 그림들(사용자 지정) — 상·하단부 두 장으로 모자랄 때 쓴다.
+   * 상·하단부는 뜻이 정해진 자리라 칸을 그대로 두고, 그 밖의 장수는 정해지지 않아 목록으로 담는다.
+   */
+  visual_extra?: string[];
   author: string;
   /** FAR 원장에 적힌 사진 경로 — 업로드 전에는 이 경로를 안내한다. */
   visual_top_path?: string;
