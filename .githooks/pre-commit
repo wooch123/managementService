@@ -8,11 +8,16 @@
 # 이 PC에서는 WAL을 함께 읽어 멀쩡히 보인다 — clone한 사람만 예전 화면을 본다.
 # 실제로 리비전 #80이 그렇게 누락됐다(2026-08-31).
 #
+# **스테이지를 보고 판단하지 않는다.** 예전에는 `.db`가 스테이지에 있을 때만 접어 넣었는데,
+# 변경이 WAL에만 있으면 본체가 그대로라 스테이지에도 안 올라간다 — 정확히 그 경우를 놓쳤다
+# (보기용 데이터 30여 줄이 그렇게 빠졌다). 그래서 **늘 먼저 접어 넣고** 나서 판단한다.
+# 접어 넣는 것 자체는 값을 바꾸지 않는다(WAL의 내용을 본체로 옮길 뿐이다).
+#
 # 켜기: pnpm setup:local  (git config core.hooksPath .githooks 를 대신 해 준다)
 set -e
 
-staged="$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.db$' || true)"
-[ -n "$staged" ] || exit 0
+# DB가 없는 저장소(테스트용 체크아웃 등)에서는 할 일이 없다.
+[ -f prisma/meta.db ] || [ -f data/app.db ] || exit 0
 
 if ! pnpm db:checkpoint; then
   echo ''
@@ -22,7 +27,17 @@ if ! pnpm db:checkpoint; then
   exit 1
 fi
 
-# 접어 넣으면서 본체 파일이 바뀌었을 수 있으니 다시 담는다.
-echo "$staged" | while IFS= read -r f; do
+# 스테이지에 이미 올라와 있던 DB는 접어 넣으면서 바뀌었을 수 있으니 다시 담는다.
+git diff --cached --name-only --diff-filter=ACM | grep -E '\.db$' | while IFS= read -r f; do
   [ -n "$f" ] && [ -f "$f" ] && git add -- "$f"
 done
+
+# 스테이지에 없던 DB가 접어 넣기로 바뀌었다면 **말해 준다**. 여기서 몰래 담지는 않는다 —
+# 코드 한 줄 고친 커밋에 그동안 쌓인 방문 기록까지 딸려 들어가는 편이 더 놀랍다.
+changed=$(git diff --name-only -- prisma/meta.db data/app.db || true)
+if [ -n "$changed" ]; then
+  echo ''
+  echo '알림: WAL을 접어 넣으면서 아래 DB가 바뀌었는데 이번 커밋에는 담기지 않습니다.'
+  echo "$changed" | sed 's/^/  /'
+  echo '이 변경도 함께 올리려면 커밋 뒤에: git add' "$changed" '&& git commit'
+fi
