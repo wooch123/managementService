@@ -22,6 +22,7 @@
 #   ./run.sh --port 8080        포트 지정
 #   ./run.sh --host             0.0.0.0에 바인딩 + 방화벽에 포트를 연다 (다른 기기에서 접속)
 #   ./run.sh --host --no-firewall   바인딩만 하고 방화벽은 건드리지 않는다
+#   ./run.sh --tunnel           공유기 설정 없이 인터넷에서 닿는 https 주소를 받는다
 #   ./run.sh --skip-build       빌드를 건너뛰고 기존 산출물로 실행
 #   ./run.sh setup              설치·준비까지만 하고 실행하지 않음
 #
@@ -48,6 +49,7 @@ HOST=127.0.0.1
 SKIP_BUILD=0
 SKIP_INSTALL=0
 OPEN_PORT=1         # --host일 때만 의미가 있다. --no-firewall로 끈다.
+TUNNEL=0            # --tunnel — 공유기를 건드리지 않고 바깥에서 닿게 한다.
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -59,6 +61,7 @@ while [ $# -gt 0 ]; do
     --host)         HOST=0.0.0.0 ;;
     --host=*)       HOST="${1#*=}" ;;
     --no-firewall)  OPEN_PORT=0 ;;
+    --tunnel)       TUNNEL=1; HOST=0.0.0.0 ;;
     --skip-build)   SKIP_BUILD=1 ;;
     --skip-install) SKIP_INSTALL=1 ;;
     # 머리 주석을 그대로 도움말로 쓴다. 줄 번호로 자르면 주석이 한 줄만 늘어도 `set -e`까지
@@ -279,13 +282,110 @@ maybe_open_port() {
   fi
 }
 
-# ── 5) 빌드 · 실행 ──────────────────────────────────────────────────────────
+# ── 5) 주소 ─────────────────────────────────────────────────────────────────
+#
+# 이 PC의 IP를 **나가는 경로에서** 찾는다. `hostname -I`의 첫 값을 쓰면 docker0·WSL·VPN 같은
+# 가상 어댑터가 먼저 잡혀, 다른 기기에서 닿지도 않는 주소를 안내하게 된다(172.17.0.1 등).
+# 커널에게 "1.1.1.1로 나갈 때 어느 주소를 쓰느냐"고 물으면 실제로 쓰이는 그 주소가 나온다.
+lan_ip() {
+  # 값을 받아서 본다 — `… | head -1 && 폴백`으로 쓰면 안 된다. head는 입력이 비어도 0을 돌려주어
+  # 폴백이 한 번도 돌지 않는다(pnpm 자리표 때와 같은 종류의 착각이다).
+  addr="$(ip route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p' | head -1 || true)"
+  [ -n "$addr" ] || addr="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
+  printf '%s' "$addr"
+}
+
+# 사설 대역인가 — 사설이면 그 주소는 이 망 안에서만 통한다.
+is_private_ip() {
+  case "$1" in
+    10.*|192.168.*|127.*|169.254.*) return 0 ;;
+    172.1[6-9].*|172.2[0-9].*|172.3[0-1].*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# 바깥에서 보이는 주소. 못 물어보면 빈 값 — 없다고 실행을 막지는 않는다.
+public_ip() {
+  command -v curl >/dev/null 2>&1 || return 0
+  curl -fsS --max-time 5 https://api.ipify.org 2>/dev/null || true
+}
+
 url_host="$HOST"
+LAN_IP=''
 if [ "$HOST" = "0.0.0.0" ]; then
-  # 같은 망의 다른 기기가 쓸 주소를 안내한다. hostname이 없는 환경도 있으므로 실패를 삼킨다.
-  url_host="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
+  LAN_IP="$(lan_ip || true)"
+  url_host="$LAN_IP"
 fi
 [ -n "$url_host" ] || url_host=localhost
+
+# 어디로 들어올 수 있는지 **있는 그대로** 적는다.
+#
+# 포트를 열었다고 밖에서 닿는 것은 아니다. 이 PC가 사설 대역(192.168.·10.·172.16~31.)에 있으면
+# 바깥에서 보이는 주소는 공유기의 것이고, 그 공유기가 이 PC로 넘겨 주지 않는 한 아무도 못 들어온다.
+# 그 사실을 감추고 주소만 적어 두면 "열었다는데 안 된다"가 되므로, 무엇이 더 필요한지 함께 적는다.
+show_addresses() {
+  info "이 PC   http://localhost:${PORT}/home"
+  [ "$HOST" = "0.0.0.0" ] || { info "관리자  http://localhost:${PORT}/admin  (admin / 123456)"; return 0; }
+
+  if [ -n "$LAN_IP" ]; then
+    info "같은 망  http://${LAN_IP}:${PORT}/home"
+  else
+    warn "이 PC의 주소를 찾지 못했습니다 — 같은 망에서 쓸 주소는 직접 확인해 주세요(ip addr)."
+  fi
+
+  wan="$(public_ip)"
+  if [ -z "$wan" ]; then
+    info "바깥 주소는 확인하지 못했습니다(인터넷에 못 물어봤습니다)."
+  elif [ -n "$LAN_IP" ] && [ "$wan" = "$LAN_IP" ]; then
+    # 이 기계가 공인 IP를 직접 달고 있다 — 방화벽만 열려 있으면 그대로 닿는다.
+    info "인터넷   http://${wan}:${PORT}/home   (이 PC가 공인 IP를 직접 갖고 있습니다)"
+  elif is_private_ip "${LAN_IP:-x}"; then
+    info "인터넷   http://${wan}:${PORT}/  ← 지금은 닿지 않습니다"
+    info "         이 PC는 사설 주소(${LAN_IP})라 공유기가 가로막고 있습니다. 둘 중 하나가 필요합니다:"
+    info "           · 공유기에서 ${PORT} 포트를 ${LAN_IP} 로 넘기기(포트포워딩)"
+    info "           · 또는 ./run.sh --host --tunnel  — 공유기를 건드리지 않고 https 주소를 받습니다"
+  fi
+
+  info "관리자  .../admin  (admin / 123456 — 바꾸려면 pnpm admin:password \"새 비밀번호\")"
+}
+
+# 공유기를 건드리지 않고 바깥에서 닿게 하는 길 — cloudflared의 임시 터널.
+#
+# 공인 IP도 포트포워딩도 없이 https 주소 하나를 받는다. 대신 **인터넷 전체에 열린다** —
+# 그래서 옵션으로만 켜지고, 켤 때마다 비밀번호를 먼저 확인하라고 말한다.
+start_tunnel() {
+  if ! command -v cloudflared >/dev/null 2>&1; then
+    warn "cloudflared가 없어 터널을 열지 못했습니다. 설치한 뒤 다시 실행해 주세요:"
+    info "  curl -fsSL https://pkg.cloudflare.com/cloudflared-linux-amd64.deb -o /tmp/cf.deb && sudo dpkg -i /tmp/cf.deb"
+    return 1
+  fi
+  warn "터널을 엽니다 — 이 주소는 **인터넷 누구나** 열 수 있습니다."
+  warn "관리자 비밀번호를 아직 안 바꿨다면 지금 멈추고 바꾸세요: pnpm admin:password \"새 비밀번호\""
+  : > "$TUNNEL_LOG"
+  cloudflared tunnel --url "http://127.0.0.1:${PORT}" --no-autoupdate >"$TUNNEL_LOG" 2>&1 &
+  TUNNEL_PID=$!
+  # 주소가 로그에 찍힐 때까지 최대 20초 기다린다.
+  for _ in $(seq 1 40); do
+    url="$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' "$TUNNEL_LOG" 2>/dev/null | head -1 || true)"
+    [ -n "$url" ] && break
+    kill -0 "$TUNNEL_PID" 2>/dev/null || break
+    sleep 0.5
+  done
+  if [ -n "${url:-}" ]; then
+    ok "인터넷 주소: ${url}/home"
+    info "  이 주소는 이 창을 닫으면 사라집니다(임시 터널)."
+    return 0
+  fi
+  warn "터널 주소를 받지 못했습니다. 자세한 내용: $TUNNEL_LOG"
+  return 1
+}
+
+TUNNEL_LOG="data/logs/tunnel.log"
+mkdir -p "$(dirname "$TUNNEL_LOG")" 2>/dev/null || true
+TUNNEL_PID=''
+# 서버가 끝나면 터널도 함께 접는다 — 서버 없는 터널은 남겨 둘 이유가 없다.
+cleanup_tunnel() { [ -n "$TUNNEL_PID" ] && kill "$TUNNEL_PID" 2>/dev/null || true; }
+trap cleanup_tunnel EXIT INT TERM
 
 if [ "$MODE" = "setup" ]; then
   step "준비 완료"
@@ -297,8 +397,8 @@ fi
 if [ "$MODE" = "dev" ]; then
   maybe_open_port
   step "개발 서버 시작"
-  info "주소: http://${url_host}:${PORT}/home"
-  info "관리자: http://${url_host}:${PORT}/admin  (admin / 123456 — 바꾸려면 pnpm admin:password \"새 비밀번호\")"
+  show_addresses
+  [ "$TUNNEL" -eq 1 ] && start_tunnel || true
   printf '  %s중지: Ctrl+C%s\n\n' "$C_DIM" "$C_OFF"
   exec pnpm exec next dev --turbopack -p "$PORT" -H "$HOST"
 fi
@@ -316,10 +416,22 @@ fi
 maybe_open_port
 
 step "서버 시작"
-info "주소: http://${url_host}:${PORT}/home"
-info "관리자: http://${url_host}:${PORT}/admin  (admin / 123456 — 바꾸려면 pnpm admin:password \"새 비밀번호\")"
+show_addresses
+if [ "$TUNNEL" -eq 1 ]; then
+  # 터널은 서버가 뜬 뒤라야 붙는다 — 먼저 띄우고, 주소를 받은 다음 서버를 앞으로 끌어온다.
+  pnpm exec next start -p "$PORT" -H "$HOST" &
+  SERVER_PID=$!
+  for _ in $(seq 1 60); do
+    curl -fsS --max-time 1 "http://127.0.0.1:${PORT}/api/health" >/dev/null 2>&1 && break
+    kill -0 "$SERVER_PID" 2>/dev/null || break
+    sleep 0.5
+  done
+  start_tunnel || true
+  printf '  %s중지: Ctrl+C%s\n\n' "$C_DIM" "$C_OFF"
+  wait "$SERVER_PID"
+  exit $?
+fi
 if [ "$HOST" = "0.0.0.0" ]; then
-  warn "0.0.0.0에 바인딩합니다 — 같은 망의 다른 기기에서 접속할 수 있습니다."
   warn "관리자 비밀번호를 바꾸지 않았다면 먼저 바꾸세요."
 fi
 printf '  %s중지: Ctrl+C%s\n\n' "$C_DIM" "$C_OFF"

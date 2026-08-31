@@ -4,7 +4,8 @@
       start.bat            프로덕션 모드로 빌드 후 실행 (http://localhost:3000)
       start.bat dev        개발 서버 (파일을 고치면 바로 반영)
       start.bat --port 8080
-      start.bat --host     0.0.0.0에 바인딩 (같은 망의 다른 기기에서 접속)
+      start.bat --host     0.0.0.0에 바인딩 + 방화벽 포트 열기 (같은 망에서 접속)
+      start.bat --tunnel   공유기 설정 없이 인터넷에서 닿는 https 주소를 받는다
       start.bat --skip-build
       start.bat setup      설치·준비까지만 하고 실행하지 않음
 
@@ -46,6 +47,7 @@ $BindHost    = '127.0.0.1'  # $Host는 PowerShell이 쓰는 이름이라 못 쓴
 $SkipBuild   = $false
 $SkipInstall = $false
 $OpenPort    = $true         # --host일 때만 의미가 있다. --no-firewall로 끈다.
+$Tunnel      = $false        # --tunnel - 공유기를 건드리지 않고 바깥에서 닿게 한다.
 
 for ($i = 0; $i -lt $args.Count; $i++) {
   $a = [string]$args[$i]
@@ -55,6 +57,7 @@ for ($i = 0; $i -lt $args.Count; $i++) {
   elseif ($a -eq '--skip-build')   { $SkipBuild = $true }
   elseif ($a -eq '--skip-install') { $SkipInstall = $true }
   elseif ($a -eq '--no-firewall')  { $OpenPort = $false }
+  elseif ($a -eq '--tunnel')       { $Tunnel = $true; $BindHost = '0.0.0.0' }
   elseif ($a -eq '--host')         { $BindHost = '0.0.0.0' }
   elseif ($a -like '--host=*')     { $BindHost = $a.Substring(7) }
   elseif ($a -eq '--port') {
@@ -70,6 +73,7 @@ for ($i = 0; $i -lt $args.Count; $i++) {
   start.bat --port 8080      포트 지정
   start.bat --host           0.0.0.0에 바인딩 + 방화벽에 포트를 연다 (다른 기기에서 접속)
   start.bat --no-firewall    --host와 함께 — 바인딩만 하고 방화벽은 건드리지 않는다
+  start.bat --tunnel         공유기 설정 없이 인터넷에서 닿는 https 주소를 받는다
   start.bat --skip-build     빌드를 건너뛰고 기존 산출물로 실행
   start.bat --skip-install   의존성 설치를 건너뛴다
   start.bat setup            설치·준비까지만 하고 실행하지 않음
@@ -199,17 +203,40 @@ Step '실행 준비'
 & pnpm setup:local
 if ($LASTEXITCODE -ne 0) { Die '준비 단계에서 실패했습니다.' }
 
-# ── 5) 빌드 · 실행 ──────────────────────────────────────────────────────────
-$urlHost = $BindHost
-if ($BindHost -eq '0.0.0.0') {
-  # 같은 망의 다른 기기가 쓸 주소를 안내한다. 못 찾으면 localhost로 둔다.
+# ── 5) 주소 ─────────────────────────────────────────────────────────────────
+#
+# 이 PC의 IP를 **나가는 경로에서** 찾는다. IPv4 목록의 첫 값을 쓰면 Hyper-V·WSL·VPN 같은 가상
+# 어댑터가 먼저 잡혀, 다른 기기에서 닿지도 않는 주소를 안내하게 된다. 커널에게 "1.1.1.1로 나갈 때
+# 어느 주소를 쓰느냐"고 물으면 실제로 쓰이는 그 주소가 나온다.
+function Get-LanIp {
   try {
-    $ip = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop |
+    $r = Find-NetRoute -RemoteIPAddress 1.1.1.1 -ErrorAction Stop | Select-Object -First 1
+    if ($r -and $r.IPAddress) { return $r.IPAddress }
+  } catch { }
+  try {
+    return Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop |
       Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' } |
       Select-Object -First 1 -ExpandProperty IPAddress
-  } catch { $ip = $null }
-  if ($ip) { $urlHost = $ip } else { $urlHost = 'localhost' }
+  } catch { return $null }
 }
+
+# 사설 대역인가 — 사설이면 그 주소는 이 망 안에서만 통한다.
+function Test-PrivateIp {
+  param([string]$Ip)
+  if (-not $Ip) { return $true }
+  if ($Ip -match '^(10\.|127\.|169\.254\.|192\.168\.)') { return $true }
+  if ($Ip -match '^172\.(1[6-9]|2[0-9]|3[0-1])\.') { return $true }
+  return $false
+}
+
+# 바깥에서 보이는 주소. 못 물어보면 $null - 없다고 실행을 막지는 않는다.
+function Get-PublicIp {
+  try { return (Invoke-RestMethod 'https://api.ipify.org' -TimeoutSec 5 -ErrorAction Stop).Trim() }
+  catch { return $null }
+}
+
+$LanIp = if ($BindHost -eq '0.0.0.0') { Get-LanIp } else { $null }
+$urlHost = if ($LanIp) { $LanIp } else { 'localhost' }
 
 # ── 방화벽 ──────────────────────────────────────────────────────────────────
 #
@@ -283,9 +310,68 @@ if ($Mode -eq 'setup') {
   exit 0
 }
 
+# 어디로 들어올 수 있는지 **있는 그대로** 적는다.
+#
+# 포트를 열었다고 밖에서 닿는 것은 아니다. 이 PC가 사설 대역에 있으면 바깥에서 보이는 주소는
+# 공유기의 것이고, 그 공유기가 이 PC로 넘겨 주지 않는 한 아무도 못 들어온다. 그 사실을 감추고
+# 주소만 적어 두면 "열었다는데 안 된다"가 되므로, 무엇이 더 필요한지 함께 적는다.
 function Show-Address {
-  Info "주소: http://${urlHost}:${Port}/home"
-  Info "관리자: http://${urlHost}:${Port}/admin  (admin / 123456 - 바꾸려면 pnpm admin:password `"새 비밀번호`")"
+  Info "이 PC   http://localhost:${Port}/home"
+  if ($BindHost -ne '0.0.0.0') {
+    Info "관리자  http://localhost:${Port}/admin  (admin / 123456)"
+    return
+  }
+
+  if ($LanIp) { Info "같은 망  http://${LanIp}:${Port}/home" }
+  else { Warn '이 PC의 주소를 찾지 못했습니다 - 같은 망에서 쓸 주소는 직접 확인해 주세요(ipconfig).' }
+
+  $wan = Get-PublicIp
+  if (-not $wan) {
+    Info '바깥 주소는 확인하지 못했습니다(인터넷에 못 물어봤습니다).'
+  } elseif ($LanIp -and $wan -eq $LanIp) {
+    Info "인터넷   http://${wan}:${Port}/home   (이 PC가 공인 IP를 직접 갖고 있습니다)"
+  } elseif (Test-PrivateIp $LanIp) {
+    Info "인터넷   http://${wan}:${Port}/  <- 지금은 닿지 않습니다"
+    Info "         이 PC는 사설 주소($LanIp)라 공유기가 가로막고 있습니다. 둘 중 하나가 필요합니다:"
+    Info "           . 공유기에서 ${Port} 포트를 $LanIp 로 넘기기(포트포워딩)"
+    Info '           . 또는 start.bat --tunnel  - 공유기를 건드리지 않고 https 주소를 받습니다'
+  }
+
+  Info "관리자  .../admin  (admin / 123456 - 바꾸려면 pnpm admin:password `"새 비밀번호`")"
+}
+
+# 공유기를 건드리지 않고 바깥에서 닿게 하는 길 - cloudflared의 임시 터널.
+#
+# 공인 IP도 포트포워딩도 없이 https 주소 하나를 받는다. 대신 **인터넷 전체에 열린다** -
+# 그래서 옵션으로만 켜지고, 켤 때마다 비밀번호를 먼저 확인하라고 말한다.
+$TunnelLog = Join-Path $PSScriptRoot 'data\logs\tunnel.log'
+$script:TunnelProc = $null
+
+function Start-Tunnel {
+  $cf = Get-Command cloudflared -ErrorAction SilentlyContinue
+  if (-not $cf) { $p = 'C:\Program Files (x86)\cloudflared\cloudflared.exe'; if (Test-Path $p) { $cf = $p } }
+  if (-not $cf) {
+    Warn 'cloudflared가 없어 터널을 열지 못했습니다. 설치한 뒤 다시 실행해 주세요:'
+    Info '  winget install --id Cloudflare.cloudflared'
+    return
+  }
+  $exe = if ($cf -is [string]) { $cf } else { $cf.Source }
+  Warn '터널을 엽니다 - 이 주소는 **인터넷 누구나** 열 수 있습니다.'
+  Warn '관리자 비밀번호를 아직 안 바꿨다면 지금 멈추고 바꾸세요: pnpm admin:password "새 비밀번호"'
+  New-Item -ItemType Directory -Force -Path (Split-Path $TunnelLog) | Out-Null
+  Set-Content -Path $TunnelLog -Value '' -Encoding utf8
+  $script:TunnelProc = Start-Process $exe `
+    -ArgumentList 'tunnel', '--url', "http://127.0.0.1:$Port", '--no-autoupdate' `
+    -NoNewWindow -PassThru -RedirectStandardError $TunnelLog -RedirectStandardOutput "$TunnelLog.out"
+  # 주소가 로그에 찍힐 때까지 최대 20초 기다린다.
+  for ($i = 0; $i -lt 40; $i++) {
+    Start-Sleep -Milliseconds 500
+    $hit = Select-String -Path $TunnelLog, "$TunnelLog.out" -Pattern 'https://[a-z0-9-]+\.trycloudflare\.com' -ErrorAction SilentlyContinue |
+      Select-Object -First 1
+    if ($hit) { Ok ("인터넷 주소: " + $hit.Matches[0].Value + "/home"); Info '  이 주소는 이 창을 닫으면 사라집니다(임시 터널).'; return }
+    if ($script:TunnelProc.HasExited) { break }
+  }
+  Warn "터널 주소를 받지 못했습니다. 자세한 내용: $TunnelLog"
 }
 
 if ($Mode -eq 'dev') {
@@ -313,10 +399,25 @@ Open-PortIfAsked
 
 Step '서버 시작'
 Show-Address
-if ($BindHost -eq '0.0.0.0') {
-  Warn '0.0.0.0에 바인딩합니다 - 같은 망의 다른 기기에서 접속할 수 있습니다.'
-  Warn '관리자 비밀번호를 바꾸지 않았다면 먼저 바꾸세요.'
+if ($BindHost -eq '0.0.0.0') { Warn '관리자 비밀번호를 바꾸지 않았다면 먼저 바꾸세요.' }
+
+if ($Tunnel) {
+  # 터널은 서버가 뜬 뒤라야 붙는다 - 먼저 띄우고, 주소를 받은 다음 서버를 기다린다.
+  $server = Start-Process pnpm -ArgumentList 'exec', 'next', 'start', '-p', $Port, '-H', $BindHost -NoNewWindow -PassThru
+  for ($i = 0; $i -lt 60; $i++) {
+    Start-Sleep -Milliseconds 500
+    try { $null = Invoke-WebRequest "http://127.0.0.1:$Port/api/health" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop; break } catch { }
+    if ($server.HasExited) { break }
+  }
+  Start-Tunnel
+  Write-Tint '  중지: Ctrl+C' 'DarkGray'
+  Write-Host ''
+  try { $server.WaitForExit() } finally {
+    if ($script:TunnelProc -and -not $script:TunnelProc.HasExited) { $script:TunnelProc.Kill() }
+  }
+  exit $server.ExitCode
 }
+
 Write-Tint '  중지: Ctrl+C' 'DarkGray'
 Write-Host ''
 & pnpm exec next start -p $Port -H $BindHost
