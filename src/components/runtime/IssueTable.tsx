@@ -40,17 +40,25 @@ export const ISSUE_COLUMNS = [
   { col: 'fail_type', label: '불량 유형', width: 120 },
   { col: 'pjt', label: 'PJT', width: 72 },
   { col: 'week_code', label: 'Week Code', width: 100 },
-  { col: 'slc_max_ec', label: 'SLC Max EC', width: 100 },
-  { col: 'mlc_max_ec', label: 'MLC Max EC', width: 100 },
-  { col: 'tbw', label: 'TBW', width: 88 },
   { col: 'far_no', label: 'FAR No', width: 110 },
   { col: 'sample_no', label: 'Sample No', width: 92 },
   { col: 'cust_symptom', label: '고객 불량 현상', width: 130 },
   { col: 'fail_analysis', label: '불량 분석 현황', width: 130 },
-  { col: 'stack', label: 'Stack', width: 100 },
-  { col: 'wafer_map', label: 'Wafer Map', width: 100 },
   { col: 'progress', label: '진행 상황', width: 100 },
 ] as const;
+
+/**
+ * 화면에서 뺀 칸(사용자 지정, 2026-09-01): `slc_max_ec` · `mlc_max_ec` · `tbw` · `stack` ·
+ * `wafer_map`.
+ *
+ * **표에서만 뺐고 표(entity)의 칸 자체는 남겨 두었다.** 지우면 이미 들어 있는 값이 함께
+ * 사라지고 되돌릴 수 없다. 칸을 남겨 두면 값은 그대로 있고, 다시 보이게 하고 싶으면 위 목록에
+ * 줄을 되돌리기만 하면 된다.
+ *
+ * 대신 **저장 액션의 매핑에서도 같이 빼야 한다**(site-design.ts의 issue-row-create /
+ * issue-row-update). 화면에서만 빼면 이 컴포넌트가 그 값을 더 이상 보내지 않는데 액션은 계속
+ * 그 칸을 쓰려 하므로, 줄을 한 번 저장할 때마다 남아 있던 값이 빈 값으로 덮어써진다.
+ */
 
 const DEFAULT_IMAGE_SLOTS = 2;
 const IMAGE_URL = (file: string) => `/api/runtime/tech-report/image?f=${encodeURIComponent(file)}`;
