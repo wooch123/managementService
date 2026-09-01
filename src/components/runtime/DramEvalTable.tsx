@@ -319,10 +319,18 @@ export function DramEvalTable({
             className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             disabled={locked}
             onClick={() => {
-              setRows([...current, emptyRow()]);
-              setOpenIndex(current.length);
-              // 새 줄은 맨 뒤에 붙는다 — 지금 쪽에 없으면 그 줄이 있는 쪽으로 따라간다.
-              goPage(Math.ceil((current.length + 1) / PAGE_SIZE));
+              // 새 줄은 **맨 앞에** 붙인다(사용자 지정) — 줄이 쌓일수록 맨 뒤는 마지막 쪽이라,
+              // 적으러 눌렀는데 화면이 딴 데로 넘어가 버린다. 앞에 두면 누른 자리에서 바로 적는다.
+              setRows([emptyRow(), ...current]);
+              setOpenIndex(0);
+              /**
+               * 늘려 둔 그림 칸 수는 **자리 번호로 세어 두었다**. 앞에 한 줄이 끼어들면 그 번호가
+               * 통째로 하나씩 밀리므로 함께 밀어 준다 — 안 그러면 3번 줄에 늘려 둔 칸이 2번 줄에
+               * 가서 붙는다.
+               */
+              setSlotCount((prev) => Object.fromEntries(Object.entries(prev).map(([k, v]) => [Number(k) + 1, v])));
+              // 맨 앞이니 늘 첫 쪽이다.
+              goPage(1);
             }}
           >
             <Plus className="size-4" /> 줄 추가
