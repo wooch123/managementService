@@ -6,7 +6,7 @@ import {
   fieldsByColumn,
   type TableInfo,
 } from '@/lib/api/external-tables';
-import { isPrivateAddress, externalSignals } from '@/lib/api/internal-network';
+import { isPrivateAddress, externalSignals, requestBaseUrl } from '@/lib/api/internal-network';
 import { isValidIdentifierFormat, isReservedIdentifier } from '@/lib/data-engine/identifiers';
 
 /**
@@ -147,6 +147,40 @@ describe('externalSignals — 터널로 온 요청을 사내로 착각하지 않
     const forged = externalSignals(h({ host: 'demo.dove9999.com', 'x-forwarded-for': '192.168.0.9' }));
     expect(forged).toContain('public-host');
     expect(forged.length).toBeGreaterThan(0);
+  });
+});
+
+describe('requestBaseUrl — 문서에 적을 주소', () => {
+  const h = (map: Record<string, string>) => new Headers(map);
+  const FALLBACK = 'http://localhost:3000';
+
+  it('부른 사람이 쓴 주소를 그대로 되살린다', () => {
+    // 이게 틀리면 사내에서 받은 문서에 localhost가 적혀, 받은 사람이 자기 PC를 부르게 된다.
+    expect(requestBaseUrl(h({ host: '192.168.45.182:3000' }), FALLBACK)).toBe('http://192.168.45.182:3000');
+    expect(requestBaseUrl(h({ host: 'nas.office.local:3000' }), FALLBACK)).toBe('http://nas.office.local:3000');
+  });
+
+  it('터널을 지나온 요청은 https 공개 주소로 적는다', () => {
+    expect(
+      requestBaseUrl(h({ host: 'demo.dove9999.com', 'x-forwarded-proto': 'https' }), FALLBACK)
+    ).toBe('https://demo.dove9999.com');
+  });
+
+  it('x-forwarded-proto가 여러 개면 첫 번째를 쓴다', () => {
+    expect(requestBaseUrl(h({ host: 'a.example.com', 'x-forwarded-proto': 'https, http' }), FALLBACK)).toBe(
+      'https://a.example.com'
+    );
+  });
+
+  it('Host가 이상하면 물러난다 — 주소 자리에 아무 문자열이나 박히지 않게', () => {
+    // 줄바꿈·한글이 든 Host는 여기 없다. Headers가 만들 때 거부하므로 함수까지 오지 못한다.
+    for (const bad of ['', 'evil.com/path', 'a b', 'http://evil.com', 'a.com:999999']) {
+      expect(requestBaseUrl(h(bad ? { host: bad } : {}), FALLBACK), JSON.stringify(bad)).toBe(FALLBACK);
+    }
+  });
+
+  it('IPv6 주소도 받는다', () => {
+    expect(requestBaseUrl(h({ host: '[fd00::1]:3000' }), FALLBACK)).toBe('http://[fd00::1]:3000');
   });
 });
 

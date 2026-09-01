@@ -43,6 +43,32 @@ export function externalSignals(headers: HeaderLookup, publicHostname?: string):
   return found;
 }
 
+/**
+ * **부른 사람이 실제로 쓴 주소**를 되살린다. 문서·안내에 적을 주소를 만들 때 쓴다.
+ *
+ * `request.nextUrl.origin`을 쓰면 안 된다 — `next start`로 띄운 서버에서는 그것이 서버 자신의
+ * 주소(`http://localhost:3000`)로 나온다. 사내 LAN 주소로 부르든 터널로 부르든 문서에는
+ * `localhost:3000`이 적혀서, 받은 사람이 그대로 복사해 붙이면 자기 PC를 부르게 된다(실제로
+ * 그렇게 나왔다). 그래서 `Host` 헤더에서 되살린다.
+ *
+ * `Host`는 부르는 쪽이 정하는 값이지만, 여기서 만든 주소는 **그 요청에 대한 응답에만** 들어간다
+ * (캐시하지 않는다). 남의 문서를 바꿔 놓을 수는 없다. 그래도 이상한 글자가 섞이면 fallback으로
+ * 물러난다 — 주소 자리에 아무 문자열이나 박히지 않게.
+ */
+export function requestBaseUrl(headers: HeaderLookup, fallbackOrigin: string): string {
+  const host = (headers.get('host') || '').trim();
+  // 호스트 이름 + 선택적 포트. 대괄호 IPv6까지만 받고 나머지는 물러난다.
+  if (!/^(\[[0-9a-fA-F:]+\]|[a-zA-Z0-9.-]+)(:\d{1,5})?$/.test(host)) return fallbackOrigin;
+
+  const forwardedProto = (headers.get('x-forwarded-proto') || '').split(',')[0]?.trim().toLowerCase();
+  const proto = forwardedProto === 'https' || forwardedProto === 'http' ? forwardedProto : guessProto(fallbackOrigin);
+  return `${proto}://${host}`;
+}
+
+function guessProto(fallbackOrigin: string): string {
+  return fallbackOrigin.startsWith('https:') ? 'https' : 'http';
+}
+
 /** 사설·루프백 대역인가. 판단이 서지 않으면 **공인으로 친다**(잠그는 쪽). */
 export function isPrivateAddress(raw: string): boolean {
   let ip = raw.trim().toLowerCase();

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { buildExternalApiGuide } from '@/lib/api/external-guide';
 import { decideExternalAccess } from '@/lib/api/external-auth';
+import { requestBaseUrl } from '@/lib/api/internal-network';
 
 /**
  * 외부 연동 API 가이드를 md 파일로 내려 준다(사용자 지정, 2026-09-01).
@@ -35,8 +36,11 @@ export async function GET(request: NextRequest) {
 
   // 문서에 적히는 주소는 **부른 사람이 실제로 쓴 주소**여야 한다. 사내에서 받은 문서에
   // 공개 주소가 적혀 있으면 그대로 복사해 붙였을 때 토큰을 요구받는다.
-  const origin = request.nextUrl.origin;
-  const markdown = await buildExternalApiGuide({ baseUrl: origin });
+  //
+  // nextUrl.origin은 쓰지 않는다 — `next start` 서버에서는 서버 자신의 주소(localhost:3000)가
+  // 나와서, LAN으로 부르든 터널로 부르든 문서에 localhost가 적힌다(실제로 그렇게 나왔다).
+  const baseUrl = requestBaseUrl(request.headers, request.nextUrl.origin);
+  const markdown = await buildExternalApiGuide({ baseUrl });
 
   const download = request.nextUrl.searchParams.get('download') === '1';
   const filename = `external-api-guide-${new Date().toISOString().slice(0, 10)}.md`;
