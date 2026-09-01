@@ -335,20 +335,51 @@ pnpm test:e2e       # Playwright, 10개 시나리오
 
 사내 다른 시스템·스크립트가 업무 표를 직접 읽고 쓸 수 있는 창구. 화면을 거치지 않고 데이터만 주고받는다.
 
-### 인증
+### 인증 — 사내는 토큰 없이, 인터넷은 토큰 필요
+
+**사내망에서 부르면 토큰이 필요 없다.** 사내 시스템이 헤더를 맞추느라 고생할 일을 없앤 것이다.
+
+```bash
+# 사무실 PC·서버에서 — 그냥 부르면 된다
+curl "http://192.168.0.50:3000/api/external/far_table?far_no=KR260002"
+```
+
+**공개 주소(`demo.dove9999.com`)로 부를 때는 토큰이 필요하다.**
 
 ```
 Authorization: Bearer <EXTERNAL_API_TOKEN>
 ```
 
-`.env.local`의 `EXTERNAL_API_TOKEN`을 쓰고, 없으면 `FAR_API_TOKEN`을 대신 본다. **토큰을 설정하지 않은
-환경에서는 관리자 세션으로만 호출된다** — 토큰이 없다고 문을 열어 두면 설정을 깜빡한 것과 "누구나 써도
-된다"가 구별되지 않기 때문이다. 토큰은 아무 긴 임의 문자열이면 된다.
+`.env.local`의 `EXTERNAL_API_TOKEN`을 쓰고, 없으면 `FAR_API_TOKEN`을 대신 본다.
 
 ```powershell
 # 새 토큰 만들기
 node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"
 ```
+
+#### 사내와 바깥을 어떻게 가르는가 — IP로 가르지 않는다
+
+cloudflared는 터널로 받은 요청을 `http://127.0.0.1:3000`으로 넘긴다. 그래서 **인터넷에서 들어온
+요청도 서버 눈에는 127.0.0.1**, 곧 내부 접속과 똑같이 보인다. "사설 IP면 통과"로 짰다면 이 창구가
+인터넷에 활짝 열렸을 것이다. 그래서 IP가 아니라 **지나온 경로가 남긴 표식**을 본다.
+
+셋 중 하나라도 보이면 바깥에서 온 것으로 보고 토큰을 요구한다(애매하면 잠그는 쪽).
+
+| 표식 | 근거 |
+|---|---|
+| `cf-connecting-ip` · `cf-ray` · `cf-ipcountry` | Cloudflare 엣지가 직접 붙인다. 클라이언트가 같은 이름으로 보내도 덮어쓰므로 지운 채 통과할 수 없다 |
+| `Host: demo.dove9999.com` | 사내에서는 `192.168.x.x:3000`·`localhost:3000`으로 부른다. 위와 별개의 근거라 한쪽이 어긋나도 다른 쪽이 잡는다 |
+| `x-forwarded-for`의 첫 주소가 공인 IP | 앞에 프록시를 더 두게 될 날을 위한 것. 위조할 수 있지만 위조하면 **더 엄격해질 뿐**이다 |
+
+지금 내 요청이 어느 쪽으로 보이는지는 이렇게 확인한다:
+
+```bash
+curl "http://192.168.0.50:3000/api/external?check=access"
+# {"ok":true,"data":{"allowed":true,"via":"internal","externalSignals":[],...}}
+```
+
+사내에서도 토큰을 받게 하려면 `.env.local`에 `EXTERNAL_API_REQUIRE_TOKEN=always`를 둔다.
+공개 호스트 이름이 바뀌면 `PUBLIC_HOSTNAME`으로 알려 준다.
 
 ### 어떤 표를 쓸 수 있는지 물어보기
 
@@ -372,10 +403,10 @@ GET /api/external
 | `DELETE` | `/api/external/<표>` | `{ "where": {...} \| "id": "..." }` |
 
 ```bash
-# FAR 번호로 찾아 인계 담당자만 바꾸기 — 내부 id를 몰라도 된다
-curl -X PATCH https://<호스트>/api/external/far_table \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"where":{"far_no":"FAR-2026-001"},"values":{"handover_name":"홍길동"}}'
+# FAR 번호로 찾아 인계 담당자만 바꾸기 — 내부 id를 몰라도 된다 (사내망, 토큰 없이)
+curl -X PATCH http://192.168.0.50:3000/api/external/far_table \
+  -H "Content-Type: application/json" \
+  -d '{"where":{"far_no":"KR260002"},"values":{"handover_name":"홍길동"}}'
 ```
 
 ### 알아 둘 것

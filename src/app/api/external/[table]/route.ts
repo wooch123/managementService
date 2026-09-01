@@ -166,7 +166,7 @@ async function targetIds(
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ table: string }> }) {
-  if (!(await authorizeExternal(request))) return fail('UNAUTHORIZED', '인증이 필요합니다.', 401);
+  if (!(await authorizeExternal(request))) return fail('UNAUTHORIZED', '인터넷에서 부를 때는 토큰이 필요합니다. 사내망에서는 토큰 없이 됩니다.', 401);
 
   const resolved = await resolve((await params).table);
   if ('error' in resolved) return resolved.error;
@@ -196,7 +196,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ table: string }> }) {
-  if (!(await authorizeExternal(request))) return fail('UNAUTHORIZED', '인증이 필요합니다.', 401);
+  if (!(await authorizeExternal(request))) return fail('UNAUTHORIZED', '인터넷에서 부를 때는 토큰이 필요합니다. 사내망에서는 토큰 없이 됩니다.', 401);
 
   const resolved = await resolve((await params).table);
   if ('error' in resolved) return resolved.error;
@@ -219,7 +219,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ table: string }> }) {
-  if (!(await authorizeExternal(request))) return fail('UNAUTHORIZED', '인증이 필요합니다.', 401);
+  if (!(await authorizeExternal(request))) return fail('UNAUTHORIZED', '인터넷에서 부를 때는 토큰이 필요합니다. 사내망에서는 토큰 없이 됩니다.', 401);
 
   const resolved = await resolve((await params).table);
   if ('error' in resolved) return resolved.error;
@@ -256,7 +256,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ table: string }> }) {
-  if (!(await authorizeExternal(request))) return fail('UNAUTHORIZED', '인증이 필요합니다.', 401);
+  if (!(await authorizeExternal(request))) return fail('UNAUTHORIZED', '인터넷에서 부를 때는 토큰이 필요합니다. 사내망에서는 토큰 없이 됩니다.', 401);
 
   const resolved = await resolve((await params).table);
   if ('error' in resolved) return resolved.error;

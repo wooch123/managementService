@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authorizeExternal } from '@/lib/api/external-auth';
+import { decideExternalAccess } from '@/lib/api/external-auth';
 import { allTableInfo, DEDICATED_ENDPOINT } from '@/lib/api/external-tables';
 import type { ApiResult } from '@/types/auth';
 
@@ -17,9 +17,35 @@ import type { ApiResult } from '@/types/auth';
 export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
-  if (!(await authorizeExternal(request))) {
+  const access = await decideExternalAccess(request);
+
+  // `?check=access` — 이 요청이 사내로 보이는지 바깥으로 보이는지만 알려 준다. 연동하는 쪽에서
+  // "왜 401이 나는지"를 헤더까지 뒤지지 않고 확인하게 하려는 것. 업무 데이터는 담기지 않고,
+  // 표식의 **이름만** 돌려준다(값은 담지 않는다).
+  if (request.nextUrl.searchParams.get('check') === 'access') {
+    return NextResponse.json<ApiResult<Record<string, unknown>>>({
+      ok: true,
+      data: {
+        allowed: access.allowed,
+        via: access.via,
+        externalSignals: access.signals,
+        note:
+          access.signals.length === 0
+            ? '사내에서 온 요청으로 봅니다 — 토큰이 필요 없습니다.'
+            : '인터넷에서 온 요청으로 봅니다 — 토큰이 필요합니다.',
+      },
+    });
+  }
+
+  if (!access.allowed) {
     return NextResponse.json<ApiResult<never>>(
-      { ok: false, error: { code: 'UNAUTHORIZED', message: '인증이 필요합니다.' } },
+      {
+        ok: false,
+        error: {
+          code: 'UNAUTHORIZED',
+          message: '인터넷에서 부를 때는 토큰이 필요합니다. 사내망에서는 토큰 없이 됩니다.',
+        },
+      },
       { status: 401 }
     );
   }
@@ -42,7 +68,8 @@ export async function GET(request: NextRequest) {
       tables,
       dedicated: DEDICATED_ENDPOINT,
       usage: {
-        auth: 'Authorization: Bearer <EXTERNAL_API_TOKEN>',
+        auth: '사내망에서는 토큰 없이. 인터넷(공개 주소)에서는 Authorization: Bearer <EXTERNAL_API_TOKEN>',
+        checkAccess: 'GET /api/external?check=access — 지금 이 요청이 사내로 보이는지 확인',
         read: 'GET /api/external/<table>?<column>=<value>&limit=50&page=1',
         create: 'POST /api/external/<table>  { "values": { "<column>": <value> } }',
         update: 'PATCH /api/external/<table>  { "where": { "<column>": <value> }, "values": {...} }',

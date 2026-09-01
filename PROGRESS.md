@@ -4089,3 +4089,54 @@ far_analysis_log                      400 USE_DEDICATED_ENDPOINT
 **남는 리스크 — 토큰 하나가 전 표의 쓰기 권한을 겸한다.** 지금은 `EXTERNAL_API_TOKEN`이 없어
 `FAR_API_TOKEN`으로 대신 여는데, 그 토큰은 원래 분석 결과만 넣던 것이다. 분석 이력 창구와
 업무 표 창구의 권한을 나누려면 `.env.local`에 `EXTERNAL_API_TOKEN`을 따로 두면 된다.
+
+---
+
+## 2026-09-01 — 외부 API: 사내는 토큰 없이, 인터넷은 토큰
+
+```
+📊 진행 상황
+├ 전체 진척도: 100% (운영 중 · 리비전 #87)
+├ 현재 작업: 사내망 토큰 면제 — 완료
+├ 이번 작업: 100% (실호출 12/12 통과)
+├ 예상 남은 시간: 0m
+└ 리스크: 포트 3000이 공유기에서 포트포워딩되면 사내 판정이 무너진다(아래)
+```
+
+사내 시스템이 헤더를 맞추느라 고생하지 않게 사내망에서는 토큰을 면제했다(사용자 지정).
+공개 주소로 부를 때는 그대로 토큰을 받는다.
+
+**여기서 IP로 갈랐다면 창구가 인터넷에 활짝 열렸을 것이다.** cloudflared는 터널로 받은 요청을
+`http://127.0.0.1:3000`으로 넘긴다(deploy/cloudflared/config.yml). 그래서 인터넷에서 들어온
+요청도 서버 눈에는 127.0.0.1 — 사설 IP다. "사설이면 통과"가 곧 "누구나 통과"가 된다.
+그래서 IP가 아니라 **지나온 경로가 남긴 표식**을 본다.
+
+| 표식 | 왜 믿을 만한가 |
+|---|---|
+| `cf-connecting-ip`·`cf-ray`·`cf-ipcountry` | Cloudflare 엣지가 직접 붙이고, 클라이언트가 같은 이름으로 보내도 덮어쓴다 — 지운 채로 터널을 지날 수 없다 |
+| `Host: demo.dove9999.com` | 사내에서는 `192.168.x.x:3000`으로 부른다. 위와 근거가 달라 한쪽이 어긋나도 잡힌다 |
+| `x-forwarded-for` 첫 주소가 공인 IP | 위조 가능하지만 위조하면 **더 엄격해질 뿐**이라 뚫는 데 쓸모가 없다 |
+
+셋 중 하나라도 보이면 바깥으로 본다 — 애매하면 잠그는 쪽으로 기운다. 판단은 세션·DB에 기대지
+않는 순수 함수(`src/lib/api/internal-network.ts`)로 떼어 내 시험한다.
+
+```
+사내 직접 호출(localhost)          internal · 표식 없음 · 토큰 없이 723행 조회됨
+cf-ray / cf-connecting-ip         denied  · 토큰 없으면 401, 토큰 있으면 200
+Host: demo.dove9999.com           denied  · public-host
+x-forwarded-for: 203.0.113.9      denied  · forwarded-public-ip
+x-forwarded-for: 192.168.0.7      internal · 사내 프록시는 사내 그대로
+운영 터널(실제 demo.dove9999.com)  토큰 없으면 401 · 토큰 있으면 200
+운영 사내(LAN IP·localhost:3000)   토큰 없이 200
+```
+
+`GET /api/external?check=access`로 지금 요청이 어느 쪽으로 보이는지 확인할 수 있다(표식의
+**이름만** 돌려주고 값·업무 데이터는 담지 않는다). 사내에서도 토큰을 받게 하려면
+`EXTERNAL_API_REQUIRE_TOKEN=always`, 공개 호스트가 바뀌면 `PUBLIC_HOSTNAME`.
+
+`pnpm test` 347개 통과(주소·표식 판정 시험 11개 추가), typecheck·lint 무경고.
+
+**남는 리스크 — 포트 3000이 공유기에서 인터넷으로 포워딩되면 이 판정이 무너진다.** 그때는
+Cloudflare를 거치지 않고 곧장 들어오므로 표식이 하나도 남지 않아 사내로 보인다. 지금 구성
+(터널만 공개, 3000은 사내 방화벽 안)에서는 해당 없지만, 공유기 설정을 바꾸게 되면
+`EXTERNAL_API_REQUIRE_TOKEN=always`로 돌려야 한다.
