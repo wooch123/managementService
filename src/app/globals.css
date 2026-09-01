@@ -864,20 +864,72 @@ tr[data-state='selected'] > .dt-pin-right {
     inset 0 -1px 0 0 color-mix(in oklab, var(--background) 60%, transparent),
     0 12px 36px -14px color-mix(in oklab, var(--foreground) 30%, transparent);
 
-  /*
-   * 1. 비칠 것. 스크롤과 무관하게 제자리에 있는다.
-   *
-   * 네 자리에 **서로 다른** 차트 색을 쓴다. 처음에 좌상단을 `--chart-1`, 좌하단을 `--primary`로
-   * 뒀는데 테마에 따라 둘이 같은 색이라(그레파이트에서는 둘 다 보라) 왼쪽이 한 덩어리로
-   * 뭉쳤다. `--chart-4`로 갈라 네 색이 겹치지 않게 했다.
-   */
+  /* 빛무리 두 장을 이 안에 가둔다 — z-index: -1이 바깥으로 새지 않게. */
+  position: relative;
+  isolation: isolate;
+}
+
+/*
+ * 1. 비칠 것 — 천천히 흐르는 빛(사용자 지정).
+ *
+ * 처음에는 `background-attachment: fixed`로 **못 박아** 두었다. 스크롤할 때 판만 지나가는
+ * 효과는 그것으로 되지만, 가만히 두면 그림이 완전히 멈춰 있어 유리라기보다 인쇄물에 가깝다.
+ * 그래서 빛 자체가 아주 느리게 흐르게 했다.
+ *
+ * ── 왜 `background-position`이 아니라 `transform`인가 ──────────────────────────
+ * 배경 위치를 애니메이션하면 **매 프레임 화면 전체를 다시 칠한다.** 이 화면에는 흐림이 걸린
+ * 유리판이 열세 장 올라가 있어, 다시 칠할 때마다 그 흐림도 전부 다시 계산된다. `transform`은
+ * 합성 단계에서 처리되므로 다시 칠하지 않는다 — 그래서 레이어를 따로 두고 그것만 움직인다.
+ *
+ * ── 왜 두 장인가 ───────────────────────────────────────────────────────────────
+ * 한 장을 움직이면 통째로 미끄러지는 것이 눈에 보인다. 주기가 서로 다른 두 장(41초·59초)을
+ * 반대 방향으로 흘리면 두 수가 좀처럼 맞아떨어지지 않아, 같은 배열이 다시 나타나기까지가
+ * 아주 길다. 흐르는 것처럼 보이는 것은 이 어긋남 덕이다.
+ *
+ * `inset: -25%`로 넉넉히 키워 둔다 — 움직이는 동안 가장자리가 화면 안으로 들어오면 안 된다.
+ * 색은 네 자리에 **서로 다른** 차트 색을 쓴다. 처음에 좌상단 `--chart-1`, 좌하단 `--primary`로
+ * 뒀더니 테마에 따라 둘이 같은 색이라(그레파이트에서 둘 다 보라) 왼쪽이 한 덩어리로 뭉쳤다.
+ */
+.liquid-glass::before,
+.liquid-glass::after {
+  content: '';
+  position: fixed;
+  inset: -25%;
+  z-index: -1;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.liquid-glass::before {
   background-image:
-    radial-gradient(58% 44% at 8% 4%, color-mix(in oklab, var(--chart-1) 52%, transparent) 0%, transparent 68%),
-    radial-gradient(52% 40% at 92% 8%, color-mix(in oklab, var(--chart-3) 44%, transparent) 0%, transparent 66%),
-    radial-gradient(54% 42% at 80% 88%, color-mix(in oklab, var(--chart-2) 38%, transparent) 0%, transparent 68%),
-    radial-gradient(48% 38% at 16% 92%, color-mix(in oklab, var(--chart-4) 34%, transparent) 0%, transparent 66%);
-  background-attachment: fixed;
-  background-repeat: no-repeat;
+    radial-gradient(46% 36% at 26% 22%, color-mix(in oklab, var(--chart-1) 52%, transparent) 0%, transparent 68%),
+    radial-gradient(42% 32% at 74% 24%, color-mix(in oklab, var(--chart-3) 44%, transparent) 0%, transparent 66%);
+  animation: glass-drift-a 41s ease-in-out infinite alternate;
+}
+
+.liquid-glass::after {
+  background-image:
+    radial-gradient(44% 34% at 68% 74%, color-mix(in oklab, var(--chart-2) 40%, transparent) 0%, transparent 68%),
+    radial-gradient(40% 30% at 30% 78%, color-mix(in oklab, var(--chart-4) 34%, transparent) 0%, transparent 66%);
+  animation: glass-drift-b 59s ease-in-out infinite alternate;
+}
+
+@keyframes glass-drift-a {
+  from {
+    transform: translate3d(-3%, -2%, 0) scale(1);
+  }
+  to {
+    transform: translate3d(4%, 3%, 0) scale(1.14);
+  }
+}
+
+@keyframes glass-drift-b {
+  from {
+    transform: translate3d(3%, 2%, 0) scale(1.12);
+  }
+  to {
+    transform: translate3d(-4%, -3%, 0) scale(1);
+  }
 }
 
 /* 유리판 — 운영 화면의 카드는 모두 `.runtime-cell` 안의 첫 칸이다. */
@@ -941,8 +993,12 @@ tr[data-state='selected'] > .dt-pin-right {
  */
 @media (prefers-reduced-transparency: reduce) {
   .liquid-glass {
-    background-image: none;
     --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  }
+
+  .liquid-glass::before,
+  .liquid-glass::after {
+    display: none;
   }
 
   .liquid-glass .runtime-cell > div,
@@ -954,5 +1010,16 @@ tr[data-state='selected'] > .dt-pin-right {
 
   .liquid-glass .runtime-cell > div::after {
     display: none;
+  }
+}
+
+/*
+ * 움직임을 줄이도록 설정했다면 빛은 그대로 두되 **흐르지 않게** 한다. 유리의 생김새를 없앨
+ * 이유는 없고, 문제가 되는 것은 끊임없는 움직임 쪽이다. 시작 자리에 멈춰 세운다.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .liquid-glass::before,
+  .liquid-glass::after {
+    animation: none;
   }
 }
