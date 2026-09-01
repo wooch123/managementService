@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTatSummary, type TatSummary } from '@/lib/stats/tat';
+import { getTatSummary, readIntParam, type TatSummary } from '@/lib/stats/tat';
 import type { ApiResult } from '@/types/auth';
 
 /**
@@ -12,16 +12,10 @@ import type { ApiResult } from '@/types/auth';
 
 export const runtime = 'nodejs';
 
-function clampInt(raw: string | null, fallback: number, min: number, max: number): number {
-  const n = Number(raw);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.min(Math.max(Math.trunc(n), min), max);
-}
-
 export async function GET(request: NextRequest) {
   const sp = request.nextUrl.searchParams;
-  const threshold = clampInt(sp.get('threshold'), 14, 1, 365);
-  const maxDays = clampInt(sp.get('maxDays'), 30, 7, 365);
+  const threshold = readIntParam(sp.get('threshold'), 14, 1, 365);
+  const maxDays = readIntParam(sp.get('maxDays'), 30, 7, 365);
 
   try {
     const data = await getTatSummary({ threshold, maxDays });

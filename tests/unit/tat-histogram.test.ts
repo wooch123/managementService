@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeTatSummary } from '@/lib/stats/tat';
+import { computeTatSummary, readIntParam } from '@/lib/stats/tat';
 
 /**
  * TAT 분포 — 가로축 걸린 일수, 세로축 FAR 건수.
@@ -26,6 +26,40 @@ function running(days: number) {
 
 const bucketOf = (s: ReturnType<typeof computeTatSummary>, days: number) =>
   s.buckets.find((b) => b.days === days)!;
+
+describe('readIntParam — 조건을 빼고 불렀을 때', () => {
+  const q = (search: string) => new URLSearchParams(search);
+
+  it('조건이 없으면 기본값을 쓴다 — 최솟값으로 잘리지 않는다', () => {
+    // Number(null)은 0이고 Number.isFinite(0)은 참이라, 없을 때를 따로 보지 않으면
+    // 14가 아니라 1로 잘린다. 실제로 그래서 723건이 전부 초과로 나왔다.
+    expect(readIntParam(q('').get('threshold'), 14, 1, 365)).toBe(14);
+    expect(readIntParam(q('').get('maxDays'), 30, 7, 365)).toBe(30);
+  });
+
+  it('빈 값도 기본값이다 — Number("")도 0이다', () => {
+    expect(readIntParam(q('threshold=').get('threshold'), 14, 1, 365)).toBe(14);
+    expect(readIntParam(q('threshold=%20%20').get('threshold'), 14, 1, 365)).toBe(14);
+  });
+
+  it('숫자가 아니면 기본값이다', () => {
+    expect(readIntParam('abc', 14, 1, 365)).toBe(14);
+    expect(readIntParam('NaN', 14, 1, 365)).toBe(14);
+  });
+
+  it('준 값은 범위 안으로 자른다', () => {
+    expect(readIntParam('7', 14, 1, 365)).toBe(7);
+    expect(readIntParam('0', 14, 1, 365)).toBe(1);
+    expect(readIntParam('9999', 14, 1, 365)).toBe(365);
+    expect(readIntParam('21.9', 14, 1, 365)).toBe(21);
+    expect(readIntParam('-5', 14, 1, 365)).toBe(1);
+  });
+
+  it('0을 일부러 준 것과 아예 안 준 것을 가른다', () => {
+    expect(readIntParam('0', 14, 1, 365)).toBe(1); // 일부러 0 → 범위로 자름
+    expect(readIntParam(null, 14, 1, 365)).toBe(14); // 안 줌 → 기본값
+  });
+});
 
 describe('computeTatSummary — 14일 경계', () => {
   it('14일은 초과가 아니고 15일부터 초과다', () => {

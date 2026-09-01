@@ -49,6 +49,23 @@ export type TatSummary = {
 
 const DAY_MS = 86_400_000;
 
+/**
+ * 주소의 조건 하나를 정수로 읽는다. **없거나 빈 값이면 기본값**, 있으면 범위 안으로 자른다.
+ *
+ * 없을 때를 따로 보는 이유: `searchParams.get()`은 없으면 `null`을 주는데 `Number(null)`은
+ * `0`이고 `Number.isFinite(0)`은 참이다. "숫자가 아니면 기본값"으로만 걸러 두면 **생략했을 때
+ * 기본값이 아니라 최솟값으로 잘린다.** 실제로 그랬다 — `threshold`를 빼고 부르면 14가 아닌
+ * 1이 되어 2일짜리까지 전부 초과로 세었다(화면은 늘 값을 붙여 불러서 드러나지 않았고, API를
+ * 직접 부른 새 클론에서 723건 전부 초과로 나와 잡혔다). 빈 문자열도 `Number('')`가 0이라
+ * 같은 함정이다.
+ */
+export function readIntParam(raw: string | null, fallback: number, min: number, max: number): number {
+  if (raw === null || raw.trim() === '') return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(Math.max(Math.trunc(n), min), max);
+}
+
 type Row = { rcv_date: string | null; done: number; recorded_at: string | null };
 
 /** 'YYYY-MM-DD' 또는 ISO 일시를 UTC 자정으로 맞춘다 — 시:분 차이로 하루가 어긋나지 않게. */
