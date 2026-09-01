@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   ArrowDown,
@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PasteImageButton } from '@/components/runtime/PasteImageButton';
+import { ISSUE_COLUMNS, FIXED_IMAGE_SLOTS, FIXED_SLOT_COUNT } from '@/lib/issue/columns';
 import type { ApiResult } from '@/types/auth';
 
 /**
@@ -32,36 +33,110 @@ import type { ApiResult } from '@/types/auth';
  * 않는다) 서버를 다시 부르는 것보다 그 자리에서 거르는 편이 빠르고, 타자마다 화면이 따라온다.
  */
 
-/** 양식의 칸 — 순서도 그대로다. */
-export const ISSUE_COLUMNS = [
-  { col: 'no', label: 'No', width: 56 },
-  { col: 'fail_location', label: '불량 Location', width: 120 },
-  { col: 'fail_mode', label: '불량 모드', width: 100 },
-  { col: 'fail_type', label: '불량 유형', width: 120 },
-  { col: 'pjt', label: 'PJT', width: 72 },
-  { col: 'week_code', label: 'Week Code', width: 100 },
-  { col: 'far_no', label: 'FAR No', width: 110 },
-  { col: 'sample_no', label: 'Sample No', width: 92 },
-  { col: 'cust_symptom', label: '고객 불량 현상', width: 130 },
-  { col: 'fail_analysis', label: '불량 분석 현황', width: 130 },
-  { col: 'progress', label: '진행 상황', width: 100 },
-] as const;
+
+
+const IMAGE_URL = (file: string) => `/api/runtime/tech-report/image?f=${encodeURIComponent(file)}`;
+
+/** 원장에서 끌어오는 값 — 저장하지 않고 볼 때마다 읽는다(src/lib/far/metrics.ts 참고). */
+type FarMetrics = {
+  slc: { max: number | null; avg: number | null; min: number | null };
+  mlc: { max: number | null; avg: number | null; min: number | null };
+  writeSize: number | null;
+};
 
 /**
- * 화면에서 뺀 칸(사용자 지정, 2026-09-01): `slc_max_ec` · `mlc_max_ec` · `tbw` · `stack` ·
- * `wafer_map`.
- *
- * **표에서만 뺐고 표(entity)의 칸 자체는 남겨 두었다.** 지우면 이미 들어 있는 값이 함께
- * 사라지고 되돌릴 수 없다. 칸을 남겨 두면 값은 그대로 있고, 다시 보이게 하고 싶으면 위 목록에
- * 줄을 되돌리기만 하면 된다.
- *
- * 대신 **저장 액션의 매핑에서도 같이 빼야 한다**(site-design.ts의 issue-row-create /
- * issue-row-update). 화면에서만 빼면 이 컴포넌트가 그 값을 더 이상 보내지 않는데 액션은 계속
- * 그 칸을 쓰려 하므로, 줄을 한 번 저장할 때마다 남아 있던 값이 빈 값으로 덮어써진다.
+ * 맵의 열쇠. **이 파일 안에서만** 쓴다 — 서버는 짝(farNo·sampleNo)을 그대로 실어 보내고
+ * 맵은 여기서 만든다. 서버와 규칙을 나눠 갖지 않으므로 구분자 하나가 어긋나 값이 통째로
+ * 안 보이는 일이 생기지 않는다(실제로 한 번 그랬다).
  */
+const metricKey = (farNo: string, sampleNo: string) => JSON.stringify([farNo.trim(), sampleNo.trim()]);
 
-const DEFAULT_IMAGE_SLOTS = 2;
-const IMAGE_URL = (file: string) => `/api/runtime/tech-report/image?f=${encodeURIComponent(file)}`;
+/** 값이 없으면 '—'. 0과 '모름'은 다르므로 0은 0으로 적는다. */
+function metricText(value: number | null): string {
+  return value === null ? '—' : value.toLocaleString('ko-KR');
+}
+
+/** 양식이 'Max/Avg/Min' 한 칸에 셋을 적으므로 그대로 이어 붙인다. */
+function ecText(ec: { max: number | null; avg: number | null; min: number | null } | undefined): string {
+  if (!ec) return '—';
+  return [ec.max, ec.avg, ec.min].map(metricText).join(' / ');
+}
+
+/** 원장에서 끌어온 값 한 줄 — 왼쪽에 이름, 오른쪽에 값. */
+function MetricRow({ label, text }: { label: string; text: string }) {
+  return (
+    <tr>
+      <th scope="row" className="w-[46%] border bg-muted/40 px-2 py-1 text-left font-normal text-muted-foreground">
+        {label}
+      </th>
+      <td className="border px-2 py-1 text-center tabular-nums">{text}</td>
+    </tr>
+  );
+}
+
+/**
+ * 그림 한 자리. 이름이 붙은 양식 칸과 아래에 더 붙이는 칸이 같은 모양이라 하나로 쓴다.
+ *
+ * 화면을 캡처해 붙이는 것이 가장 흔한 쓰임이라, 파일을 고르는 길 옆에 붙여넣기 단추를 함께 둔다.
+ */
+function ImageSlot({
+  label,
+  file,
+  alt,
+  locked,
+  onPick,
+  onPaste,
+  onClear,
+}: {
+  label: string;
+  file: string;
+  alt: string;
+  locked: boolean;
+  onPick: () => void;
+  onPaste: (file: File) => void;
+  onClear: () => void;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <span className="truncate text-[11px] text-muted-foreground">{label}</span>
+      <div className="relative">
+        {file ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={IMAGE_URL(file)} alt={alt} className="h-24 w-full rounded border object-contain" />
+            <button
+              type="button"
+              className="absolute top-1 right-1 inline-flex size-5 items-center justify-center rounded bg-background/80 text-muted-foreground hover:text-destructive"
+              onClick={onClear}
+              disabled={locked}
+              aria-label={`${alt} 지우기`}
+            >
+              <X className="size-3" />
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              className="flex h-24 w-full flex-col items-center justify-center gap-1 rounded border border-dashed text-[11px] text-muted-foreground hover:bg-muted/50 disabled:opacity-40"
+              onClick={onPick}
+              disabled={locked}
+            >
+              <ImagePlus className="size-4" />
+              눌러서 고르기
+            </button>
+            <PasteImageButton
+              label={alt}
+              disabled={locked}
+              className="absolute top-1 right-1 bg-background/80"
+              onPick={onPaste}
+            />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 type IssueRow = {
   id?: string;
@@ -139,6 +214,59 @@ export function IssueTable({
   const fileRef = useRef<HTMLInputElement>(null);
   const pickTarget = useRef<{ row: number; slot: number } | null>(null);
   const locked = disabled ?? false;
+
+  /**
+   * FAR 원장의 EC·Write size. 줄에 적어 두지 않고 **볼 때마다 원장에서 읽는다** — 베껴 두면
+   * 나중에 원장이 고쳐졌을 때 두 값이 어긋나고 어느 쪽이 맞는지 알 수 없게 된다.
+   *
+   * 표를 그릴 때 **한 번에 모아서** 묻는다. 펼칠 때마다 한 건씩 물으면 줄 수만큼 왕복이 생기고,
+   * 펼치는 순간 값이 비어 있다가 뒤늦게 채워진다.
+   */
+  const [metrics, setMetrics] = useState<Record<string, FarMetrics>>({});
+  /**
+   * 물어볼 짝을 **JSON 문자열 하나로** 접어 둔다. 배열을 그대로 의존성에 넣으면 매 렌더마다
+   * 새 배열이라 내용이 같아도 계속 다시 부르게 된다(실제로 한 번 그리는 동안 여덟 번 불렀다).
+   */
+  const metricKeysJson = useMemo(() => {
+    const seen = new Set<string>();
+    const keys: { farNo: string; sampleNo: string }[] = [];
+    for (const row of current) {
+      const farNo = (row.values.far_no ?? '').trim();
+      const sampleNo = (row.values.sample_no ?? '').trim();
+      if (!farNo || !sampleNo) continue;
+      const key = metricKey(farNo, sampleNo);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      keys.push({ farNo, sampleNo });
+    }
+    return JSON.stringify(keys);
+  }, [current]);
+
+  useEffect(() => {
+    const keys = JSON.parse(metricKeysJson) as { farNo: string; sampleNo: string }[];
+    if (keys.length === 0) {
+      setMetrics({});
+      return;
+    }
+    let alive = true;
+    fetch('/api/runtime/far-metrics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keys }),
+    })
+      .then((r) => r.json() as Promise<ApiResult<(FarMetrics & { farNo: string; sampleNo: string })[]>>)
+      .then((result) => {
+        // 못 읽어도 표는 그대로 쓸 수 있어야 한다 — 값 자리에 '—'가 남을 뿐이다.
+        if (!alive || !result.ok) return;
+        setMetrics(
+          Object.fromEntries(result.data.map((m) => [metricKey(m.farNo, m.sampleNo), m]))
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [metricKeysJson]);
 
   function patch(index: number, next: Partial<IssueRow>) {
     setRows(current.map((r, i) => (i === index ? { ...r, ...next } : r)));
@@ -346,7 +474,7 @@ export function IssueTable({
               visible.map(({ row, index }) => {
                 const open = openIndex === index;
                 const usedImages = row.images.reduce((n, file, i) => (file ? i + 1 : n), 0);
-                const slots = Math.max(slotCount[index] ?? DEFAULT_IMAGE_SLOTS, usedImages, DEFAULT_IMAGE_SLOTS);
+                const slots = Math.max(slotCount[index] ?? FIXED_SLOT_COUNT, usedImages, FIXED_SLOT_COUNT);
                 const lastFilled = Boolean(row.images[slots - 1]);
                 return (
                   <RowPair
@@ -355,8 +483,9 @@ export function IssueTable({
                     index={index}
                     open={open}
                     slots={slots}
-                    canShrink={slots > DEFAULT_IMAGE_SLOTS && !lastFilled}
+                    canShrink={slots > FIXED_SLOT_COUNT && !lastFilled}
                     lastFilled={lastFilled}
+                    metrics={metrics[metricKey(row.values.far_no ?? '', row.values.sample_no ?? '')]}
                     locked={locked}
                     saving={saving}
                     onToggle={() => setOpenIndex(open ? null : index)}
@@ -369,7 +498,7 @@ export function IssueTable({
                     }}
                     onAddSlot={() => setSlotCount({ ...slotCount, [index]: slots + 1 })}
                     onRemoveSlot={() => {
-                      const next = Math.max(DEFAULT_IMAGE_SLOTS, slots - 1);
+                      const next = Math.max(FIXED_SLOT_COUNT, slots - 1);
                       setSlotCount({ ...slotCount, [index]: next });
                       if (row.images.length > next) patch(index, { images: row.images.slice(0, next) });
                     }}
@@ -413,6 +542,7 @@ function RowPair({
   slots,
   canShrink,
   lastFilled,
+  metrics,
   locked,
   saving,
   onToggle,
@@ -432,6 +562,8 @@ function RowPair({
   slots: number;
   canShrink: boolean;
   lastFilled: boolean;
+  /** FAR 원장에서 읽어 온 값. 짝을 못 찾으면 undefined — 그때는 값 자리에 `—`가 남는다. */
+  metrics?: FarMetrics;
   locked: boolean;
   saving: boolean;
   onToggle: () => void;
@@ -499,91 +631,118 @@ function RowPair({
       {open && (
         <tr>
           <td className="border bg-muted/20 px-3 py-3" colSpan={ISSUE_COLUMNS.length + 2}>
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-              <div>
-                <p className="mb-1.5 text-[11px] font-semibold tracking-wider uppercase text-muted-foreground">코멘트</p>
-                <textarea
-                  className="min-h-24 w-full rounded border border-input bg-background px-2 py-1.5 text-xs outline-none focus:border-ring"
-                  value={row.comment}
-                  disabled={locked}
-                  placeholder="이 줄에 대해 남길 말"
-                  onChange={(e) => onComment(e.target.value)}
-                  aria-label={`${index + 1}행 코멘트`}
-                />
+            {/*
+              양식 그대로다(첨부): 왼쪽 위에 코멘트, 그 아래 원장에서 끌어온 값,
+              오른쪽에 이름이 정해진 그림 네 자리. 그림을 더 붙이는 자리는 이 아래에 따로 둔다.
+            */}
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+              <div className="flex min-w-0 flex-col gap-2">
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <p className="mb-1.5 text-[11px] font-semibold tracking-wider uppercase text-muted-foreground">
+                    코멘트
+                  </p>
+                  <textarea
+                    className="min-h-24 w-full flex-1 rounded border border-input bg-background px-2 py-1.5 text-xs outline-none focus:border-ring"
+                    value={row.comment}
+                    disabled={locked}
+                    placeholder="이 줄에 대해 남길 말"
+                    onChange={(e) => onComment(e.target.value)}
+                    aria-label={`${index + 1}행 코멘트`}
+                  />
+                </div>
+
+                {/*
+                  EC와 Write size는 **적는 자리가 아니라 보는 자리**다. FAR 원장이 진실 공급원이고
+                  이 줄에는 이미 FAR No와 Sample No가 있으니, 그것으로 찾아 그대로 보여 준다.
+                  베껴 저장하면 나중에 원장이 고쳐졌을 때 두 값이 어긋난다.
+                */}
+                <table className="w-full border-collapse text-xs">
+                  <tbody>
+                    <MetricRow label="SLC EC(Max/Avg/Min)" text={ecText(metrics?.slc)} />
+                    <MetricRow label="MLC EC(Max/Avg/Min)" text={ecText(metrics?.mlc)} />
+                    <MetricRow label="Write size(GB)" text={metricText(metrics?.writeSize ?? null)} />
+                  </tbody>
+                </table>
+                <p className="text-[11px] text-muted-foreground">
+                  {row.values.far_no && row.values.sample_no
+                    ? metrics
+                      ? `FAR 원장에서 불러온 값입니다 (${row.values.far_no} · Sample ${row.values.sample_no}).`
+                      : `원장에서 ${row.values.far_no} · Sample ${row.values.sample_no}을(를) 찾지 못했습니다.`
+                    : 'FAR No와 Sample No를 적으면 원장에서 값을 불러옵니다.'}
+                </p>
               </div>
 
-              <div>
-                <div className="mb-1.5 flex items-center gap-2">
-                  <p className="text-[11px] font-semibold tracking-wider uppercase text-muted-foreground">그림</p>
-                  <button
-                    type="button"
-                    className="inline-flex h-6 items-center gap-1 rounded border px-2 text-[11px] hover:bg-muted disabled:opacity-40"
-                    onClick={onAddSlot}
-                    disabled={locked}
-                  >
-                    <Plus className="size-3" /> 칸 추가
-                  </button>
-                  {/* 마지막 칸에 그림이 있으면 줄이지 않는다 — 줄이는 김에 그림을 버리지 않기 위해서다. */}
-                  <button
-                    type="button"
-                    className="inline-flex h-6 items-center gap-1 rounded border px-2 text-[11px] hover:bg-muted disabled:opacity-40"
-                    onClick={onRemoveSlot}
-                    disabled={locked || !canShrink}
-                    title={
-                      !canShrink && lastFilled
-                        ? '마지막 칸의 그림을 먼저 지우면 줄일 수 있습니다'
-                        : !canShrink
-                          ? `기본 ${DEFAULT_IMAGE_SLOTS}칸보다 줄일 수는 없습니다`
-                          : '마지막 빈 칸을 줄입니다'
-                    }
-                  >
-                    <Minus className="size-3" /> 칸 줄이기
-                  </button>
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {Array.from({ length: slots }, (_, i) => {
-                    const file = row.images[i] ?? '';
+              <div className="grid grid-cols-2 gap-2">
+                {FIXED_IMAGE_SLOTS.map((label, i) => (
+                  <ImageSlot
+                    key={i}
+                    label={`그림(${label})`}
+                    file={row.images[i] ?? ''}
+                    alt={`${index + 1}행 ${label}`}
+                    locked={locked}
+                    onPick={() => onPick(i)}
+                    onPaste={(file) => onPasteImage(i, file)}
+                    onClear={() => onClearImage(i)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* 아래로 붙이는 그림 — 이름 없는 자리다(사용자 지정). */}
+            <div className="mt-3 border-t pt-3">
+              <div className="mb-1.5 flex items-center gap-2">
+                <p className="text-[11px] font-semibold tracking-wider uppercase text-muted-foreground">
+                  그림 더 넣기
+                </p>
+                <button
+                  type="button"
+                  className="inline-flex h-6 items-center gap-1 rounded border px-2 text-[11px] hover:bg-muted disabled:opacity-40"
+                  onClick={onAddSlot}
+                  disabled={locked}
+                >
+                  <Plus className="size-3" /> 칸 추가
+                </button>
+                {/* 마지막 칸에 그림이 있으면 줄이지 않는다 — 줄이는 김에 그림을 버리지 않기 위해서다. */}
+                <button
+                  type="button"
+                  className="inline-flex h-6 items-center gap-1 rounded border px-2 text-[11px] hover:bg-muted disabled:opacity-40"
+                  onClick={onRemoveSlot}
+                  disabled={locked || !canShrink}
+                  title={
+                    !canShrink && lastFilled
+                      ? '마지막 칸의 그림을 먼저 지우면 줄일 수 있습니다'
+                      : !canShrink
+                        ? '위 네 자리는 양식이라 줄일 수 없습니다'
+                        : '마지막 빈 칸을 줄입니다'
+                  }
+                >
+                  <Minus className="size-3" /> 칸 줄이기
+                </button>
+              </div>
+
+              {slots <= FIXED_SLOT_COUNT ? (
+                <p className="text-[11px] text-muted-foreground">
+                  ‘칸 추가’를 누르면 그림 자리가 여기에 생깁니다.
+                </p>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  {Array.from({ length: slots - FIXED_SLOT_COUNT }, (_, k) => {
+                    const i = FIXED_SLOT_COUNT + k;
                     return (
-                      <div key={i} className="relative">
-                        {file ? (
-                          <>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={IMAGE_URL(file)} alt={`${index + 1}행 그림 ${i + 1}`} className="h-24 w-full rounded border object-contain" />
-                            <button
-                              type="button"
-                              className="absolute top-1 right-1 inline-flex size-5 items-center justify-center rounded bg-background/80 text-muted-foreground hover:text-destructive"
-                              onClick={() => onClearImage(i)}
-                              disabled={locked}
-                              aria-label={`${index + 1}행 그림 ${i + 1} 지우기`}
-                            >
-                              <X className="size-3" />
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              type="button"
-                              className="flex h-24 w-full flex-col items-center justify-center gap-1 rounded border border-dashed text-[11px] text-muted-foreground hover:bg-muted/50 disabled:opacity-40"
-                              onClick={() => onPick(i)}
-                              disabled={locked}
-                            >
-                              <ImagePlus className="size-4" />
-                              눌러서 고르기
-                            </button>
-                            {/* 화면을 캡처해 붙이는 것이 가장 흔한 쓰임이라, 파일을 고르는 길 옆에 함께 둔다. */}
-                            <PasteImageButton
-                              label={`${index + 1}행 그림 ${i + 1}`}
-                              disabled={locked}
-                              className="absolute top-1 right-1 bg-background/80"
-                              onPick={(file) => onPasteImage(i, file)}
-                            />
-                          </>
-                        )}
-                      </div>
+                      <ImageSlot
+                        key={i}
+                        label={`그림 ${k + 1}`}
+                        file={row.images[i] ?? ''}
+                        alt={`${index + 1}행 추가 그림 ${k + 1}`}
+                        locked={locked}
+                        onPick={() => onPick(i)}
+                        onPaste={(file) => onPasteImage(i, file)}
+                        onClear={() => onClearImage(i)}
+                      />
                     );
                   })}
                 </div>
-              </div>
+              )}
             </div>
           </td>
         </tr>
