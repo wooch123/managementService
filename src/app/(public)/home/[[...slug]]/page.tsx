@@ -9,6 +9,7 @@ import { DEFAULT_PERIOD_PRESET, periodQueryValues, resolvePeriod, toIsoDate, typ
 import { AppHeader } from '@/components/shell/AppHeader';
 import { RuntimeRenderer } from '@/components/runtime/RuntimeRenderer';
 import { VisitTracker } from '@/components/runtime/VisitTracker';
+import { GlassPointer } from '@/components/runtime/GlassPointer';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { cn } from '@/lib/utils';
@@ -167,6 +168,8 @@ export default async function HomePage({
       <AppHeader breadcrumbItems={breadcrumbItems} />
       {/* 폭이 좁을수록 여백을 줄인다 — 320px 창에서 좌우 24px씩은 본문의 15%를 먹는다. */}
       <div className={cn('flex-1 overflow-y-auto p-3 sm:p-6', GLASS_PAGES.has(activePage.slug) && 'liquid-glass')}>
+        {/* 마우스를 따라다니는 빛. 카드 뒤(z-index: -1)에 있어야 유리를 통해 비친다. */}
+        {GLASS_PAGES.has(activePage.slug) && <GlassPointer />}
         <RuntimeRenderer
           nodes={activePage.nodes}
           bindingData={bindingData}
