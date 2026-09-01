@@ -828,3 +828,131 @@ tr:hover > .dt-pin-right {
 tr[data-state='selected'] > .dt-pin-right {
   background: color-mix(in oklab, var(--primary) 10%, var(--card));
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * 리퀴드 글라스 — 종합 현황 화면(사용자 지정, 2026-09-01)
+ *
+ * 애플의 그 재질을 흉내 내는 데 필요한 것은 흐림 하나가 아니라 넷이다.
+ *
+ *   1. 비칠 것   유리는 뒤에 무언가 있어야 유리로 보인다. 화면 뒤에 테마 색으로 빛무리를 깔고
+ *                **스크롤해도 따라오지 않게** 고정한다 — 판만 지나가고 빛은 제자리에 있어야
+ *                판이 움직이는 것처럼 보인다.
+ *   2. 두께      위 모서리는 밝고 아래 모서리는 어둡다. inset 그림자 두 겹이 그 몫이다.
+ *   3. 채도      유리를 지난 빛은 더 진해 보인다. `saturate()`. 흐림만 주면 뿌옇기만 하다.
+ *   4. 깊이      바닥에서 살짝 띄운다. 넓고 옅은 그림자 한 겹.
+ *
+ * ── 어떻게 먹이는가 (두 번 밀린 뒤에 찾은 길) ──────────────────────────────────
+ * 카드의 모양은 두 곳에서 정해진다. 그냥 클래스를 만들어 덮으려다 둘 다에 밀렸다.
+ *
+ *   · 반지름·그림자 — 렌더러가 **인라인 style**로 `var(--card-radius)`·`var(--card-shadow)`를
+ *     넣는다(render-node-tree.tsx). 인라인은 어떤 시트보다 세다. 그래서 덮지 않고 **그 변수를
+ *     이 화면에서만 다시 정의한다** — 인라인이 그대로 새 값을 읽어 간다.
+ *   · 배경색 — Tailwind `bg-card` 유틸리티다. `@layer components`에 두면 utilities 레이어가
+ *     나중이라 진다(특이성을 아무리 높여도 레이어 순서가 먼저다). 그래서 이 블록은
+ *     **레이어 밖**에 둔다. 레이어에 속하지 않은 규칙이 모든 레이어를 이긴다.
+ *
+ * 색은 전부 테마 토큰에서 뽑는다 — 네 테마와 라이트/다크 어디서든 그 테마의 색으로 빛난다.
+ * 읽는 것이 먼저다: 흐림을 넉넉히 주고 판을 너무 투명하게 두지 않는다. 옅을수록 유리 같지만
+ * 그 위의 숫자가 읽히지 않으면 대시보드로서는 실패다.
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+.liquid-glass {
+  /* 인라인 style이 읽어 갈 값 — 여기서 바꾸면 카드가 알아서 따라온다. */
+  --card-radius: 20px;
+  --card-shadow:
+    inset 0 1px 0 0 color-mix(in oklab, var(--foreground) 18%, transparent),
+    inset 0 -1px 0 0 color-mix(in oklab, var(--background) 60%, transparent),
+    0 12px 36px -14px color-mix(in oklab, var(--foreground) 30%, transparent);
+
+  /*
+   * 1. 비칠 것. 스크롤과 무관하게 제자리에 있는다.
+   *
+   * 네 자리에 **서로 다른** 차트 색을 쓴다. 처음에 좌상단을 `--chart-1`, 좌하단을 `--primary`로
+   * 뒀는데 테마에 따라 둘이 같은 색이라(그레파이트에서는 둘 다 보라) 왼쪽이 한 덩어리로
+   * 뭉쳤다. `--chart-4`로 갈라 네 색이 겹치지 않게 했다.
+   */
+  background-image:
+    radial-gradient(58% 44% at 8% 4%, color-mix(in oklab, var(--chart-1) 52%, transparent) 0%, transparent 68%),
+    radial-gradient(52% 40% at 92% 8%, color-mix(in oklab, var(--chart-3) 44%, transparent) 0%, transparent 66%),
+    radial-gradient(54% 42% at 80% 88%, color-mix(in oklab, var(--chart-2) 38%, transparent) 0%, transparent 68%),
+    radial-gradient(48% 38% at 16% 92%, color-mix(in oklab, var(--chart-4) 34%, transparent) 0%, transparent 66%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+
+/* 유리판 — 운영 화면의 카드는 모두 `.runtime-cell` 안의 첫 칸이다. */
+.liquid-glass .runtime-cell > div {
+  /* 2·3. 반투명 + 흐림 + 채도. */
+  background-color: color-mix(in oklab, var(--card) 62%, transparent);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  backdrop-filter: blur(28px) saturate(190%);
+  border-color: color-mix(in oklab, var(--foreground) 15%, transparent);
+  /* 판 위로 흐르는 빛(::after)이 모서리 밖으로 새지 않게. */
+  position: relative;
+  isolation: isolate;
+}
+
+/*
+ * 판을 비스듬히 지나가는 빛 한 줄. 이것이 없으면 '흐린 사각형'에 그치고, 있으면 표면이 생긴다.
+ * 클릭을 먹지 않도록 pointer-events를 끈다.
+ */
+.liquid-glass .runtime-cell > div::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    148deg,
+    color-mix(in oklab, var(--foreground) 9%, transparent) 0%,
+    transparent 36%,
+    transparent 64%,
+    color-mix(in oklab, var(--background) 28%, transparent) 100%
+  );
+}
+
+/* 오른쪽 플로팅 패널도 같은 재질로 맞춘다 — 혼자 불투명하면 그것만 떠 보인다. */
+.liquid-glass aside > div {
+  border-radius: 20px;
+  background-color: color-mix(in oklab, var(--card) 62%, transparent);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  backdrop-filter: blur(28px) saturate(190%);
+  border-color: color-mix(in oklab, var(--foreground) 15%, transparent);
+  box-shadow:
+    inset 0 1px 0 0 color-mix(in oklab, var(--foreground) 18%, transparent),
+    0 12px 36px -14px color-mix(in oklab, var(--foreground) 30%, transparent);
+}
+
+/*
+ * 흐림을 못 쓰는 브라우저에서는 판을 불투명하게 되돌린다. 그대로 두면 빛무리가 글자 뒤에
+ * 그대로 비쳐 읽기 어려워진다 — 못 쓰는 쪽이 더 나쁜 화면을 보게 두지 않는다.
+ */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .liquid-glass .runtime-cell > div,
+  .liquid-glass aside > div {
+    background-color: var(--card);
+  }
+}
+
+/*
+ * 투명함을 줄이도록 설정한 사용자에게는 유리를 걷는다. 이 설정을 켜는 이유가 대개 "겹쳐 비치는
+ * 것이 읽기 어려워서"이므로, 흐림도 빛무리도 없애고 평범한 카드로 돌아간다.
+ */
+@media (prefers-reduced-transparency: reduce) {
+  .liquid-glass {
+    background-image: none;
+    --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+  }
+
+  .liquid-glass .runtime-cell > div,
+  .liquid-glass aside > div {
+    background-color: var(--card);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .liquid-glass .runtime-cell > div::after {
+    display: none;
+  }
+}
