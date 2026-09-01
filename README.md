@@ -331,6 +331,64 @@ pnpm test:e2e       # Playwright, 10개 시나리오
 엔티티 9종(`lots`, `inspections`, `defects`, `measurements`, `equipments`, `quality_issues`,
 `capa_actions`, `incoming_materials`, `daily_quality`) · 시드 데이터 289행.
 
+## 외부 연동 API (써드파티)
+
+사내 다른 시스템·스크립트가 업무 표를 직접 읽고 쓸 수 있는 창구. 화면을 거치지 않고 데이터만 주고받는다.
+
+### 인증
+
+```
+Authorization: Bearer <EXTERNAL_API_TOKEN>
+```
+
+`.env.local`의 `EXTERNAL_API_TOKEN`을 쓰고, 없으면 `FAR_API_TOKEN`을 대신 본다. **토큰을 설정하지 않은
+환경에서는 관리자 세션으로만 호출된다** — 토큰이 없다고 문을 열어 두면 설정을 깜빡한 것과 "누구나 써도
+된다"가 구별되지 않기 때문이다. 토큰은 아무 긴 임의 문자열이면 된다.
+
+```powershell
+# 새 토큰 만들기
+node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"
+```
+
+### 어떤 표를 쓸 수 있는지 물어보기
+
+```
+GET /api/external
+```
+
+표 목록과 **각 표의 칸 이름·타입·필수 여부**를 지금 설계 그대로 돌려준다. 칸은 관리자 화면에서
+바뀌므로 문서에 베껴 두지 않았다 — 연동하는 쪽은 여기를 먼저 보면 된다.
+
+현재 열려 있는 표: `far_table`(FAR List) · `dram_lf_table` · `issue_page` · `issue_row` ·
+`pkg_stack` · `reball_table` · `reball_cost_table` · `tech_report` · `tech_report_sample`
+
+### 읽기 / 쓰기
+
+| 메서드 | 주소 | 본문 |
+|---|---|---|
+| `GET` | `/api/external/<표>?<칸>=<값>&limit=50&page=1` | — |
+| `POST` | `/api/external/<표>` | `{ "values": { "<칸>": <값> } }` |
+| `PATCH` | `/api/external/<표>` | `{ "where": {...} \| "id": "...", "values": {...} }` |
+| `DELETE` | `/api/external/<표>` | `{ "where": {...} \| "id": "..." }` |
+
+```bash
+# FAR 번호로 찾아 인계 담당자만 바꾸기 — 내부 id를 몰라도 된다
+curl -X PATCH https://<호스트>/api/external/far_table \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"where":{"far_no":"FAR-2026-001"},"values":{"handover_name":"홍길동"}}'
+```
+
+### 알아 둘 것
+
+- **여러 줄이 걸리면 손대지 않는다.** `where`에 둘 이상 걸리면 `409 AMBIGUOUS`로 멈추고 몇 줄이
+  걸렸는지 알려 준다. 정말 전부 바꾸려면 `"all": true`를 함께 보낸다(한 번에 200줄까지).
+- `PATCH`에 `"upsert": true`를 주면 걸리는 줄이 없을 때 `where`+`values`로 새로 만든다.
+- 설계에 없는 칸을 보내면 그 이름을 돌려주며 거절한다. `id`·`created_at`·`updated_at`은 서버가 붙인다.
+- JSON 칸(Signature 목록, 그림 목록, 적층 줄)은 배열/객체를 그대로 주고받는다.
+- 응답은 전부 `{ "ok": true, "data": ... }` 또는 `{ "ok": false, "error": { "code", "message" } }`.
+- **분석 이력(`far_analysis_log`)은 이 창구로 쓸 수 없다.** 회차와 원장 갱신이 짝을 이뤄야 해서
+  전용 창구가 따로 있다: `POST /api/far/analysis`.
+
 ## 알려진 제한사항
 
 - `select`/`native-select`/`date-picker` 등 일부 입력 컴포넌트는 값 바인딩을 지원하지 않는다(정적 렌더) — 운영 폼은 `input`으로 구성하고 ENUM은 액션의 고정값으로 채운다.
