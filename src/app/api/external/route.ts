@@ -70,6 +70,7 @@ export async function GET(request: NextRequest) {
       usage: {
         auth: '사내망에서는 토큰 없이. 인터넷(공개 주소)에서는 Authorization: Bearer <EXTERNAL_API_TOKEN>',
         checkAccess: 'GET /api/external?check=access — 지금 이 요청이 사내로 보이는지 확인',
+        guide: 'GET /api/docs/external-api — 상세 가이드(md). ?download=1 이면 파일로 저장',
         read: 'GET /api/external/<table>?<column>=<value>&limit=50&page=1',
         create: 'POST /api/external/<table>  { "values": { "<column>": <value> } }',
         update: 'PATCH /api/external/<table>  { "where": { "<column>": <value> }, "values": {...} }',

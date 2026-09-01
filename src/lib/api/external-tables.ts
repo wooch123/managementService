@@ -44,6 +44,10 @@ export type TableField = {
   label: string;
   type: string;
   required: boolean;
+  /** ENUM 칸이 받는 값들. 가이드에 적어 두면 연동하는 쪽이 되묻지 않아도 된다. */
+  enumValues?: string[];
+  /** 값을 안 보냈을 때 들어가는 값. 있으면 필수 칸이라도 생략할 수 있다. */
+  defaultValue?: string;
 };
 
 export type TableInfo = {
@@ -73,8 +77,22 @@ export async function tableInfo(tableName: ExternalTable): Promise<TableInfo | n
       label: f.name,
       type: f.dataType,
       required: f.isRequired,
+      enumValues: parseEnumValues(f.enumValues),
+      defaultValue: f.defaultVal ?? undefined,
     })),
   };
+}
+
+/** enumValues는 JSON 배열 문자열로 저장된다. 깨져 있어도 가이드 생성이 멈추지는 않게 한다. */
+function parseEnumValues(raw: string | null): string[] | undefined {
+  if (!raw) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.map((v) => String(v));
+  } catch {
+    // 설계가 손상된 칸 하나 때문에 문서 전체를 못 만들 이유는 없다.
+  }
+  return undefined;
 }
 
 /** 칸 이름 → 설계 정보. 바깥에서 온 이름은 반드시 이걸 거쳐야 한다. */

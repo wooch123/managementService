@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { Area, AreaChart, CartesianGrid, Line, XAxis, YAxis } from 'recharts';
+import { FileDown } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import type { VisitSummary } from '@/lib/stats/visits';
 import type { ApiResult } from '@/types/auth';
@@ -44,6 +46,25 @@ function Tile({ label, value, unit, hint }: { label: string; value: string; unit
   );
 }
 
+/**
+ * 외부 연동 API 가이드를 md로 받는 단추(사용자 지정).
+ *
+ * 링크 하나로 끝낸다 — 서버가 `Content-Disposition: attachment`를 붙여 주므로 blob을 만들거나
+ * URL.createObjectURL을 붙였다 떼는 손질이 필요 없고, 자바스크립트가 죽어도 동작한다.
+ *
+ * 문서는 받을 때마다 설계에서 새로 만들어지므로, 칸을 고친 뒤 다시 받으면 그 내용이 들어 있다.
+ */
+function ApiGuideDownload() {
+  return (
+    <Button asChild variant="outline" size="sm" className="shrink-0">
+      <a href="/api/docs/external-api?download=1" download title="써드파티 연동용 API 가이드를 md 파일로 받습니다">
+        <FileDown className="size-4" />
+        API 가이드
+      </a>
+    </Button>
+  );
+}
+
 export function VisitStats({ title, description, days }: { title: string; description: string; days: number }) {
   const [data, setData] = useState<VisitSummary | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -70,10 +91,13 @@ export function VisitStats({ title, description, days }: { title: string; descri
     };
   }, [days]);
 
-  const header = (title || description) && (
-    <div className="shrink-0">
-      {title && <h3 className="text-sm font-medium">{title}</h3>}
-      {description && <p className="text-xs text-muted-foreground">{description}</p>}
+  const header = (
+    <div className="flex shrink-0 items-start justify-between gap-3">
+      <div className="min-w-0">
+        {title && <h3 className="text-sm font-medium">{title}</h3>}
+        {description && <p className="text-xs text-muted-foreground">{description}</p>}
+      </div>
+      <ApiGuideDownload />
     </div>
   );
 
