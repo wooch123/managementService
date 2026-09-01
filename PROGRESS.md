@@ -4553,3 +4553,30 @@ typecheck·lint 무경고, `pnpm test` 383개 통과.
 ```
 
 typecheck·lint 무경고.
+
+---
+
+## 2026-09-01 — 리퀴드 글라스를 되돌린다
+
+사용자 지정으로 종합 현황의 유리 재질(배경 조명 · 흐르는 빛 · 마우스 추적 조명)을 전부
+적용 전 상태로 되돌렸다.
+
+**`git revert`를 쓰지 않았다.** 되돌릴 커밋 셋 중 하나(`48c7be0`)에 `data/app.db`와
+`prisma/meta.db`가 함께 담겨 있어, 통째로 되돌리면 **그 사이에 쌓인 운영 데이터까지 사라진다**
+(방문 기록 등). 그래서 코드 파일만 골라 `e266e47` 상태로 되돌리고 DB는 손대지 않았다.
+
+되돌린 것은 셋이고, 셋 다 리퀴드 작업만 건드린 파일이라 다른 작업이 딸려가지 않았다.
+
+```
+src/app/globals.css                          e266e47 상태로 (해시 대조 동일)
+src/app/(public)/home/[[...slug]]/page.tsx   e266e47 상태로 (해시 대조 동일)
+src/components/runtime/GlassPointer.tsx      삭제(그때는 없던 파일)
+```
+
+```
+흔적 검색     liquid-glass · glass-pointer · glass-drift · GLASS_PAGES · GlassPointer 모두 0곳
+화면 실측     카드 배경 rgb(30,33,38) 불투명 · 반지름 14px · backdrop-filter none · contain none
+DB            변경 없음(운영 데이터 보존)
+```
+
+`pnpm test` 383개 통과, typecheck·lint 무경고.
