@@ -213,13 +213,22 @@ function hub(slug: string, title: string, icon: string, items: { title: string; 
  * ① 종합 현황 — 「sample page/종합 현황.html」의 배치를 그대로 옮긴 화면.
  *
  * 양식의 순서: 작은 카드 셋 → 접수 추이 둘 → 교차 히트맵 둘 → 분류별 누적 막대 둘 →
- * 파레토 한 줄 → 목록 한 줄. 양식과 다른 곳은 두 군데뿐이고, 이유는 이렇다.
+ * 파레토 한 줄 → 목록 한 줄. 양식과 다른 곳은 한 군데다.
  *
  *   · **맨 위 조회 기간 필터** — 양식은 카드마다 'Last 7 months' 상자를 달아 뒀지만, 이 앱의
  *     차트는 화면 하나가 같은 기간 위에서 조회된다(지표끼리 다른 구간을 보면 안 된다).
  *     그래서 카드마다 두는 대신 화면 맨 위에 하나 두고 전부가 그것을 따른다.
- *   · **맨 아래 화면 바로가기** — 양식에는 없다. 홈에서 어느 화면으로도 갈 수 없으면 구성 검증이
- *     나머지를 '도달할 수 없는 페이지'로 잡는다(W-REL-007). 양식의 내용 뒤에 덧붙여 둔다.
+ *
+ * 맨 아래에 '화면 바로가기' 카드를 두었다가 걷어냈다(사용자 지정, 2026-09-01).
+ *
+ * 그 카드가 있던 이유는 구성 검증(W-REL-007) 때문이었고, 걷어내니 실제로 **경고 26건**이
+ * 생겼다. 규칙은 스펙의 `NAVIGATES` 관계(컴포넌트·액션 → 페이지)만 세는데, 사이드바는
+ * 페이지 트리에서 자동으로 그려져 관계로 남지 않기 때문이다.
+ *
+ * 그래도 걷어낸 채로 둔다. 사람은 사이드바로 모든 화면에 갈 수 있으므로 **실제로 막힌 화면은
+ * 없고**, 경고이지 오류가 아니라 배포도 막지 않는다. 화면 아래 절반을 링크 목록이 차지하는
+ * 값이 그 경고를 없애는 값보다 크다고 보았다. 되돌리려면 이 자리에 `nav-cards` 노드를
+ * 다시 두면 된다.
  */
 function overview(): SitePage {
   const p = period('rcv_date');
@@ -429,28 +438,6 @@ function overview(): SitePage {
         },
       },
 
-      {
-        type: 'nav-cards',
-        col: 1,
-        span: 12,
-        row: 88,
-        rowSpan: 16,
-        props: {
-          title: '화면 바로가기',
-          subtitle: '',
-          columns: 4,
-          items: [
-            { title: '접수 / 분석 현황', description: '담당자 지정 · 분석 진행', slug: 'intake', meta: '' },
-            { title: 'Reball', description: '의뢰서 작성 · 진행 현황', slug: 'reball', meta: '' },
-            { title: '분석 의뢰서', description: '유형별 의뢰서', slug: 'request', meta: '' },
-            { title: '주요 Issue', description: '이슈 기록', slug: 'issues', meta: '' },
-            { title: '정보', description: '제품 정보 · 분석 Tip · 계산기', slug: 'info', meta: '' },
-            { title: '분석 Infra 관리', description: '장비 · 기능 요구사항', slug: 'infra', meta: '' },
-            { title: '접속자 통계', description: '일간 접속자 · 화면별 이용률', slug: 'visit-stats', meta: '' },
-            { title: '피드백 게시판', description: '개선 요청 · 불편 접수', slug: 'feedback', meta: '' },
-          ],
-        },
-      },
     ],
   };
 }
