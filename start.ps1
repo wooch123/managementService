@@ -89,9 +89,31 @@ $Port = [int]$Port
 Write-Tint 'WebApp_V1 - 로컬 실행 준비' 'DarkGray'
 
 # ── 0) 이 저장소가 맞는지 ───────────────────────────────────────────────────
-if (-not (Test-Path 'package.json'))   { Die 'package.json이 없습니다. 저장소 루트에서 실행하세요.' }
-if (-not (Test-Path 'prisma\meta.db')) { Die 'prisma\meta.db가 없습니다. 저장소를 다시 받아 주세요(설계 데이터가 저장소에 함께 들어 있습니다).' }
-if (-not (Test-Path 'data\app.db'))    { Die 'data\app.db가 없습니다. 저장소를 다시 받아 주세요(업무 데이터가 저장소에 함께 들어 있습니다).' }
+#
+# DB는 "있는지"만 보면 모자란다. SQLite는 없는 파일을 열라면 말없이 빈 DB를 만들기 때문에,
+# 한 번 잘못 띄우고 나면 0바이트짜리 meta.db가 남는다. 그 뒤로는 파일이 '있으니' Test-Path는
+# 통과하고, 앱만 "The table main.Revision does not exist"로 계속 깨진다 - 원인을 찾기
+# 어려운 쪽이라 여기서 크기와 머리글까지 본다(실제로 이 오류가 보고됐다).
+function Test-SqliteDb {
+  param([string]$Path)
+  if (-not (Test-Path $Path)) { return '파일이 없습니다' }
+  $len = (Get-Item $Path).Length
+  if ($len -eq 0) { return '파일이 비어 있습니다(0바이트). 앞선 실행이 만들어 둔 빈 파일이니 지우고 다시 받으세요' }
+  try {
+    $head = [System.IO.File]::ReadAllBytes($Path)[0..14]
+    if ([System.Text.Encoding]::ASCII.GetString($head) -ne 'SQLite format 3') { return 'SQLite 파일이 아닙니다(내용이 깨졌을 수 있습니다)' }
+  } catch { return '읽지 못했습니다' }
+  return $null
+}
+
+if (-not (Test-Path 'package.json')) { Die 'package.json이 없습니다. 저장소 루트에서 실행하세요.' }
+foreach ($db in @(
+  @{ Path = 'prisma\meta.db'; What = '설계 데이터' },
+  @{ Path = 'data\app.db';    What = '업무 데이터' }
+)) {
+  $problem = Test-SqliteDb $db.Path
+  if ($problem) { Die "$($db.Path) — $problem. $($db.What)는 저장소에 함께 들어 있습니다: git checkout -- $($db.Path)" }
+}
 
 # package.json이 못 박아 둔 pnpm 버전 — 대체 경로로 넣을 때도 같은 것을 넣는다.
 $wantPnpm = 'latest'

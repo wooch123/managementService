@@ -4236,3 +4236,57 @@ API vs SQL 직접 대조     723 / 이내 304 / 초과 419 / 완료 424 — 모�
 
 `pnpm test` 365개 통과(TAT 경계·넘침·중앙값 시험 13개 추가), typecheck·lint 무경고.
 `pnpm validate` 오류 0.
+
+---
+
+## 2026-09-01 — 빈 DB를 말없이 만들고 Prisma 탓을 하던 고장
+
+```
+📊 진행 상황
+├ 전체 진척도: 100% (운영 중 · 리비전 #88)
+├ 현재 작업: DB 파일 검사 — 완료
+├ 이번 작업: 100% (재현 → 고침 → 재현 안 됨 확인)
+├ 예상 남은 시간: 0m
+└ 리스크: 없음
+```
+
+사용자 보고: 커밋본을 받아 실행하니 `Invalid prisma.revision.findUnique() invocation` 오류.
+
+**저장소는 멀쩡했다.** 새로 클론해 개발·운영 모드 둘 다 띄워 보니 `/home` 200,
+`/api/health`가 리비전 88을 돌려줬다. `.gitattributes`에 `*.db binary`가 있고, 커밋된 blob과
+작업본이 바이트 단위로 같으며 머리글도 `SQLite format 3`. 마이그레이션도 drift 없음.
+
+**진짜 원인은 SQLite의 성질이었다.** 없는 파일을 열라고 하면 **말없이 빈 DB를 만든다.**
+직접 재현했다.
+
+| 상황 | 일어나는 일 |
+|---|---|
+| `prisma/` 폴더도 없음 | `Error code 14: Unable to open the database file` |
+| `prisma/`는 있고 `meta.db`만 없음 | **0바이트 DB가 생기고** → `The table 'main.Revision' does not exist` |
+
+두 번째가 보고된 오류다. 더 나쁜 것은 **그 빈 파일이 남는다**는 점이다. 그 뒤로는 파일이
+'있으니' `Test-Path`·`-f`·`existsSync` 검사가 전부 통과하고, 앱만 계속 같은 오류로 깨진다 —
+받아서 다시 해 봐도 낫지 않는 종류의 고장이다.
+
+경로가 `process.cwd()` 기준으로 풀리는 것(`paths.ts`)도 같은 결과를 낸다: 저장소 밖에서 띄우면
+엉뚱한 곳에 빈 DB가 생긴다.
+
+**고친 것 — 열기 전에 막고, 어디를 보고 있는지 말해 준다.**
+
+`src/lib/db/assert-db.ts`가 파일 존재·크기·머리글(`SQLite format 3\0`)을 보고, 문제가 있으면
+파일을 만들지 않고 던진다. 메시지에 **푼 절대경로와 현재 실행 위치**를 함께 적는다 — 이 둘만
+있으면 "폴더를 잘못 잡았다"가 한눈에 보인다. `prisma.ts`와 `app-db.ts`가 이걸 거친다
+(`pnpm db:init`은 `getAppDb`를 안 거치므로 DB를 새로 만드는 길은 그대로 열려 있다).
+
+`start.ps1`·`run.sh`·`setup:local`의 검사도 "있는지"에서 "크기·머리글까지"로 바꿨다. 예전
+검사는 0바이트 파일을 정상으로 봤다 — 정작 이 고장이 났을 때 통과시키던 검사였다.
+
+```
+0바이트 meta.db로 재현     고치기 전: The table `main.Revision` does not exist
+                          고친 뒤:  파일이 비어 있습니다(0바이트) + 절대경로 + 실행 위치
+run.sh                    ✗ prisma/meta.db가 비어 있습니다(0바이트) … git checkout --
+setup:local               비어 있음(0바이트)! + 되돌리는 명령
+되돌린 뒤                  3.8MB 정상 인식, 앱 정상
+```
+
+`pnpm test` 373개 통과(파일 검사 시험 8개 추가), typecheck·lint 무경고.

@@ -65,12 +65,32 @@ const checks = [
 let missing = false;
 for (const [file, what] of checks) {
   const full = path.join(root, file);
-  if (fs.existsSync(full)) {
-    steps.push(`${file} — ${(fs.statSync(full).size / 1024 / 1024).toFixed(1)}MB · ${what}`);
-  } else {
-    steps.push(`${file} — 없음! ${what}가 빠졌다`);
+  const problem = checkSqlite(full);
+  if (problem) {
+    steps.push(`${file} — ${problem} (${what})`);
     missing = true;
+  } else {
+    steps.push(`${file} — ${(fs.statSync(full).size / 1024 / 1024).toFixed(1)}MB · ${what}`);
   }
+}
+
+/**
+ * 있는지만 보면 모자란다. SQLite는 없는 파일을 열라면 **말없이 빈 DB를 만들기** 때문에, 한 번
+ * 잘못 띄우고 나면 0바이트짜리 meta.db가 남는다. 그 뒤로는 파일이 '있으니' existsSync는
+ * 통과하고 앱만 `The table main.Revision does not exist`로 계속 깨진다 — 원인을 찾기 어려운
+ * 쪽이라 크기와 머리글까지 본다(실제로 이 오류가 보고됐다).
+ */
+function checkSqlite(full) {
+  if (!fs.existsSync(full)) return '없음!';
+  if (fs.statSync(full).size === 0) return '비어 있음(0바이트)! 앞선 실행이 만들어 둔 빈 파일이다';
+  const head = Buffer.alloc(15);
+  const fd = fs.openSync(full, 'r');
+  try {
+    fs.readSync(fd, head, 0, 15, 0);
+  } finally {
+    fs.closeSync(fd);
+  }
+  return head.toString('latin1') === 'SQLite format 3' ? null : 'SQLite 파일이 아님(깨졌을 수 있다)!';
 }
 
 // ── 4) Prisma 클라이언트
@@ -86,7 +106,11 @@ console.log('\n준비 결과');
 for (const step of steps) console.log(`  · ${step}`);
 console.log(
   missing
-    ? '\n데이터 파일이 빠졌습니다. 저장소를 다시 받아 주세요.'
+    ? `\n데이터 파일에 문제가 있습니다. 저장소에 함께 들어 있는 파일이니 되돌리세요:
+  git checkout -- prisma/meta.db data/app.db
+
+빈 파일(0바이트)이 남아 있다면 그것부터 지워야 합니다 — 파일이 '있는' 상태라서
+앱은 뜨지만 모든 질의가 "The table main.Revision does not exist"로 깨집니다.`
     : `\n이제 실행하면 됩니다:
   pnpm dev                     개발 서버 → http://localhost:3000/home
   pnpm build && pnpm start     운영 모드

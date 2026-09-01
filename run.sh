@@ -77,9 +77,23 @@ case "$PORT" in (*[!0-9]*|'') die "포트는 숫자여야 합니다: $PORT" ;; e
 printf '%s\n' "${C_DIM}WebApp_V1 — 로컬 실행 준비${C_OFF}"
 
 # ── 0) 이 저장소가 맞는지 ───────────────────────────────────────────────────
+#
+# DB는 "있는지"만 보면 모자란다. SQLite는 없는 파일을 열라면 말없이 빈 DB를 만들기 때문에,
+# 한 번 잘못 띄우고 나면 0바이트짜리 meta.db가 남는다. 그 뒤로는 파일이 '있으니' -f 검사는
+# 통과하고 앱만 "The table main.Revision does not exist"로 계속 깨진다 — 원인을 찾기 어려운
+# 쪽이라 크기와 머리글까지 본다(실제로 이 오류가 보고됐다).
+check_db() {
+  file=$1; what=$2
+  [ -f "$file" ] || die "$file가 없습니다. $what는 저장소에 함께 들어 있습니다: git checkout -- $file"
+  [ -s "$file" ] || die "$file가 비어 있습니다(0바이트). 앞선 실행이 만들어 둔 빈 파일입니다: git checkout -- $file"
+  if [ "$(head -c 15 "$file" 2>/dev/null)" != 'SQLite format 3' ]; then
+    die "$file가 SQLite 파일이 아닙니다(내용이 깨졌을 수 있습니다): git checkout -- $file"
+  fi
+}
+
 [ -f package.json ] || die "package.json이 없습니다. 저장소 루트에서 실행하세요."
-[ -f prisma/meta.db ] || die "prisma/meta.db가 없습니다. 저장소를 다시 받아 주세요(설계 데이터가 저장소에 함께 들어 있습니다)."
-[ -f data/app.db ]   || die "data/app.db가 없습니다. 저장소를 다시 받아 주세요(업무 데이터가 저장소에 함께 들어 있습니다)."
+check_db prisma/meta.db '설계 데이터'
+check_db data/app.db '업무 데이터'
 
 # sudo를 쓸 수 있는지 — root면 필요 없고, 없으면 홈 디렉터리 설치로 우회한다.
 SUDO=''

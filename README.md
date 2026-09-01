@@ -150,6 +150,36 @@ pnpm --version
 
 ---
 
+### 받아서 띄웠는데 `The table 'main.Revision' does not exist` 가 난다
+
+```
+Invalid `prisma.revision.findUnique()` invocation:
+The table `main.Revision` does not exist in the current database.
+```
+
+**설계 DB(`prisma/meta.db`)를 못 찾은 것이다.** Prisma가 고장 난 것이 아니다.
+
+SQLite는 없는 파일을 열라고 하면 말없이 **빈 DB를 만든다.** 그래서 파일이 빠졌거나 저장소 밖에서
+띄우면, 실패하는 대신 0바이트짜리 `meta.db`가 생기고 그다음부터 모든 질의가 위 오류로 깨진다.
+게다가 그 빈 파일이 남아 **다음 실행도 같은 오류로 계속 실패한다**(파일이 '있으니' 그동안의
+존재 검사는 통과해 버렸다).
+
+지금은 열기 전에 막고, 어느 절대경로를 보고 있는지와 실행 위치를 함께 알려 준다. 고치는 법:
+
+```bash
+# 1) 남아 있는 빈 파일을 지우고 진짜 파일을 되돌린다
+git checkout -- prisma/meta.db data/app.db
+
+# 2) 제대로 들어왔는지 확인 (3.8MB / 1.1MB 정도가 나와야 한다)
+pnpm setup:local
+```
+
+`git checkout`이 "파일이 사용 중"이라며 실패하면 **서버가 그 DB를 잡고 있는 것이다.** 서버를
+멈춘 뒤 다시 시도한다.
+
+저장소 폴더가 아닌 곳에서 띄우면 같은 일이 난다 — 경로는 **실행 위치 기준**으로 풀린다.
+`start.bat`·`run.sh`는 알아서 저장소 폴더로 이동하므로 그것을 쓰면 걱정할 것이 없다.
+
 ## 이 문서와 다른 문서의 역할
 
 | 문서 | 용도 |

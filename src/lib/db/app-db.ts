@@ -1,11 +1,16 @@
 import 'server-only';
 import Database from 'better-sqlite3';
 import { appDbPath } from '@/lib/db/paths';
+import { assertSqliteDb } from '@/lib/db/assert-db';
 
 let instance: Database.Database | null = null;
 
 export function getAppDb(): Database.Database {
   if (instance) return instance;
+  // 열기 전에 파일이 진짜 있는지 본다. 없으면 better-sqlite3가 말없이 빈 DB를 만들고,
+  // 그다음부터 "no such table" 로 깨진다 — 원인이 파일 부재라는 게 보이지 않는다.
+  // (DB를 처음 만드는 `pnpm db:init`은 이 함수를 거치지 않으므로 영향받지 않는다.)
+  assertSqliteDb(appDbPath(), 'app');
   instance = new Database(appDbPath());
   instance.pragma('journal_mode = WAL');
   // 여러 워커 프로세스가 동시에 쓰면 순간적으로 잠금이 겹친다. 바로 실패시키지 않고 기다린다
