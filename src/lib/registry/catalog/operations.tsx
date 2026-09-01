@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { FailRateCalculator, FailRateCalculatorPreview } from '@/components/runtime/FailRateCalculator';
 import { VisitStats, VisitStatsPreview } from '@/components/runtime/VisitStats';
+import { TatHistogram, TatHistogramPreview } from '@/components/runtime/TatHistogram';
 import { ReballCost, ReballCostPreview, toCostRow, type ReballWorkValue } from '@/components/runtime/ReballCost';
 import { ReballRequestTable, ReballRequestTablePreview, type ReballRow } from '@/components/runtime/ReballRequestTable';
 import { PkgStack, PkgStackPreview, type PkgStackEdit, type PkgStackValue } from '@/components/runtime/PkgStack';
@@ -75,6 +76,43 @@ export const operationsComponents = [
         <VisitStats title={props.title} description={props.description} days={props.days} />
       ) : (
         <VisitStatsPreview title={props.title} />
+      ),
+  }),
+
+  defineComponent({
+    key: 'tat-histogram',
+    label: 'TAT 분포',
+    group: '통계 차트',
+    icon: 'chart-column',
+    description: '가로축 TAT(일) · 세로축 FAR 건수 — 기준을 넘긴 칸은 색을 달리해 초과건으로 보인다',
+    isContainer: false,
+    growsWithContent: false,
+    /**
+     * 바인딩이 없다. TAT는 접수일과 완료 시각의 차이인데 완료 시각은 다른 표(분석 이력)에
+     * 있어서, 컬럼 하나로 묶는 방식(mode: 'group')으로는 나오지 않는다 — 전용 창구로 읽는다.
+     */
+    bindingModes: [],
+    events: [],
+    propsSchema: z.object({
+      title: z.string().default('TAT 현황'),
+      description: z.string().default(''),
+      /** 이 값을 **넘으면** 초과다(14면 15일부터). */
+      threshold: z.number().int().min(1).max(365).default(14),
+      /** 여기까지는 하루 한 칸, 그 너머는 마지막 한 칸에 모은다. */
+      maxDays: z.number().int().min(7).max(365).default(30),
+    }),
+    defaultProps: { title: 'TAT 현황', description: '', threshold: 14, maxDays: 30 },
+    defaultGrid: { span: 12, rowSpan: 16 },
+    render: ({ props, onValueChange }) =>
+      typeof onValueChange === 'function' ? (
+        <TatHistogram
+          title={props.title}
+          description={props.description}
+          threshold={props.threshold}
+          maxDays={props.maxDays}
+        />
+      ) : (
+        <TatHistogramPreview title={props.title} />
       ),
   }),
 

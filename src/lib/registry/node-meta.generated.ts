@@ -1918,6 +1918,22 @@ export const nodeMeta: Record<string, NodeMeta> = {
     "bindingModes": [],
     "events": []
   },
+  "tat-histogram": {
+    "isContainer": false,
+    "allowedChildren": null,
+    "defaultGrid": {
+      "span": 12,
+      "rowSpan": 16
+    },
+    "defaultProps": {
+      "title": "TAT 현황",
+      "description": "",
+      "threshold": 14,
+      "maxDays": 30
+    },
+    "bindingModes": [],
+    "events": []
+  },
   "reball-cost": {
     "isContainer": false,
     "allowedChildren": null,

@@ -371,15 +371,24 @@ function overview(): SitePage {
         bind: { mode: 'group', table: 'far_table', groupField: 'device', seriesField: 'failmode1', fn: 'count', filters: p, orderBy: 'value', limit: 10 },
       },
 
-      // ── 파레토 한 줄 ────────────────────────────────────────────────────
+      /**
+       * ── TAT 분포 한 줄 ──────────────────────────────────────────────────
+       * 담당자별 파레토였던 자리(사용자 지정 2026-09-01). 가로축을 TAT 자체로 두면 '누가
+       * 많이 밀렸나'가 아니라 '얼마나 걸리고 있나'가 보인다 — 분포의 모양이 그대로 드러난다.
+       * 14일을 넘는 칸은 색이 달라져 초과건으로 읽힌다.
+       */
       {
-        type: 'stat-pareto',
+        type: 'tat-histogram',
         col: 1,
         span: 12,
         row: 53,
         rowSpan: 14,
-        props: { title: 'TAT 현황', subtitle: '마감을 넘긴 건을 담당자별로 — 점선은 누적 80%', yLabel: '' },
-        bind: { mode: 'group', table: 'far_table', groupField: 'name', fn: 'count', filters: [overdue, ...p], orderBy: 'value', limit: 12 },
+        props: {
+          title: 'TAT 현황',
+          description: '가로축 TAT(일) · 세로축 FAR 건수 — 14일을 넘는 칸은 초과건입니다',
+          threshold: 14,
+          maxDays: 30,
+        },
       },
 
       // ── TAT 임박 목록 ───────────────────────────────────────────────────
