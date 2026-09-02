@@ -11,6 +11,7 @@ import { RuntimeRenderer } from '@/components/runtime/RuntimeRenderer';
 import { VisitTracker } from '@/components/runtime/VisitTracker';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
+import { cn } from '@/lib/utils';
 import type { ComponentNodeSpec, PublishedSpec } from '@/types/spec';
 
 /** 기간 필터 컴포넌트의 카탈로그 키 — 런타임이 이 타입을 보고 페이지의 조회 기간을 정한다. */
@@ -52,6 +53,15 @@ function findPeriodFilter(nodes: ComponentNodeSpec[]): ComponentNodeSpec | null 
   if (filters.length === 0) return null;
   return [...filters].sort((a, b) => a.grid.row - b.grid.row || a.grid.col - b.grid.col)[0];
 }
+
+/**
+ * 카드 모서리에 얕은 볼록함을 주는 화면(사용자 지정, 2026-09-01).
+ *
+ * 화면 이름으로 고른다. 설계(스펙)에 '꾸밈' 항목을 새로 만들지 않은 이유: 지금 필요한 것은
+ * 한 화면뿐이고, 스펙에 칸을 늘리면 검증·배포·마이그레이션이 모두 딸려 온다. 다른 화면에도
+ * 입히려면 이 목록에 이름을 더하면 된다. 생김새는 globals.css의 `.card-bevel`에 있다.
+ */
+const BEVEL_PAGES = new Set(['overview']);
 
 /** 배포된 스펙에서 이 주소가 가리키는 화면을 찾는다(slug가 없으면 홈). */
 function findActivePage(spec: PublishedSpec | null, slug: string[] | undefined) {
@@ -156,7 +166,7 @@ export default async function HomePage({
       <VisitTracker slug={activePage.slug} />
       <AppHeader breadcrumbItems={breadcrumbItems} />
       {/* 폭이 좁을수록 여백을 줄인다 — 320px 창에서 좌우 24px씩은 본문의 15%를 먹는다. */}
-      <div className="flex-1 overflow-y-auto p-3 sm:p-6">
+      <div className={cn('flex-1 overflow-y-auto p-3 sm:p-6', BEVEL_PAGES.has(activePage.slug) && 'card-bevel')}>
         <RuntimeRenderer
           nodes={activePage.nodes}
           bindingData={bindingData}

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { seriesColor } from '@/lib/theme/series-color';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import {
   Table,
@@ -640,7 +641,7 @@ export const dataDisplayComponents = [
       const matrix = toMatrixSeries(data === undefined ? SAMPLE_STACKED : data, props.maxSeries);
       const rows = toStackedRows(matrix);
       const config: ChartConfig = Object.fromEntries(
-        matrix.seriesKeys.map((key, i) => [key, { label: key, color: `var(--chart-${(i % 5) + 1})` }])
+        matrix.seriesKeys.map((key, i) => [key, { label: key, color: seriesColor(i) }])
       );
 
       return (
@@ -659,7 +660,7 @@ export const dataDisplayComponents = [
                     <span key={key} className="inline-flex items-center gap-1.5">
                       <span
                         className="size-2 shrink-0 rounded-[2px]"
-                        style={{ backgroundColor: `var(--chart-${(i % 5) + 1})` }}
+                        style={{ backgroundColor: seriesColor(i) }}
                       />
                       {key}
                     </span>
@@ -683,9 +684,13 @@ export const dataDisplayComponents = [
                       key={key}
                       dataKey={key}
                       stackId="a"
-                      fill={`var(--chart-${(i % 5) + 1})`}
-                      // 맨 위 층에만 모서리를 둥글게 — 중간 층까지 둥글면 사이가 벌어져 보인다.
-                      radius={i === matrix.seriesKeys.length - 1 ? [4, 4, 0, 0] : 0}
+                      fill={seriesColor(i)}
+                      /*
+                       * 맨 위 층에만, 그것도 얕게. 중간 층까지 둥글면 층 사이가 벌어져 보이고,
+                       * 맨 위가 너무 둥글면 막대가 봉긋해져 값을 실제보다 크게 읽게 된다
+                       * (사용자 지적으로 4 → 2로 낮췄다). 값이 작은 층이 맨 위에 올 때 특히 그랬다.
+                       */
+                      radius={i === matrix.seriesKeys.length - 1 ? [2, 2, 0, 0] : 0}
                     />
                   ))}
                 </BarChart>

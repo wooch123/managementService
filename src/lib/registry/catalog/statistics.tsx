@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+import { seriesColor } from '@/lib/theme/series-color';
 import { z } from 'zod';
 import {
   Area,
@@ -983,7 +984,7 @@ const funnelChart = defineComponent({
           <ChartTooltip content={<ChartTooltipContent />} />
           <Funnel dataKey="value" data={rows} isAnimationActive={false}>
             {rows.map((r, i) => (
-              <Cell key={r.label} fill={`var(--chart-${(i % 5) + 1})`} />
+              <Cell key={r.label} fill={seriesColor(i)} />
             ))}
             <LabelList dataKey="label" position="right" fontSize={11} fill="var(--foreground)" />
           </Funnel>
