@@ -709,14 +709,26 @@ function faStatus(): SitePage {
           rowActionSlug: 'tech-report',
           rowActionParam: 'far_no',
         },
-        // Firmware는 뺐다(사용자 지정) — 이 목록은 '어느 건인지'를 고르는 자리고, Firmware는
-        // 바로 아래 sample별 분석값 표에 회차와 함께 나온다(같은 값을 두 번 늘어놓지 않는다).
-        // 대신 담당자와 인계 담당자를 나란히 둔다 — 넘어간 건인지 목록에서 바로 가른다.
-        headers: ['FAR No', 'Sample', '담당자', '인계 담당자', '고객명', '제품명', '불량 대분류', '마감일'],
+        /**
+         * Firmware는 뺐다(사용자 지정) — 이 목록은 '어느 건인지'를 고르는 자리고, Firmware는
+         * 바로 아래 sample별 분석값 표에 회차와 함께 나온다(같은 값을 두 번 늘어놓지 않는다).
+         * 대신 담당자와 인계 담당자를 나란히 둔다 — 넘어간 건인지 목록에서 바로 가른다.
+         *
+         * **FAR 하나가 한 줄**이다(사용자 지정, 2026-09-01). 원장은 행 하나가 sample 하나라
+         * 그냥 늘어놓으면 sample 열 개짜리 FAR이 목록의 열 줄을 차지한다 — 여기서 고르는 단위는
+         * FAR이므로 목록만 길어지고 고르는 데 도움이 되지 않는다. sample 번호 대신 **몇 개인지**를
+         * 적는다(FA Assign의 접수 목록과 같은 방식). 함께 놓는 칸들은 한 FAR 안에서 같은 값이라
+         * 접어도 잃는 것이 없고, sample마다 갈리는 값은 오른쪽 상세와 아래 분석값 표가 맡는다.
+         *
+         * 불량 대분류도 목록에서 뺐다(사용자 지정) — 위의 '불량 대분류' 고르개로 이미 좁힐 수
+         * 있고, 고른 건의 값은 오른쪽 상세 카드에 나온다.
+         */
+        headers: ['FAR No', 'Sample 수', '담당자', '인계 담당자', '고객명', '제품명', '마감일'],
         bind: {
           mode: 'list',
           table: 'far_table',
-          select: ['far_no', 'sample_no', 'name', 'handover_name', 'cust_name', 'device', 'failmode1', 'due_date'],
+          select: ['far_no', 'count()', 'name', 'handover_name', 'cust_name', 'device', 'due_date'],
+          groupBy: 'far_no',
           filters: [
             { col: 'far_no', cols: ['far_no', 'cust_name', 'device', 'name', 'handover_name'], op: 'contains', source: 'query', ref: 'q' },
             byParam('name', 'name'),
